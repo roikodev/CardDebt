@@ -24,13 +24,16 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build project
         run: npm run build
+
+      - name: List files (Debug)
+        run: ls -R ./dist
 
       - name: Deploy to github pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./just-test
+          publish_dir: ./dist
