@@ -61,7 +61,7 @@ export function Login() {
             </CardDescription>
             <CardAction>
               <Button asChild type="button">
-                <Link to="/home/signup">Sign Up</Link>
+                <Link to="/auth/signup">Sign Up</Link>
               </Button>
             </CardAction>
           </CardHeader>
@@ -174,7 +174,7 @@ export function Login() {
         </Card>
 
         <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-full max-w-sm">
-          <Link to="/home">Back</Link>
+          <Link to="/">Back</Link>
         </Button>
       </div>
     </main>

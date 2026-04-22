@@ -152,7 +152,7 @@ export function Otp() {
                 type="button"
                 variant="ghost"
                 className="w-full"
-                onClick={() => navigate({ to: "/home/login" })}
+                onClick={() => navigate({ to: "/auth/login" })}
               >
                 Back to login
               </Button>

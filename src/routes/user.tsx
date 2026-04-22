@@ -7,7 +7,7 @@ export const Route = createFileRoute("/user")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession()
     if (!data.session) {
-      throw redirect({ to: "/home/login" })
+      throw redirect({ to: "/auth/login" })
     }
 
     // Keep Zustand in sync for UI usage (non-blocking beyond getSession()).

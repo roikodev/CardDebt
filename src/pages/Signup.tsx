@@ -102,7 +102,7 @@ export function Signup() {
               } else {
                 startIntent(values.email)
                 navigate({
-                  to: "/home/otp",
+                  to: "/auth/otp",
                 })
               }
             })}
@@ -159,7 +159,7 @@ export function Signup() {
         </Card>
 
         <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-full max-w-sm">
-          <Link to="/home/login">Back</Link>
+          <Link to="/auth/login">Back</Link>
         </Button>
       </div>
     </main>
