@@ -13,7 +13,7 @@ export function Home() {
   }, [])
 
   return (
-    <main className="relative min-h-svh overflow-hidden bg-background text-foreground">
+    <main className="relative overflow-hidden bg-background text-foreground">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(1200px_circle_at_50%_-10%,hsl(var(--primary)/0.28),transparent_55%),radial-gradient(900px_circle_at_10%_20%,hsl(var(--ring)/0.16),transparent_45%),radial-gradient(900px_circle_at_90%_20%,hsl(var(--ring)/0.12),transparent_45%)]"
