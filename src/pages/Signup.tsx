@@ -45,7 +45,7 @@ export function Signup() {
   })
 
   return (
-    <main className="min-h-svh bg-background text-foreground">
+    <main className="bg-background text-foreground">
       <div className="mx-auto w-full max-w-md px-6 pb-14">
         <header className="text-center">
           <h1 className="mt-5 text-2xl font-semibold tracking-tight">Sign up</h1>
