@@ -174,7 +174,7 @@ export function Login() {
         </Card>
 
         <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-full max-w-sm">
-          <Link to="/">Back</Link>
+          <Link to="/auth/home">Back</Link>
         </Button>
       </div>
     </main>

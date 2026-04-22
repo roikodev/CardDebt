@@ -16,6 +16,7 @@ import { Route as UserDashboardRouteImport } from './routes/user/dashboard'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
+import { Route as AuthHomeRouteImport } from './routes/auth/home'
 
 const UserRoute = UserRouteImport.update({
   id: '/user',
@@ -52,11 +53,17 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthHomeRoute = AuthHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AuthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/auth/home': typeof AuthHomeRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/auth/home': typeof AuthHomeRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/auth/home': typeof AuthHomeRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/user'
+    | '/auth/home'
     | '/auth/login'
     | '/auth/otp'
     | '/auth/signup'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/user'
+    | '/auth/home'
     | '/auth/login'
     | '/auth/otp'
     | '/auth/signup'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/user'
+    | '/auth/home'
     | '/auth/login'
     | '/auth/otp'
     | '/auth/signup'
@@ -168,16 +180,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/auth/home': {
+      id: '/auth/home'
+      path: '/home'
+      fullPath: '/auth/home'
+      preLoaderRoute: typeof AuthHomeRouteImport
+      parentRoute: typeof AuthRoute
+    }
   }
 }
 
 interface AuthRouteChildren {
+  AuthHomeRoute: typeof AuthHomeRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthOtpRoute: typeof AuthOtpRoute
   AuthSignupRoute: typeof AuthSignupRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthHomeRoute: AuthHomeRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthOtpRoute: AuthOtpRoute,
   AuthSignupRoute: AuthSignupRoute,
