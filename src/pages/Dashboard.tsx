@@ -89,7 +89,7 @@ export function Dashboard() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 type="button"
-                className="h-20 w-full justify-start bg-emerald-600 px-10 text-2xl font-semibold text-white shadow-sm hover:bg-emerald-700"
+                className="shine-button h-20 w-full justify-start bg-gradient-to-br from-emerald-500 to-emerald-700 px-10 text-2xl font-semibold text-white shadow-md shadow-emerald-500/15 ring-1 ring-white/10 hover:from-emerald-400 hover:to-emerald-700 active:translate-y-px"
               >
                 <ShoppingCart
                   data-icon="inline-start"
@@ -100,14 +100,14 @@ export function Dashboard() {
               </Button>
               <Button
                 type="button"
-                className="h-20 w-full justify-start bg-rose-600 px-10 text-2xl font-semibold text-white shadow-sm hover:bg-rose-700"
+                className="shine-button h-20 w-full justify-start bg-gradient-to-br from-rose-500 to-rose-700 px-10 text-2xl font-semibold text-white shadow-md shadow-rose-500/15 ring-1 ring-white/10 hover:from-rose-400 hover:to-rose-700 active:translate-y-px"
               >
                 <HandCoins data-icon="inline-start" aria-hidden="true" className="size-6" />
                 Sell
               </Button>
               <Button
                 type="button"
-                className="col-span-2 h-20 w-full justify-start bg-violet-600 px-10 text-2xl font-semibold text-white shadow-sm hover:bg-violet-700"
+                className="shine-button col-span-2 h-20 w-full justify-start bg-gradient-to-br from-violet-500 to-violet-700 px-10 text-2xl font-semibold text-white shadow-md shadow-violet-500/15 ring-1 ring-white/10 hover:from-violet-400 hover:to-violet-700 active:translate-y-px"
               >
                 <CreditCard data-icon="inline-start" aria-hidden="true" className="size-6" />
                 Miscellaneous
