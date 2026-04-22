@@ -1,13 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { NoAuthLayout } from "@/layouts/NoAuthLayout"
-import { Home } from "@/pages/Home"
+import { supabase } from "@/lib/supabase"
 
 export const Route = createFileRoute("/")({
-  component: () => (
-    <NoAuthLayout>
-      <Home />
-    </NoAuthLayout>
-  ),
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getSession()
+    if (data.session) {
+      throw redirect({ to: "/user/dashboard" })
+    }
+    throw redirect({ to: "/auth/home" })
+  },
 })
 
