@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import cardDebtLogo from "@/assets/CardDebt.png"
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -60,7 +61,7 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
         <div className="rounded-xl border bg-card p-6 text-left shadow-sm">
           <div className="flex items-center gap-3">
             <img
-              src="/android-chrome-512x512.png"
+              src={cardDebtLogo}
               alt="Card Debt app icon"
               className="h-11 w-11 rounded-xl border bg-muted/20 object-cover"
               width={44}

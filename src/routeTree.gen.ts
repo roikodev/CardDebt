@@ -10,107 +10,110 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UserRouteImport } from './routes/user'
-import { Route as HomeRouteImport } from './routes/home'
-import { Route as HomeIndexRouteImport } from './routes/home/index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as UserDashboardRouteImport } from './routes/user/dashboard'
-import { Route as HomeSignupRouteImport } from './routes/home/signup'
-import { Route as HomeOtpRouteImport } from './routes/home/otp'
-import { Route as HomeLoginRouteImport } from './routes/home/login'
+import { Route as AuthSignupRouteImport } from './routes/auth/signup'
+import { Route as AuthOtpRouteImport } from './routes/auth/otp'
+import { Route as AuthLoginRouteImport } from './routes/auth/login'
 
 const UserRoute = UserRouteImport.update({
   id: '/user',
   path: '/user',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HomeIndexRoute = HomeIndexRouteImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => HomeRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 const UserDashboardRoute = UserDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => UserRoute,
 } as any)
-const HomeSignupRoute = HomeSignupRouteImport.update({
+const AuthSignupRoute = AuthSignupRouteImport.update({
   id: '/signup',
   path: '/signup',
-  getParentRoute: () => HomeRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const HomeOtpRoute = HomeOtpRouteImport.update({
+const AuthOtpRoute = AuthOtpRouteImport.update({
   id: '/otp',
   path: '/otp',
-  getParentRoute: () => HomeRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const HomeLoginRoute = HomeLoginRouteImport.update({
+const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => HomeRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/home': typeof HomeRouteWithChildren
+  '/': typeof IndexRoute
+  '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
-  '/home/login': typeof HomeLoginRoute
-  '/home/otp': typeof HomeOtpRoute
-  '/home/signup': typeof HomeSignupRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/otp': typeof AuthOtpRoute
+  '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/home/': typeof HomeIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
+  '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
-  '/home/login': typeof HomeLoginRoute
-  '/home/otp': typeof HomeOtpRoute
-  '/home/signup': typeof HomeSignupRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/otp': typeof AuthOtpRoute
+  '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/home': typeof HomeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/home': typeof HomeRouteWithChildren
+  '/': typeof IndexRoute
+  '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
-  '/home/login': typeof HomeLoginRoute
-  '/home/otp': typeof HomeOtpRoute
-  '/home/signup': typeof HomeSignupRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/otp': typeof AuthOtpRoute
+  '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/home/': typeof HomeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/home'
+    | '/'
+    | '/auth'
     | '/user'
-    | '/home/login'
-    | '/home/otp'
-    | '/home/signup'
+    | '/auth/login'
+    | '/auth/otp'
+    | '/auth/signup'
     | '/user/dashboard'
-    | '/home/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
+    | '/auth'
     | '/user'
-    | '/home/login'
-    | '/home/otp'
-    | '/home/signup'
+    | '/auth/login'
+    | '/auth/otp'
+    | '/auth/signup'
     | '/user/dashboard'
-    | '/home'
   id:
     | '__root__'
-    | '/home'
+    | '/'
+    | '/auth'
     | '/user'
-    | '/home/login'
-    | '/home/otp'
-    | '/home/signup'
+    | '/auth/login'
+    | '/auth/otp'
+    | '/auth/signup'
     | '/user/dashboard'
-    | '/home/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  HomeRoute: typeof HomeRouteWithChildren
+  IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRouteWithChildren
   UserRoute: typeof UserRouteWithChildren
 }
 
@@ -123,19 +126,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/home/': {
-      id: '/home/'
+    '/': {
+      id: '/'
       path: '/'
-      fullPath: '/home/'
-      preLoaderRoute: typeof HomeIndexRouteImport
-      parentRoute: typeof HomeRoute
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/user/dashboard': {
       id: '/user/dashboard'
@@ -144,45 +147,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserDashboardRouteImport
       parentRoute: typeof UserRoute
     }
-    '/home/signup': {
-      id: '/home/signup'
+    '/auth/signup': {
+      id: '/auth/signup'
       path: '/signup'
-      fullPath: '/home/signup'
-      preLoaderRoute: typeof HomeSignupRouteImport
-      parentRoute: typeof HomeRoute
+      fullPath: '/auth/signup'
+      preLoaderRoute: typeof AuthSignupRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/home/otp': {
-      id: '/home/otp'
+    '/auth/otp': {
+      id: '/auth/otp'
       path: '/otp'
-      fullPath: '/home/otp'
-      preLoaderRoute: typeof HomeOtpRouteImport
-      parentRoute: typeof HomeRoute
+      fullPath: '/auth/otp'
+      preLoaderRoute: typeof AuthOtpRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/home/login': {
-      id: '/home/login'
+    '/auth/login': {
+      id: '/auth/login'
       path: '/login'
-      fullPath: '/home/login'
-      preLoaderRoute: typeof HomeLoginRouteImport
-      parentRoute: typeof HomeRoute
+      fullPath: '/auth/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof AuthRoute
     }
   }
 }
 
-interface HomeRouteChildren {
-  HomeLoginRoute: typeof HomeLoginRoute
-  HomeOtpRoute: typeof HomeOtpRoute
-  HomeSignupRoute: typeof HomeSignupRoute
-  HomeIndexRoute: typeof HomeIndexRoute
+interface AuthRouteChildren {
+  AuthLoginRoute: typeof AuthLoginRoute
+  AuthOtpRoute: typeof AuthOtpRoute
+  AuthSignupRoute: typeof AuthSignupRoute
 }
 
-const HomeRouteChildren: HomeRouteChildren = {
-  HomeLoginRoute: HomeLoginRoute,
-  HomeOtpRoute: HomeOtpRoute,
-  HomeSignupRoute: HomeSignupRoute,
-  HomeIndexRoute: HomeIndexRoute,
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthLoginRoute: AuthLoginRoute,
+  AuthOtpRoute: AuthOtpRoute,
+  AuthSignupRoute: AuthSignupRoute,
 }
 
-const HomeRouteWithChildren = HomeRoute._addFileChildren(HomeRouteChildren)
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface UserRouteChildren {
   UserDashboardRoute: typeof UserDashboardRoute
@@ -195,7 +196,8 @@ const UserRouteChildren: UserRouteChildren = {
 const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  HomeRoute: HomeRouteWithChildren,
+  IndexRoute: IndexRoute,
+  AuthRoute: AuthRouteWithChildren,
   UserRoute: UserRouteWithChildren,
 }
 export const routeTree = rootRouteImport

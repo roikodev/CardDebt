@@ -35,7 +35,7 @@ export function Home() {
 
           <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <Button asChild size="lg" className="h-10 px-8">
-              <Link to="/home/login">Login</Link>
+              <Link to="/auth/login">Login</Link>
             </Button>
             <Button type="button" variant="outline" size="lg" className="h-10 px-8">
               Continue as guest
