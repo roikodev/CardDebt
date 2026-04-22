@@ -3,7 +3,6 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -12,33 +11,35 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { GoogleIcon } from "@/components/icons/GoogleIcon"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
+import { useRegistrationStore } from "@/stores/registration"
+import { useAuthStore } from "@/stores/auth"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { useAuthStore } from "@/stores/auth"
 
-const loginSchema = z.object({
+const signupSchema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 })
 
-type LoginFormValues = z.infer<typeof loginSchema>
+type SignupFormValues = z.infer<typeof signupSchema>
 
-export function Login() {
+export function Signup() {
   const navigate = useNavigate()
+  const startIntent = useRegistrationStore((s) => s.startIntent)
   const setAuth = useAuthStore((s) => s.setAuth)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitNote, setSubmitNote] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
     defaultValues: { email: "", password: "" },
     mode: "onSubmit",
   })
@@ -47,31 +48,25 @@ export function Login() {
     <main className="min-h-svh bg-background text-foreground">
       <div className="mx-auto w-full max-w-md px-6 pb-14">
         <header className="text-center">
-          <h1 className="mt-5 text-2xl font-semibold tracking-tight">Login</h1>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight">Sign up</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to sync your data across devices.
+            Create an account to sync your data across devices.
           </p>
         </header>
 
         <Card className="mx-auto mt-8 w-full max-w-sm">
           <CardHeader className="text-left">
-            <CardTitle>Login to your account</CardTitle>
-            <CardDescription>
-              Enter your email below to login to your account
-            </CardDescription>
-            <CardAction>
-              <Button asChild type="button">
-                <Link to="/home/signup">Sign Up</Link>
-              </Button>
-            </CardAction>
+            <CardTitle>Create your account</CardTitle>
+            <CardDescription>Enter your email and password to sign up</CardDescription>
           </CardHeader>
 
           <form
             noValidate
             onSubmit={handleSubmit(async (values) => {
               setSubmitError(null)
+              setSubmitNote(null)
 
-              const { error } = await supabase.auth.signInWithPassword({
+              const { error, data } = await supabase.auth.signUp({
                 email: values.email,
                 password: values.password,
               })
@@ -81,26 +76,35 @@ export function Login() {
                 return
               }
 
-              const [{ data: userData }, { data: sessionData }] = await Promise.all([
-                supabase.auth.getUser(),
-                supabase.auth.getSession(),
-              ])
+              // Supabase may return a user with no identities for existing emails
+              // (to prevent account enumeration). Treat that as "already exists".
+              if (
+                data.user &&
+                Array.isArray(data.user.identities) &&
+                data.user.identities.length === 0
+              ) {
+                setSubmitError("User already exists")
+                return
+              }
 
-              const session = sessionData.session
-              setAuth({
-                user: userData.user
-                  ? { id: userData.user.id, email: userData.user.email ?? null }
-                  : null,
-                session: session
-                  ? {
-                      accessToken: session.access_token,
-                      refreshToken: session.refresh_token,
-                      expiresAt: session.expires_at ?? null,
-                      tokenType: session.token_type ?? null,
-                    }
-                  : null,
-              })
-              navigate({ to: "/user/dashboard" })
+              if (data.session) {
+                setSubmitNote("Account created. You’re signed in.")
+                setAuth({
+                  user: data.user ? { id: data.user.id, email: data.user.email ?? null } : null,
+                  session: {
+                    accessToken: data.session.access_token,
+                    refreshToken: data.session.refresh_token,
+                    expiresAt: data.session.expires_at ?? null,
+                    tokenType: data.session.token_type ?? null,
+                  },
+                })
+                navigate({ to: "/user/dashboard" })
+              } else {
+                startIntent(values.email)
+                navigate({
+                  to: "/home/otp",
+                })
+              }
             })}
           >
             <CardContent className="mb-4">
@@ -123,19 +127,11 @@ export function Login() {
                 </div>
 
                 <div className="grid gap-2">
-                  <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
-                    <a
-                      href="#"
-                      className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                    >
-                      Forgot your password?
-                    </a>
-                  </div>
+                  <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
                     type="password"
-                    autoComplete="current-password"
+                    autoComplete="new-password"
                     aria-invalid={errors.password ? "true" : "false"}
                     className={cn(errors.password && "border-destructive")}
                     {...register("password")}
@@ -149,34 +145,24 @@ export function Login() {
               {submitError ? (
                 <p className="mt-4 text-sm text-destructive">{submitError}</p>
               ) : null}
+              {submitNote ? (
+                <p className="mt-4 text-sm text-muted-foreground">{submitNote}</p>
+              ) : null}
             </CardContent>
 
             <CardFooter className="flex-col gap-3">
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Logging in..." : "Login"}
-              </Button>
-
-              <div className="h-px w-full bg-border" role="presentation" />
-
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  // TODO: wire up Google OAuth next
-                }}
-              >
-                <GoogleIcon className="mr-2 h-4 w-4" />
-                Login with Google
+                {isSubmitting ? "Creating account..." : "Create account"}
               </Button>
             </CardFooter>
           </form>
         </Card>
 
         <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-full max-w-sm">
-          <Link to="/home">Back</Link>
+          <Link to="/home/login">Back</Link>
         </Button>
       </div>
     </main>
   )
 }
+

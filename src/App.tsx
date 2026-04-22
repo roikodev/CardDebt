@@ -1,51 +1,25 @@
-import { useMemo } from "react"
+import { RouterProvider, createRouter } from "@tanstack/react-router"
 
-import {
-  Outlet,
-  RouterProvider,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { routeTree } from "./routeTree.gen"
+import { AuthBootstrap } from "@/components/AuthBootstrap"
 
-import { NoAuthLayout } from "@/layouts/NoAuthLayout"
-import { Home } from "@/pages/Home"
-import { Login } from "@/pages/Login"
+const router = createRouter({
+  routeTree,
+  basepath: "/CardDebt",
+})
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router
+  }
+}
 
 function App() {
-  const router = useMemo(() => {
-    const rootRoute = createRootRoute({
-      component: () => <Outlet />,
-    })
-
-    const homeRoute = createRoute({
-      getParentRoute: () => rootRoute,
-      path: "home",
-      component: NoAuthLayout,
-    })
-
-    const homeIndexRoute = createRoute({
-      getParentRoute: () => homeRoute,
-      path: "/",
-      component: Home,
-    })
-
-    const loginRoute = createRoute({
-      getParentRoute: () => homeRoute,
-      path: "login",
-      component: Login,
-    })
-
-    const routeTree = rootRoute.addChildren([homeRoute.addChildren([homeIndexRoute, loginRoute])])
-
-    return createRouter({
-      routeTree,
-      basepath: "/CardDebt",
-    })
-  }, [])
-
   return (
-    <RouterProvider router={router} />
+    <>
+      <AuthBootstrap />
+      <RouterProvider router={router} />
+    </>
   )
 }
 
