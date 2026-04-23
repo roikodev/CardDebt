@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { supabase } from "@/lib/supabase"
 
 const PROVIDERS = ["PSA"] as const
 const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
@@ -155,6 +156,7 @@ export function BuyProductDialog({
     formState: { errors, isSubmitting },
     reset,
     setValue,
+    setError,
   } = useForm<BuyProductFormValues>({
     resolver: zodResolver(buyProductFormSchema) as Resolver<BuyProductFormValues>,
     defaultValues: defaultFormValues,
@@ -198,9 +200,101 @@ export function BuyProductDialog({
     })
   }
 
+  async function onSubmit(values: BuyProductFormValues) {
+    const sessionRes = await supabase.auth.getSession()
+    const session = sessionRes.data.session
+    const userId = session?.user?.id
+    const accessToken = session?.access_token
+
+    if (!userId || !accessToken) {
+      setError("root", { type: "manual", message: "Not signed in." })
+      return
+    }
+
+    const file = values.sourceImage
+    if (!file) {
+      setError("sourceImage", {
+        type: "manual",
+        message: "Source Image is required",
+      })
+      return
+    }
+
+    const originalName = file.name || "image"
+    const dot = originalName.lastIndexOf(".")
+    const extRaw = dot >= 0 ? originalName.slice(dot + 1) : ""
+    const ext = extRaw.trim().toLowerCase() || "jpg"
+
+    const imageName =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : String(Date.now())
+
+    const imagePath = `${userId}/${imageName}.${ext}`
+
+    const uploadRes = await supabase.storage
+      .from("card-debt-purchases")
+      .upload(imagePath, file, {
+        upsert: false,
+        contentType: file.type || "application/octet-stream",
+      })
+
+    if (uploadRes.error) {
+      setError("root", { type: "manual", message: uploadRes.error.message })
+      return
+    }
+
+    const insertRes = await supabase
+      .from("buy_entries")
+      .insert({
+        user_id: userId,
+        game_title: values.gameTitle,
+        product_category: values.category,
+        card_no: values.category === "Card" ? values.cardNo : null,
+        name: values.name,
+        graded: values.graded,
+        price_hkd: values.price,
+        quantity: values.quantity,
+        image_cloud_path: imagePath,
+        purchase_date: values.purchaseDate,
+      })
+      .select("id")
+      .single()
+
+    if (insertRes.error || !insertRes.data?.id) {
+      setError("root", {
+        type: "manual",
+        message: insertRes.error?.message ?? "Failed to save purchase.",
+      })
+      return
+    }
+
+    const buyEntryId = insertRes.data.id
+
+    if (values.graded) {
+      const gradeValue = Number(values.grade)
+      const gradingRes = await supabase.from("buy_entry_grading").insert({
+        buy_entry_id: buyEntryId,
+        provider: values.provider,
+        grade: gradeValue,
+      })
+
+      if (gradingRes.error) {
+        setError("root", {
+          type: "manual",
+          message: gradingRes.error.message,
+        })
+        return
+      }
+    }
+
+    onSubmitSuccess?.(values)
+    onOpenChange(false)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,40rem)] gap-0 overflow-y-auto p-0 sm:max-w-md">
+      <DialogContent className="max-h-[min(90dvh,40rem)] gap-0 overflow-y-auto overflow-x-hidden p-0 sm:max-w-md">
         <div className="p-4 pb-2">
           <DialogHeader>
             <DialogTitle>Buy</DialogTitle>
@@ -208,13 +302,13 @@ export function BuyProductDialog({
           </DialogHeader>
         </div>
         <form
-          onSubmit={handleSubmit((data) => {
-            onSubmitSuccess?.(data)
-            onOpenChange(false)
-          })}
+          onSubmit={handleSubmit(onSubmit)}
         >
           <div className="px-4">
             <FieldGroup>
+              {errors.root?.message ? (
+                <FieldError errors={[{ message: errors.root.message }]} />
+              ) : null}
               <Field className="gap-2">
                 <FieldLabel htmlFor="buy-source-image">
                   Source Image
