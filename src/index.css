@@ -181,6 +181,32 @@ body {
   pointer-events: none;
 }
 
+.shine-button-light {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.shine-button-light::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.04) 40%,
+    rgba(0, 0, 0, 0.1) 50%,
+    rgba(0, 0, 0, 0.04) 60%,
+    transparent 100%
+  );
+  mix-blend-mode: multiply;
+  animation: carddebt-mirror-shine 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
 /* iOS PWA: prevent rubber-band bounce by scrolling inside #root */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {

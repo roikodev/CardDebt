@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { BuyProductDialog } from "@/components/dialogs/BuyProductDialog"
 import { Separator } from "@/components/ui/separator"
 import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
@@ -29,6 +30,7 @@ export function Dashboard() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const [buyOpen, setBuyOpen] = useState(false)
 
   const initials = useMemo(() => {
     const email = user?.email ?? ""
@@ -89,7 +91,8 @@ export function Dashboard() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 type="button"
-                className="shine-button h-20 w-full justify-start bg-gradient-to-br from-emerald-500 to-emerald-700 px-10 text-2xl font-semibold text-white shadow-md shadow-emerald-500/15 ring-1 ring-white/10 hover:from-emerald-400 hover:to-emerald-700 active:translate-y-px"
+                className="shine-button-light h-20 w-full justify-start border border-border/80 bg-white px-10 text-2xl font-semibold text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
+                onClick={() => setBuyOpen(true)}
               >
                 <ShoppingCart
                   data-icon="inline-start"
@@ -100,19 +103,20 @@ export function Dashboard() {
               </Button>
               <Button
                 type="button"
-                className="shine-button h-20 w-full justify-start bg-gradient-to-br from-rose-500 to-rose-700 px-10 text-2xl font-semibold text-white shadow-md shadow-rose-500/15 ring-1 ring-white/10 hover:from-rose-400 hover:to-rose-700 active:translate-y-px"
+                className="shine-button-light h-20 w-full justify-start border border-border/80 bg-white px-10 text-2xl font-semibold text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
               >
                 <HandCoins data-icon="inline-start" aria-hidden="true" className="size-6" />
                 Sell
               </Button>
               <Button
                 type="button"
-                className="shine-button col-span-2 h-20 w-full justify-start bg-gradient-to-br from-violet-500 to-violet-700 px-10 text-2xl font-semibold text-white shadow-md shadow-violet-500/15 ring-1 ring-white/10 hover:from-violet-400 hover:to-violet-700 active:translate-y-px"
+                className="shine-button col-span-2 h-20 w-full justify-start border border-white/10 bg-black px-10 text-2xl font-semibold text-white shadow-sm hover:bg-neutral-900 active:translate-y-px"
               >
                 <CreditCard data-icon="inline-start" aria-hidden="true" className="size-6" />
                 Miscellaneous
               </Button>
             </div>
+            <BuyProductDialog open={buyOpen} onOpenChange={setBuyOpen} />
           </section>
 
           <section className="min-w-0">
