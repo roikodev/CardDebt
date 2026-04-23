@@ -207,6 +207,116 @@ body {
   pointer-events: none;
 }
 
+@keyframes carddebt-splash-pop {
+  0% {
+    transform: scale(0.84);
+    filter: saturate(0.9) contrast(0.95);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    filter: saturate(1) contrast(1);
+    opacity: 1;
+  }
+}
+
+@keyframes carddebt-splash-glow {
+  0% {
+    opacity: 0.25;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes carddebt-splash-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes carddebt-splash-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes carddebt-splash-progress {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+.carddebt-splash-bg {
+  background:
+    radial-gradient(900px circle at 10% 10%, rgba(0, 0, 0, 0.06), transparent 55%),
+    radial-gradient(700px circle at 90% 20%, rgba(0, 0, 0, 0.08), transparent 55%),
+    radial-gradient(800px circle at 50% 110%, rgba(0, 0, 0, 0.1), transparent 55%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.02), transparent 35%);
+}
+
+.carddebt-splash-ring::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  border-radius: 34px;
+  background: conic-gradient(
+    from 180deg,
+    rgba(0, 0, 0, 0) 0deg,
+    rgba(0, 0, 0, 0.16) 80deg,
+    rgba(0, 0, 0, 0.06) 160deg,
+    rgba(0, 0, 0, 0.2) 240deg,
+    rgba(0, 0, 0, 0) 360deg
+  );
+  filter: blur(0.2px);
+  opacity: 0.9;
+  animation: carddebt-splash-rotate 1.6s linear infinite;
+  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.carddebt-splash-glow {
+  background: radial-gradient(circle at 50% 40%, rgba(0, 0, 0, 0.22), transparent 62%);
+  filter: blur(18px);
+  animation: carddebt-splash-glow 1.8s ease-in-out infinite;
+}
+
+.carddebt-splash-pop {
+  animation: carddebt-splash-pop 900ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.carddebt-splash-root {
+  opacity: 1;
+  transition: opacity 280ms ease;
+}
+
+.carddebt-splash-leave {
+  opacity: 0;
+}
+
 /* iOS PWA: prevent rubber-band bounce by scrolling inside #root */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
