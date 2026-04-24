@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -12,25 +12,70 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { BuyProductDialog } from "@/components/dialogs/BuyProductDialog"
+import { CardBaseDialog } from "@/components/dialogs/CardBaseDialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
 import { useNavigate } from "@tanstack/react-router"
 import {
   CreditCard,
+  LayoutGrid,
+  Folder,
   HandCoins,
   LogOut,
+  PlusSquare,
   Settings,
   ShoppingCart,
   TrendingDown,
   TrendingUp,
 } from "lucide-react"
 
+function GridGroup({
+  children,
+  className = "",
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <section
+      className={`col-span-12 grid grid-cols-12 gap-3 md:col-span-3 ${className}`.trim()}
+    >
+      {children}
+    </section>
+  )
+}
+
+function GridGroupBig({
+  children,
+  className = "",
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <section
+      className={`col-span-12 grid grid-cols-12 gap-3 md:col-span-6 ${className}`.trim()}
+    >
+      {children}
+    </section>
+  )
+}
+
 export function Dashboard() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const [buyChooserOpen, setBuyChooserOpen] = useState(false)
   const [buyOpen, setBuyOpen] = useState(false)
+  const [cardBaseOpen, setCardBaseOpen] = useState(false)
 
   const initials = useMemo(() => {
     const email = user?.email ?? ""
@@ -86,82 +131,138 @@ export function Dashboard() {
 
         <Separator className="my-6" />
 
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
-          <section className="min-w-0">
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                className="shine-button-light h-20 w-full justify-start border border-border/80 bg-white px-10 text-2xl font-semibold text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
-                onClick={() => setBuyOpen(true)}
-              >
-                <ShoppingCart
-                  data-icon="inline-start"
-                  aria-hidden="true"
-                  className="size-6"
-                />
+        <div className="grid grid-cols-12 gap-3">
+          <GridGroup>
+            <Button
+              type="button"
+              className="shine-button-light relative col-span-12 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
+              onClick={() => navigate({ to: "/user/my-collection" })}
+            >
+              <Folder aria-hidden="true" className="absolute left-5 top-5 size-7" />
+              <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
+                My Collection
+              </span>
+            </Button>
+          </GridGroup>
+
+          <GridGroup>
+            <Button
+              type="button"
+              className="shine-button-light relative col-span-6 min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
+              onClick={() => setBuyChooserOpen(true)}
+            >
+              <ShoppingCart aria-hidden="true" className="absolute left-5 top-5 size-7" />
+              <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
                 Buy
-              </Button>
-              <Button
-                type="button"
-                className="shine-button-light h-20 w-full justify-start border border-border/80 bg-white px-10 text-2xl font-semibold text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
-              >
-                <HandCoins data-icon="inline-start" aria-hidden="true" className="size-6" />
+              </span>
+            </Button>
+            <Button
+              type="button"
+              className="shine-button-light relative col-span-6 min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
+            >
+              <HandCoins aria-hidden="true" className="absolute left-5 top-5 size-7" />
+              <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
                 Sell
-              </Button>
-              <Button
-                type="button"
-                className="shine-button col-span-2 h-20 w-full justify-start border border-white/10 bg-black px-10 text-2xl font-semibold text-white shadow-sm hover:bg-neutral-900 active:translate-y-px"
-              >
-                <CreditCard data-icon="inline-start" aria-hidden="true" className="size-6" />
+              </span>
+            </Button>
+            <Button
+              type="button"
+              className="shine-button relative col-span-12 min-h-28 w-full items-stretch border border-white/10 bg-black p-6 text-white shadow-sm hover:bg-neutral-900 active:translate-y-px"
+            >
+              <CreditCard aria-hidden="true" className="absolute left-5 top-5 size-7" />
+              <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
                 Miscellaneous
-              </Button>
-            </div>
-            <BuyProductDialog open={buyOpen} onOpenChange={setBuyOpen} />
-          </section>
+              </span>
+            </Button>
+          </GridGroup>
 
-          <section className="min-w-0">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Total balance</CardTitle>
-                </CardHeader>
-                <CardContent className="text-left">
-                  <p className="text-2xl font-semibold tracking-tight">$4,820.00</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    <TrendingDown data-icon="inline-start" aria-hidden="true" />
-                    2.1% vs last month
-                  </p>
-                </CardContent>
-              </Card>
+          <Dialog open={buyChooserOpen} onOpenChange={setBuyChooserOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Buy</DialogTitle>
+                <DialogDescription>Choose how you want to add this purchase.</DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-28 flex-col items-center justify-center gap-2 text-center"
+                  onClick={() => {
+                    setBuyChooserOpen(false)
+                    setBuyOpen(true)
+                  }}
+                >
+                  <PlusSquare aria-hidden="true" className="size-9" />
+                  <span className="whitespace-normal break-words text-sm font-medium leading-tight">
+                    Create New
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-28 flex-col items-center justify-center gap-2 text-center"
+                  onClick={() => {
+                    setBuyChooserOpen(false)
+                    // TODO: hook up Card Base chooser
+                    setCardBaseOpen(true)
+                  }}
+                >
+                  <LayoutGrid aria-hidden="true" className="size-9" />
+                  <span className="whitespace-normal break-words text-sm font-medium leading-tight">
+                    Choose from my Card Base
+                  </span>
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">This month paid</CardTitle>
-                </CardHeader>
-                <CardContent className="text-left">
-                  <p className="text-2xl font-semibold tracking-tight">$560.00</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    <TrendingUp data-icon="inline-start" aria-hidden="true" />
-                    On track
-                  </p>
-                </CardContent>
-              </Card>
+          <BuyProductDialog open={buyOpen} onOpenChange={setBuyOpen} />
+          <CardBaseDialog open={cardBaseOpen} onOpenChange={setCardBaseOpen} />
 
-              <Card className="sm:col-span-2 lg:col-span-1">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Next due</CardTitle>
-                </CardHeader>
-                <CardContent className="text-left">
-                  <p className="text-2xl font-semibold tracking-tight">May 3</p>
-                  <p className="mt-1 text-sm text-muted-foreground">$120 minimum payment</p>
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-        </div>
+          <GridGroup>
+            <Card className="col-span-12">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Total balance</CardTitle>
+              </CardHeader>
+              <CardContent className="text-left">
+                <p className="text-2xl font-semibold tracking-tight">$4,820.00</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  <TrendingDown data-icon="inline-start" aria-hidden="true" />
+                  2.1% vs last month
+                </p>
+              </CardContent>
+            </Card>
+          </GridGroup>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <Card>
+          <GridGroup>
+            <Card className="col-span-12">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">This month paid</CardTitle>
+              </CardHeader>
+              <CardContent className="text-left">
+                <p className="text-2xl font-semibold tracking-tight">$560.00</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  <TrendingUp data-icon="inline-start" aria-hidden="true" />
+                  On track
+                </p>
+              </CardContent>
+            </Card>
+          </GridGroup>
+
+          <GridGroup>
+            <Card className="col-span-12">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Next due</CardTitle>
+              </CardHeader>
+              <CardContent className="text-left">
+                <p className="text-2xl font-semibold tracking-tight">May 3</p>
+                <p className="mt-1 text-sm text-muted-foreground">$120 minimum payment</p>
+              </CardContent>
+            </Card>
+          </GridGroup>
+
+          <GridGroupBig className="md:col-span-6">
+            <Card className="col-span-12">
               <CardHeader>
                 <CardTitle className="text-base">Quick actions</CardTitle>
               </CardHeader>
@@ -179,8 +280,10 @@ export function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+          </GridGroupBig>
 
-            <Card>
+          <GridGroupBig className="md:col-span-6">
+            <Card className="col-span-12">
               <CardHeader>
                 <CardTitle className="text-base">Status</CardTitle>
               </CardHeader>
@@ -191,7 +294,8 @@ export function Dashboard() {
                 </p>
               </CardContent>
             </Card>
-          </div>
+          </GridGroupBig>
+        </div>
       </div>
     </main>
   )

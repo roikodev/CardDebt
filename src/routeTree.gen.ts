@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UserRouteImport } from './routes/user'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UserMyCollectionRouteImport } from './routes/user/my-collection'
 import { Route as UserDashboardRouteImport } from './routes/user/dashboard'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
@@ -32,6 +33,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const UserMyCollectionRoute = UserMyCollectionRouteImport.update({
+  id: '/my-collection',
+  path: '/my-collection',
+  getParentRoute: () => UserRoute,
 } as any)
 const UserDashboardRoute = UserDashboardRouteImport.update({
   id: '/dashboard',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
+  '/user/my-collection': typeof UserMyCollectionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
+  '/user/my-collection': typeof UserMyCollectionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
+  '/user/my-collection': typeof UserMyCollectionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/auth/otp'
     | '/auth/signup'
     | '/user/dashboard'
+    | '/user/my-collection'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/auth/otp'
     | '/auth/signup'
     | '/user/dashboard'
+    | '/user/my-collection'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/auth/otp'
     | '/auth/signup'
     | '/user/dashboard'
+    | '/user/my-collection'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -151,6 +163,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/user/my-collection': {
+      id: '/user/my-collection'
+      path: '/my-collection'
+      fullPath: '/user/my-collection'
+      preLoaderRoute: typeof UserMyCollectionRouteImport
+      parentRoute: typeof UserRoute
     }
     '/user/dashboard': {
       id: '/user/dashboard'
@@ -208,10 +227,12 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface UserRouteChildren {
   UserDashboardRoute: typeof UserDashboardRoute
+  UserMyCollectionRoute: typeof UserMyCollectionRoute
 }
 
 const UserRouteChildren: UserRouteChildren = {
   UserDashboardRoute: UserDashboardRoute,
+  UserMyCollectionRoute: UserMyCollectionRoute,
 }
 
 const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)

@@ -275,32 +275,52 @@ export function BuyProductDialog({
       return
     }
 
-    const insertRes = await supabase
-      .from("buy_entries")
+    const collectionRes = await supabase
+      .from("collection_base")
       .insert({
         user_id: userId,
         game_title: values.gameTitle,
         product_category: values.category,
         card_no: values.category === "Card" ? values.cardNo : null,
         name: values.name,
-        graded: values.graded,
-        price_hkd: values.price,
-        quantity: values.quantity,
         image_cloud_path: imagePath,
-        purchase_date: values.purchaseDate,
       })
       .select("id")
       .single()
 
-    if (insertRes.error || !insertRes.data?.id) {
+    if (collectionRes.error || !collectionRes.data?.id) {
       setError("root", {
         type: "manual",
-        message: insertRes.error?.message ?? "Failed to save purchase.",
+        message: collectionRes.error?.message ?? "Failed to save collection item.",
       })
       return
     }
 
-    const buyEntryId = insertRes.data.id
+    const collectionItemId = collectionRes.data.id
+
+    const buyEntryRes = await supabase
+      .from("buy_entries")
+      .insert({
+        user_id: userId,
+        graded: values.graded,
+        price_hkd: values.price,
+        quantity: values.quantity,
+        purchase_date: values.purchaseDate,
+        collection_item_id: collectionItemId,
+      })
+      .select("id")
+      .single()
+
+    if (buyEntryRes.error || !buyEntryRes.data?.id) {
+      await supabase.from("collection_base").delete().eq("id", collectionItemId)
+      setError("root", {
+        type: "manual",
+        message: buyEntryRes.error?.message ?? "Failed to save purchase.",
+      })
+      return
+    }
+
+    const buyEntryId = buyEntryRes.data.id
 
     if (values.graded) {
       const gradeValue = Number(values.grade)
@@ -311,6 +331,7 @@ export function BuyProductDialog({
       })
 
       if (gradingRes.error) {
+        await supabase.from("collection_base").delete().eq("id", collectionItemId)
         setError("root", {
           type: "manual",
           message: gradingRes.error.message,
