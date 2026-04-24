@@ -31,6 +31,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 const PROVIDERS = ["PSA"] as const
 const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
@@ -201,6 +202,18 @@ export function BuyProductDialog({
   }
 
   async function onSubmit(values: BuyProductFormValues) {
+    const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as
+      | string
+      | undefined
+
+    if (!workerOrigin) {
+      setError("root", {
+        type: "manual",
+        message: "Missing VITE_CF_WORKER_ORIGIN in .env",
+      })
+      return
+    }
+
     const sessionRes = await supabase.auth.getSession()
     const session = sessionRes.data.session
     const userId = session?.user?.id
@@ -232,15 +245,33 @@ export function BuyProductDialog({
 
     const imagePath = `${userId}/${imageName}.${ext}`
 
-    const uploadRes = await supabase.storage
-      .from("card-debt-purchases")
-      .upload(imagePath, file, {
-        upsert: false,
-        contentType: file.type || "application/octet-stream",
-      })
+    const base = workerOrigin.replace(/\/+$/, "")
+    const uploadUrl = `${base}/?file=${encodeURIComponent(imagePath)}`
 
-    if (uploadRes.error) {
-      setError("root", { type: "manual", message: uploadRes.error.message })
+    let uploadRes: Response
+    try {
+      uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      })
+    } catch (e) {
+      setError("root", {
+        type: "manual",
+        message: `Image upload failed: could not reach Worker (${base}).`,
+      })
+      return
+    }
+
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text().catch(() => "")
+      setError("root", {
+        type: "manual",
+        message: `Image upload failed (${uploadRes.status}). ${text}`.trim(),
+      })
       return
     }
 
@@ -290,11 +321,24 @@ export function BuyProductDialog({
 
     onSubmitSuccess?.(values)
     onOpenChange(false)
+    toast.success("Saved successfully", { duration: 5000 })
+
+    reset({
+      ...defaultFormValues,
+      purchaseDate: todayISODate(),
+    })
+    setSourceImageUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,40rem)] gap-0 overflow-y-auto overflow-x-hidden p-0 sm:max-w-md">
+        <DialogContent className="max-h-[min(90dvh,40rem)] gap-0 overflow-y-auto overflow-x-hidden p-0 sm:max-w-md">
         <div className="p-4 pb-2">
           <DialogHeader>
             <DialogTitle>Buy</DialogTitle>
@@ -322,8 +366,7 @@ export function BuyProductDialog({
                     id="buy-source-image"
                     type="file"
                     accept="image/*"
-                    capture="environment"
-                    className="w-full"
+                    className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0] ?? null
                       setValue("sourceImage", file, {
@@ -345,7 +388,7 @@ export function BuyProductDialog({
                       Choose / Take photo
                     </Button>
                     <p className="text-sm text-muted-foreground">
-                      You can also paste an image here.
+                      Choose from album or open camera. You can also paste an image here.
                     </p>
                   </div>
 
@@ -693,7 +736,7 @@ export function BuyProductDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
+        </DialogContent>
     </Dialog>
   )
 }

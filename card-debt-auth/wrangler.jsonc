@@ -1,0 +1,18 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "card-debt-auth",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-04-23", // Today's date
+    "compatibility_flags": [
+        "nodejs_compat"
+    ],
+    "r2_buckets": [
+        {
+            "binding": "MY_BUCKET",
+            "bucket_name": "card-debt-purchases"
+        }
+    ],
+    "observability": {
+        "enabled": true
+    }
+}

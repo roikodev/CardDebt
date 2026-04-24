@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Wrangler / Miniflare state
+.wrangler/
+
+# Local environment variables (do not commit)
+.dev.vars
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript build info
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
