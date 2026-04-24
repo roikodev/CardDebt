@@ -60,21 +60,21 @@ export function CardBaseDialog({ open, onOpenChange }: CardBaseDialogProps) {
 
   useEffect(() => {
     if (!open) return
-    const el = scrollRef.current
-    if (!el) return
 
     const update = () => {
-      const w = el.clientWidth
-      // Match Tailwind breakpoints used by the grid (sm=640, md=768)
-      if (w >= 768) setCols(4)
-      else if (w >= 640) setCols(3)
-      else setCols(2)
+      if (typeof window === "undefined") return
+      const w = window.innerWidth
+      // Breakpoints: xs < 640, sm >= 640, md >= 768, lg >= 1024, xl >= 1280
+      if (w >= 1280) setCols(6) // xl
+      else if (w >= 1024) setCols(5) // lg
+      else if (w >= 768) setCols(4) // md
+      else if (w >= 640) setCols(3) // sm
+      else setCols(2) // xs
     }
 
     update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
   }, [open])
 
   useEffect(() => {
@@ -118,6 +118,8 @@ export function CardBaseDialog({ open, onOpenChange }: CardBaseDialogProps) {
       }
 
       const rows = (listRes.data ?? []) as CollectionBaseRow[]
+
+      // Always show list even if we can't load images.
       setItems(rows)
       setLoading(false)
 
@@ -170,9 +172,13 @@ export function CardBaseDialog({ open, onOpenChange }: CardBaseDialogProps) {
     overscan: 4,
   })
 
+  const gridTemplateColumns = useMemo(() => `repeat(${cols}, minmax(0, 1fr))`, [cols])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="min-h-[36rem] sm:max-w-3xl">
+      <DialogContent
+        className="flex max-h-[min(90dvh,46rem)] min-h-[30rem] flex-col gap-3 overflow-hidden sm:max-w-3xl"
+      >
         <DialogHeader>
           <DialogTitle>Choose from my Card Base</DialogTitle>
           <DialogDescription>
@@ -189,7 +195,10 @@ export function CardBaseDialog({ open, onOpenChange }: CardBaseDialogProps) {
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div
+            className="grid gap-3"
+            style={{ gridTemplateColumns }}
+          >
             {Array.from({ length: 8 }).map((_, i) => (
               <SkeletonTile key={i} />
             ))}
@@ -199,7 +208,7 @@ export function CardBaseDialog({ open, onOpenChange }: CardBaseDialogProps) {
         ) : (
           <div
             ref={scrollRef}
-            className="max-h-[min(70dvh,40rem)] overflow-auto pr-1"
+            className="min-h-0 flex-1 overflow-auto"
           >
             <div
               className="relative w-full"
@@ -211,8 +220,11 @@ export function CardBaseDialog({ open, onOpenChange }: CardBaseDialogProps) {
                 return (
                   <div
                     key={vRow.key}
-                    className="absolute left-0 top-0 grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4"
-                    style={{ transform: `translateY(${vRow.start}px)` }}
+                    className="absolute left-0 top-0 grid w-full gap-3"
+                    style={{
+                      transform: `translateY(${vRow.start}px)`,
+                      gridTemplateColumns,
+                    }}
                   >
                     {rowItems.map((row) => {
                       const title = formatTitle(row)
