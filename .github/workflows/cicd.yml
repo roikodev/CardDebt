@@ -31,6 +31,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_CF_WORKER_ORIGIN: ${{ secrets.VITE_CF_WORKER_ORIGIN }}
 
       - name: Deploy to github pages
         uses: peaceiris/actions-gh-pages@v4

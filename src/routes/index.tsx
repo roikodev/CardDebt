@@ -64,7 +64,7 @@ function IndexSplash() {
     >
       <div className="pointer-events-none absolute inset-0 opacity-80 carddebt-splash-bg" />
 
-      <div className="relative flex flex-col items-center gap-4 px-6">
+      <div className="relative -translate-y-6 flex flex-col items-center gap-4 px-6">
         <div className="relative carddebt-splash-ring">
           <div className="absolute inset-0 rounded-[28px] carddebt-splash-glow" />
           <img
