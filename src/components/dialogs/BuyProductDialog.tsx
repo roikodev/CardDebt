@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 const PROVIDERS = ["PSA"] as const
 const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
@@ -155,6 +157,7 @@ export function BuyProductDialog({
     formState: { errors, isSubmitting },
     reset,
     setValue,
+    setError,
   } = useForm<BuyProductFormValues>({
     resolver: zodResolver(buyProductFormSchema) as Resolver<BuyProductFormValues>,
     defaultValues: defaultFormValues,
@@ -198,9 +201,144 @@ export function BuyProductDialog({
     })
   }
 
+  async function onSubmit(values: BuyProductFormValues) {
+    const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as
+      | string
+      | undefined
+
+    if (!workerOrigin) {
+      setError("root", {
+        type: "manual",
+        message: "Missing VITE_CF_WORKER_ORIGIN in .env",
+      })
+      return
+    }
+
+    const sessionRes = await supabase.auth.getSession()
+    const session = sessionRes.data.session
+    const userId = session?.user?.id
+    const accessToken = session?.access_token
+
+    if (!userId || !accessToken) {
+      setError("root", { type: "manual", message: "Not signed in." })
+      return
+    }
+
+    const file = values.sourceImage
+    if (!file) {
+      setError("sourceImage", {
+        type: "manual",
+        message: "Source Image is required",
+      })
+      return
+    }
+
+    const originalName = file.name || "image"
+    const dot = originalName.lastIndexOf(".")
+    const extRaw = dot >= 0 ? originalName.slice(dot + 1) : ""
+    const ext = extRaw.trim().toLowerCase() || "jpg"
+
+    const imageName =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : String(Date.now())
+
+    const imagePath = `${userId}/${imageName}.${ext}`
+
+    const base = workerOrigin.replace(/\/+$/, "")
+    const uploadUrl = `${base}/?file=${encodeURIComponent(imagePath)}`
+
+    let uploadRes: Response
+    try {
+      uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      })
+    } catch (e) {
+      setError("root", {
+        type: "manual",
+        message: `Image upload failed: could not reach Worker (${base}).`,
+      })
+      return
+    }
+
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text().catch(() => "")
+      setError("root", {
+        type: "manual",
+        message: `Image upload failed (${uploadRes.status}). ${text}`.trim(),
+      })
+      return
+    }
+
+    const insertRes = await supabase
+      .from("buy_entries")
+      .insert({
+        user_id: userId,
+        game_title: values.gameTitle,
+        product_category: values.category,
+        card_no: values.category === "Card" ? values.cardNo : null,
+        name: values.name,
+        graded: values.graded,
+        price_hkd: values.price,
+        quantity: values.quantity,
+        image_cloud_path: imagePath,
+        purchase_date: values.purchaseDate,
+      })
+      .select("id")
+      .single()
+
+    if (insertRes.error || !insertRes.data?.id) {
+      setError("root", {
+        type: "manual",
+        message: insertRes.error?.message ?? "Failed to save purchase.",
+      })
+      return
+    }
+
+    const buyEntryId = insertRes.data.id
+
+    if (values.graded) {
+      const gradeValue = Number(values.grade)
+      const gradingRes = await supabase.from("buy_entry_grading").insert({
+        buy_entry_id: buyEntryId,
+        provider: values.provider,
+        grade: gradeValue,
+      })
+
+      if (gradingRes.error) {
+        setError("root", {
+          type: "manual",
+          message: gradingRes.error.message,
+        })
+        return
+      }
+    }
+
+    onSubmitSuccess?.(values)
+    onOpenChange(false)
+    toast.success("Saved successfully", { duration: 5000 })
+
+    reset({
+      ...defaultFormValues,
+      purchaseDate: todayISODate(),
+    })
+    setSourceImageUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,40rem)] gap-0 overflow-y-auto p-0 sm:max-w-md">
+        <DialogContent className="max-h-[min(90dvh,40rem)] gap-0 overflow-y-auto overflow-x-hidden p-0 sm:max-w-md">
         <div className="p-4 pb-2">
           <DialogHeader>
             <DialogTitle>Buy</DialogTitle>
@@ -208,13 +346,13 @@ export function BuyProductDialog({
           </DialogHeader>
         </div>
         <form
-          onSubmit={handleSubmit((data) => {
-            onSubmitSuccess?.(data)
-            onOpenChange(false)
-          })}
+          onSubmit={handleSubmit(onSubmit)}
         >
           <div className="px-4">
             <FieldGroup>
+              {errors.root?.message ? (
+                <FieldError errors={[{ message: errors.root.message }]} />
+              ) : null}
               <Field className="gap-2">
                 <FieldLabel htmlFor="buy-source-image">
                   Source Image
@@ -228,8 +366,7 @@ export function BuyProductDialog({
                     id="buy-source-image"
                     type="file"
                     accept="image/*"
-                    capture="environment"
-                    className="w-full"
+                    className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0] ?? null
                       setValue("sourceImage", file, {
@@ -251,7 +388,7 @@ export function BuyProductDialog({
                       Choose / Take photo
                     </Button>
                     <p className="text-sm text-muted-foreground">
-                      You can also paste an image here.
+                      Choose from album or open camera. You can also paste an image here.
                     </p>
                   </div>
 
@@ -599,7 +736,7 @@ export function BuyProductDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
+        </DialogContent>
     </Dialog>
   )
 }

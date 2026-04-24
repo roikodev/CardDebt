@@ -2,6 +2,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router"
 
 import { routeTree } from "./routeTree.gen"
 import { AuthBootstrap } from "@/components/AuthBootstrap"
+import { Toaster } from "sonner"
 
 const router = createRouter({
   routeTree,
@@ -19,6 +20,7 @@ function App() {
     <>
       <AuthBootstrap />
       <RouterProvider router={router} />
+      <Toaster richColors closeButton={false} />
     </>
   )
 }

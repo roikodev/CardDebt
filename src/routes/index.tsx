@@ -11,6 +11,13 @@ type IndexLoaderData = {
 export const Route = createFileRoute("/")({
   loader: async (): Promise<IndexLoaderData> => {
     const { data } = await supabase.auth.getSession()
+
+    // If a user session exists, proactively refresh to ensure a valid access token
+    // is available for immediate downstream requests after navigation.
+    if (data.session) {
+      await supabase.auth.refreshSession().catch(() => undefined)
+    }
+
     return { hasSession: !!data.session }
   },
   component: IndexSplash,
