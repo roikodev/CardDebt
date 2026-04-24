@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { BuyProductDialog } from "@/components/dialogs/BuyProductDialog"
+import { BuyProductByCardBaseDialog } from "@/components/dialogs/BuyProductByCardBaseDialog"
 import { CardBaseDialog } from "@/components/dialogs/CardBaseDialog"
 import {
   Dialog,
@@ -76,6 +77,11 @@ export function Dashboard() {
   const [buyChooserOpen, setBuyChooserOpen] = useState(false)
   const [buyOpen, setBuyOpen] = useState(false)
   const [cardBaseOpen, setCardBaseOpen] = useState(false)
+  const [buyByCardBaseOpen, setBuyByCardBaseOpen] = useState(false)
+  const [selectedCardBaseItem, setSelectedCardBaseItem] =
+    useState<import("@/components/dialogs/CardBaseDialog").CollectionBaseRow | null>(
+      null
+    )
 
   const initials = useMemo(() => {
     const email = user?.email ?? ""
@@ -217,7 +223,19 @@ export function Dashboard() {
           </Dialog>
 
           <BuyProductDialog open={buyOpen} onOpenChange={setBuyOpen} />
-          <CardBaseDialog open={cardBaseOpen} onOpenChange={setCardBaseOpen} />
+          <CardBaseDialog
+            open={cardBaseOpen}
+            onOpenChange={setCardBaseOpen}
+            onSelect={(item) => {
+              setSelectedCardBaseItem(item)
+              setBuyByCardBaseOpen(true)
+            }}
+          />
+          <BuyProductByCardBaseDialog
+            open={buyByCardBaseOpen}
+            onOpenChange={setBuyByCardBaseOpen}
+            item={selectedCardBaseItem}
+          />
 
           <GridGroup>
             <Card className="col-span-12">

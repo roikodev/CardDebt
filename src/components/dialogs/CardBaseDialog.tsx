@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
 
-type CollectionBaseRow = {
+export type CollectionBaseRow = {
   id: string
   game_title: string | null
   card_no: string | null
@@ -22,6 +22,7 @@ type CollectionBaseRow = {
 type CardBaseDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSelect?: (item: CollectionBaseRow) => void
 }
 
 function SkeletonTile() {
@@ -44,7 +45,11 @@ function formatTitle(row: CollectionBaseRow): string {
   return parts.join(" · ") || "Untitled"
 }
 
-export function CardBaseDialog({ open, onOpenChange }: CardBaseDialogProps) {
+export function CardBaseDialog({
+  open,
+  onOpenChange,
+  onSelect,
+}: CardBaseDialogProps) {
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
 
   const [items, setItems] = useState<CollectionBaseRow[]>([])
@@ -233,9 +238,9 @@ export function CardBaseDialog({ open, onOpenChange }: CardBaseDialogProps) {
                         <button
                           key={row.id}
                           type="button"
-                          className="group overflow-hidden rounded-xl border bg-card text-left shadow-sm transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="group cursor-pointer overflow-hidden rounded-xl border bg-card text-left shadow-sm transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={() => {
-                            // TODO: return selected item to Buy flow
+                            onSelect?.(row)
                             onOpenChange(false)
                           }}
                         >
