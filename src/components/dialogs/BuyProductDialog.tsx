@@ -44,6 +44,60 @@ function todayISODate(): string {
   return `${y}-${m}-${day}`
 }
 
+async function preprocessImageForUpload(input: File): Promise<File> {
+  // Goal: reduce size while keeping quality (mobile photos are huge).
+  // Strategy: resize longest edge to <= 2048px and re-encode as WebP (fallback JPEG).
+  const MAX_DIM = 2048
+  const QUALITY = 0.82
+
+  if (!input.type.startsWith("image/")) return input
+
+  const bitmap = await createImageBitmap(input)
+
+  const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height))
+  const targetW = Math.max(1, Math.round(bitmap.width * scale))
+  const targetH = Math.max(1, Math.round(bitmap.height * scale))
+
+  const canvas =
+    typeof OffscreenCanvas !== "undefined"
+      ? new OffscreenCanvas(targetW, targetH)
+      : Object.assign(document.createElement("canvas"), { width: targetW, height: targetH })
+
+  const ctx = (canvas as HTMLCanvasElement).getContext
+    ? (canvas as HTMLCanvasElement).getContext("2d")
+    : (canvas as OffscreenCanvas).getContext("2d")
+
+  if (!ctx) return input
+
+  ;(ctx as CanvasRenderingContext2D).drawImage(bitmap as unknown as CanvasImageSource, 0, 0, targetW, targetH)
+  bitmap.close?.()
+
+  const toBlob = async (type: string, quality: number): Promise<Blob | null> => {
+    if ("convertToBlob" in canvas) {
+      try {
+        return await (canvas as OffscreenCanvas).convertToBlob({ type, quality })
+      } catch {
+        return null
+      }
+    }
+    return await new Promise<Blob | null>((resolve) => {
+      ;(canvas as HTMLCanvasElement).toBlob((b) => resolve(b), type, quality)
+    })
+  }
+
+  // Prefer WebP; fallback to JPEG if WebP isn't supported.
+  const webpBlob = await toBlob("image/webp", QUALITY)
+  const outBlob =
+    webpBlob && webpBlob.size > 0 ? webpBlob : await toBlob("image/jpeg", QUALITY)
+
+  if (!outBlob || outBlob.size === 0) return input
+
+  const baseName = (input.name || "image").replace(/\.[^.]+$/, "")
+  const outType = outBlob.type || "image/jpeg"
+  const outExt = outType === "image/webp" ? "webp" : "jpg"
+  return new File([outBlob], `${baseName}.${outExt}`, { type: outType })
+}
+
 const buyProductFormSchema = z
   .object({
     sourceImage: z.preprocess(
@@ -224,13 +278,20 @@ export function BuyProductDialog({
       return
     }
 
-    const file = values.sourceImage
-    if (!file) {
+    const originalFile = values.sourceImage
+    if (!originalFile) {
       setError("sourceImage", {
         type: "manual",
         message: "Source Image is required",
       })
       return
+    }
+
+    let file: File
+    try {
+      file = await preprocessImageForUpload(originalFile)
+    } catch {
+      file = originalFile
     }
 
     const originalName = file.name || "image"
@@ -335,6 +396,50 @@ export function BuyProductDialog({
         setError("root", {
           type: "manual",
           message: gradingRes.error.message,
+        })
+        return
+      }
+    }
+
+    const userCollectionRows = Array.from({ length: values.quantity }).map(() => ({
+      user_id: userId,
+      graded: values.graded,
+      derived: false,
+      collection_item_id: collectionItemId,
+      buying_entries_id: buyEntryId,
+    }))
+
+    const userCollectionRes = await supabase
+      .from("user_collection")
+      .insert(userCollectionRows)
+      .select("id")
+
+    if (userCollectionRes.error || !userCollectionRes.data?.length) {
+      await supabase.from("collection_base").delete().eq("id", collectionItemId)
+      setError("root", {
+        type: "manual",
+        message: userCollectionRes.error?.message ?? "Failed to save collection items.",
+      })
+      return
+    }
+
+    if (values.graded) {
+      const gradeValue = Number(values.grade)
+      const gradingRows = userCollectionRes.data.map((r) => ({
+        user_collection_id: r.id,
+        provider: values.provider,
+        grade: gradeValue,
+      }))
+
+      const userCollectionGradingRes = await supabase
+        .from("user_collection_grading")
+        .insert(gradingRows)
+
+      if (userCollectionGradingRes.error) {
+        await supabase.from("collection_base").delete().eq("id", collectionItemId)
+        setError("root", {
+          type: "manual",
+          message: userCollectionGradingRes.error.message,
         })
         return
       }
