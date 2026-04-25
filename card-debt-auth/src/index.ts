@@ -1,8 +1,38 @@
 // 1. Allowed origins for your CardDebt project
+// - Prod: GitHub Pages origin
+// - Dev: Vite dev server + common LAN origins (for testing on phones)
 const ALLOWED_ORIGINS = [
+  "https://roikodev.github.io",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
   "http://localhost:3000",
-  "https://roikodev.github.io"
 ];
+
+function isLanDevOrigin(origin: string): boolean {
+  // Allow local network origins like http://192.168.1.23:5173 for mobile testing.
+  try {
+    const u = new URL(origin)
+    if (u.protocol !== "http:") return false
+    const host = u.hostname
+    const port = u.port
+    if (port !== "5173") return false
+
+    if (host.startsWith("192.168.")) return true
+    if (host.startsWith("10.")) return true
+
+    // 172.16.0.0 – 172.31.255.255
+    if (host.startsWith("172.")) {
+      const secondOctet = Number(host.split(".")[1] ?? "")
+      if (Number.isFinite(secondOctet) && secondOctet >= 16 && secondOctet <= 31) {
+        return true
+      }
+    }
+
+    return false
+  } catch {
+    return false
+  }
+}
 
 export interface Env {
   MY_BUCKET: R2Bucket;
@@ -34,14 +64,14 @@ async function hmacSha256Base64Url(secret: string, message: string): Promise<str
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get("Origin") || "";
-    const isAllowed = ALLOWED_ORIGINS.includes(origin);
+    const isAllowed = ALLOWED_ORIGINS.includes(origin) || isLanDevOrigin(origin);
 
     // Handle CORS Preflight (OPTIONS)
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
         headers: {
-          "Access-Control-Allow-Origin": isAllowed ? origin : ALLOWED_ORIGINS[1],
+          "Access-Control-Allow-Origin": isAllowed ? origin : ALLOWED_ORIGINS[0],
           "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
           "Access-Control-Allow-Headers": "Authorization, Content-Type",
           "Access-Control-Max-Age": "86400",
@@ -51,7 +81,7 @@ export default {
 
     // Shared CORS headers for all responses
     const corsHeaders = {
-      "Access-Control-Allow-Origin": isAllowed ? origin : ALLOWED_ORIGINS[1],
+      "Access-Control-Allow-Origin": isAllowed ? origin : ALLOWED_ORIGINS[0],
       "Vary": "Origin"
     };
 
