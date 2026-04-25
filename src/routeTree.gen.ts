@@ -18,6 +18,8 @@ import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthHomeRouteImport } from './routes/auth/home'
+import { Route as UserMyCollectionIndexRouteImport } from './routes/user/my-collection/index'
+import { Route as UserMyCollectionCollection_item_idRouteImport } from './routes/user/my-collection/$collection_item_id'
 
 const UserRoute = UserRouteImport.update({
   id: '/user',
@@ -64,6 +66,17 @@ const AuthHomeRoute = AuthHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AuthRoute,
 } as any)
+const UserMyCollectionIndexRoute = UserMyCollectionIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => UserMyCollectionRoute,
+} as any)
+const UserMyCollectionCollection_item_idRoute =
+  UserMyCollectionCollection_item_idRouteImport.update({
+    id: '/$collection_item_id',
+    path: '/$collection_item_id',
+    getParentRoute: () => UserMyCollectionRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,7 +87,9 @@ export interface FileRoutesByFullPath {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/user/my-collection': typeof UserMyCollectionRoute
+  '/user/my-collection': typeof UserMyCollectionRouteWithChildren
+  '/user/my-collection/$collection_item_id': typeof UserMyCollectionCollection_item_idRoute
+  '/user/my-collection/': typeof UserMyCollectionIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -85,7 +100,8 @@ export interface FileRoutesByTo {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/user/my-collection': typeof UserMyCollectionRoute
+  '/user/my-collection/$collection_item_id': typeof UserMyCollectionCollection_item_idRoute
+  '/user/my-collection': typeof UserMyCollectionIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -97,7 +113,9 @@ export interface FileRoutesById {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/user/my-collection': typeof UserMyCollectionRoute
+  '/user/my-collection': typeof UserMyCollectionRouteWithChildren
+  '/user/my-collection/$collection_item_id': typeof UserMyCollectionCollection_item_idRoute
+  '/user/my-collection/': typeof UserMyCollectionIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +129,8 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/user/dashboard'
     | '/user/my-collection'
+    | '/user/my-collection/$collection_item_id'
+    | '/user/my-collection/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -121,6 +141,7 @@ export interface FileRouteTypes {
     | '/auth/otp'
     | '/auth/signup'
     | '/user/dashboard'
+    | '/user/my-collection/$collection_item_id'
     | '/user/my-collection'
   id:
     | '__root__'
@@ -133,6 +154,8 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/user/dashboard'
     | '/user/my-collection'
+    | '/user/my-collection/$collection_item_id'
+    | '/user/my-collection/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -206,6 +229,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthHomeRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/user/my-collection/': {
+      id: '/user/my-collection/'
+      path: '/'
+      fullPath: '/user/my-collection/'
+      preLoaderRoute: typeof UserMyCollectionIndexRouteImport
+      parentRoute: typeof UserMyCollectionRoute
+    }
+    '/user/my-collection/$collection_item_id': {
+      id: '/user/my-collection/$collection_item_id'
+      path: '/$collection_item_id'
+      fullPath: '/user/my-collection/$collection_item_id'
+      preLoaderRoute: typeof UserMyCollectionCollection_item_idRouteImport
+      parentRoute: typeof UserMyCollectionRoute
+    }
   }
 }
 
@@ -225,14 +262,28 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface UserMyCollectionRouteChildren {
+  UserMyCollectionCollection_item_idRoute: typeof UserMyCollectionCollection_item_idRoute
+  UserMyCollectionIndexRoute: typeof UserMyCollectionIndexRoute
+}
+
+const UserMyCollectionRouteChildren: UserMyCollectionRouteChildren = {
+  UserMyCollectionCollection_item_idRoute:
+    UserMyCollectionCollection_item_idRoute,
+  UserMyCollectionIndexRoute: UserMyCollectionIndexRoute,
+}
+
+const UserMyCollectionRouteWithChildren =
+  UserMyCollectionRoute._addFileChildren(UserMyCollectionRouteChildren)
+
 interface UserRouteChildren {
   UserDashboardRoute: typeof UserDashboardRoute
-  UserMyCollectionRoute: typeof UserMyCollectionRoute
+  UserMyCollectionRoute: typeof UserMyCollectionRouteWithChildren
 }
 
 const UserRouteChildren: UserRouteChildren = {
   UserDashboardRoute: UserDashboardRoute,
-  UserMyCollectionRoute: UserMyCollectionRoute,
+  UserMyCollectionRoute: UserMyCollectionRouteWithChildren,
 }
 
 const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)

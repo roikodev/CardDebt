@@ -207,6 +207,82 @@ body {
   pointer-events: none;
 }
 
+.shine-chip {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Base container for the chip */
+.shine-chip-gold {
+  position: relative;
+  overflow: hidden; /* Clips the shine to the chip's borders */
+  background: #d4af37; /* Metallic Gold Base */
+  /* Add a subtle metallic texture/grain if possible */
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+}
+
+.shine-chip-gold::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -100%;
+  width: 300%; /* Wider for a smoother pass-through */
+  height: 200%;
+  background: linear-gradient(
+    115deg, /* Angled shine looks more natural */
+    transparent 0%,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.2) 45%,
+    rgba(255, 255, 255, 0.9) 50%, /* The "Core" of the light */
+    rgba(255, 255, 255, 0.2) 55%,
+    rgba(255, 255, 255, 0) 70%,
+    transparent 100%
+  );
+  mix-blend-mode: color-dodge; /* Essential for that bright 'glow' effect over colors */
+  transform: rotate(-15deg);
+  animation: carddebt-luxury-shine 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+/* Secondary "Sparkle" effect for extra luxury */
+.shine-chip-gold::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--x, 50%) var(--y, 50%), 
+    rgba(255, 255, 255, 0.4) 0%, 
+    transparent 50%
+  );
+  opacity: 0;
+  animation: sparkle-pulse 3.5s ease-in-out infinite;
+}
+
+@keyframes carddebt-luxury-shine {
+  0% {
+    left: -150%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  35% {
+    left: 100%;
+    opacity: 0;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes sparkle-pulse {
+  0%, 20%, 50%, 100% { opacity: 0; transform: scale(0.5); }
+  35% { opacity: 1; transform: scale(1.2); }
+}
+
 @keyframes carddebt-splash-pop {
   0% {
     transform: scale(0.84);

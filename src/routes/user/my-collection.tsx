@@ -1,7 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { MyCollection } from "@/pages/MyCollection"
+import { createFileRoute, Outlet } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/user/my-collection")({
-  component: MyCollection,
+  component: MyCollectionLayout,
 })
+
+function MyCollectionLayout() {
+  return <Outlet />
+}
 

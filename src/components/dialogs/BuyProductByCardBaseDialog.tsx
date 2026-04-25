@@ -213,6 +213,50 @@ export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) 
       }
     }
 
+    const userCollectionRows = Array.from({ length: values.quantity }).map(() => ({
+      user_id: userId,
+      graded: values.graded,
+      derived: false,
+      collection_item_id: item.id,
+      buying_entries_id: buyEntryId,
+    }))
+
+    const userCollectionRes = await supabase
+      .from("user_collection")
+      .insert(userCollectionRows)
+      .select("id")
+
+    if (userCollectionRes.error || !userCollectionRes.data?.length) {
+      await supabase.from("buy_entries").delete().eq("id", buyEntryId)
+      setError("root", {
+        type: "manual",
+        message: userCollectionRes.error?.message ?? "Failed to save collection items.",
+      })
+      return
+    }
+
+    if (values.graded) {
+      const gradeValue = Number(values.grade)
+      const gradingRows = userCollectionRes.data.map((r) => ({
+        user_collection_id: r.id,
+        provider: values.provider,
+        grade: gradeValue,
+      }))
+
+      const userCollectionGradingRes = await supabase
+        .from("user_collection_grading")
+        .insert(gradingRows)
+
+      if (userCollectionGradingRes.error) {
+        await supabase.from("buy_entries").delete().eq("id", buyEntryId)
+        setError("root", {
+          type: "manual",
+          message: userCollectionGradingRes.error.message,
+        })
+        return
+      }
+    }
+
     onOpenChange(false)
     toast.success("Saved successfully", { duration: 5000 })
   }
