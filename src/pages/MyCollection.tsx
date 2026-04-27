@@ -17,6 +17,7 @@ type CollectionBase = {
 
 type UserCollectionRow = {
   id: string
+  derived?: boolean
   graded: boolean
   collection_item_id: string
   collection_base: CollectionBase | null
@@ -143,11 +144,12 @@ export function MyCollection() {
       const { data } = await supabase
         .from("user_collection")
         .select(`
-          id, graded, collection_item_id, 
+          id, derived, graded, collection_item_id, 
           collection_base:collection_item_id ( id, game_title, card_no, name, image_cloud_path ), 
           user_collection_grading:user_collection_grading ( provider, grade )
         `)
         .eq("user_id", user.id)
+        .eq("derived", false)
         .order("created_at", { ascending: false })
 
       const rows = data as unknown as UserCollectionRow[]
