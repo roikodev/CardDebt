@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { GradingChip } from "@/components/GradingChip"
 import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
 import { Link, useNavigate } from "@tanstack/react-router"
@@ -17,6 +18,7 @@ type CollectionBase = {
 
 type UserCollectionRow = {
   id: string
+  derived?: boolean
   graded: boolean
   collection_item_id: string
   collection_base: CollectionBase | null
@@ -66,9 +68,7 @@ function CollectionCard({
 
   const name = group.base?.name ?? "Untitled"
   const meta = [group.base?.game_title, group.base?.card_no].filter(Boolean).join(" · ")
-  const gradingLabel = group.grading ? `${group.grading.provider} ${group.grading.grade}` : null
-  const isPsa10 = group.grading?.provider === "PSA" && Number(group.grading.grade) === 10
-  const isPsa9 = group.grading?.provider === "PSA" && Number(group.grading.grade) === 9
+  const grading = group.grading
 
   return (
     <Link
@@ -89,18 +89,11 @@ function CollectionCard({
       </div>
       <div className="flex h-[88px] flex-col gap-1 p-3">
         <div className="h-5">
-          {gradingLabel && (
+          {grading ? (
             <div className="flex items-center justify-start">
-              <span className={[
-                "shine-chip inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none",
-                isPsa10 ? "shine-chip-gold border-amber-300/70 bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-200 text-amber-950 shadow-sm" : 
-                isPsa9 ? "border-zinc-300/70 bg-gradient-to-r from-zinc-100 via-zinc-300 to-zinc-100 text-zinc-900 shadow-sm" : 
-                "border-border bg-muted/50 text-foreground"
-              ].join(" ")}>
-                {gradingLabel}
-              </span>
+              <GradingChip provider={grading.provider} grade={grading.grade} tone="light" />
             </div>
-          )}
+          ) : null}
         </div>
         <p className="line-clamp-2 text-sm font-medium leading-snug">{name}</p>
         <p className="text-xs text-muted-foreground">{meta || "—"}</p>
@@ -143,11 +136,12 @@ export function MyCollection() {
       const { data } = await supabase
         .from("user_collection")
         .select(`
-          id, graded, collection_item_id, 
+          id, derived, graded, collection_item_id, 
           collection_base:collection_item_id ( id, game_title, card_no, name, image_cloud_path ), 
           user_collection_grading:user_collection_grading ( provider, grade )
         `)
         .eq("user_id", user.id)
+        .eq("derived", false)
         .order("created_at", { ascending: false })
 
       const rows = data as unknown as UserCollectionRow[]
@@ -206,7 +200,7 @@ export function MyCollection() {
                 return (
                   <div
                     key={vRow.key}
-                    className="absolute left-0 top-0 grid w-full gap-4"
+                    className="absolute left-0 top-0 grid w-full gap-4 py-2"
                     style={{
                       height: `${vRow.size}px`,
                       transform: `translateY(${vRow.start}px)`,
