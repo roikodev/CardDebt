@@ -111,7 +111,7 @@ export function DerivedItemCostDialog({
           <DialogHeader className="px-0">
             <DialogTitle>Derived item costs</DialogTitle>
             <DialogDescription>
-              Add any number of cost records (or none) for 1 set.
+              Add any number of cost records (or none) for 1 set. Sets: {sets} (max {maxSets}).
             </DialogDescription>
           </DialogHeader>
 
