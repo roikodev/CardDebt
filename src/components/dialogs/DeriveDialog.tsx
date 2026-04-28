@@ -33,7 +33,7 @@ import {
   DerivedItemCostDialog,
   type DerivedItemCostTarget,
 } from "./DerivedItemCostDialog"
-import { DeriveSummaryDialog } from "./DeriveSummaryDialog"
+import { DeriveSummaryDialog } from "@/components/dialogs/DeriveSummaryDialog"
 import { LayoutGrid, Plus, PlusSquare, Trash2 } from "lucide-react"
 
 type DeriveMode = "create_new" | "choose_from_base"
@@ -45,6 +45,11 @@ type DerivedItemDraft = {
   id: string
   mode: DeriveMode | null
   selectedBase: CollectionBaseRow | null
+  chooseFromBase: {
+    graded: boolean
+    provider: (typeof PROVIDERS)[number]
+    grade: string
+  }
   createNew: {
     sourceImage: File | null
     sourceImageUrl: string | null
@@ -84,6 +89,11 @@ export function DeriveDialog({
       id: uid(),
       mode: null,
       selectedBase: null,
+      chooseFromBase: {
+        graded: false,
+        provider: "PSA",
+        grade: "",
+      },
       createNew: {
         sourceImage: null,
         sourceImageUrl: null,
@@ -259,7 +269,6 @@ export function DeriveDialog({
                             ? {
                                 ...x,
                                 mode: "create_new",
-                                selectedBase: null,
                               }
                             : x
                         )
@@ -283,18 +292,6 @@ export function DeriveDialog({
                             ? {
                                 ...x,
                                 mode: "choose_from_base",
-                                createNew: {
-                                  ...x.createNew,
-                                  sourceImage: null,
-                                  sourceImageUrl: null,
-                                  gameTitle: null,
-                                  category: "Card",
-                                  cardNo: "",
-                                  name: "",
-                                  graded: false,
-                                  provider: "PSA",
-                                  grade: "",
-                                },
                               }
                             : x
                         )
@@ -338,6 +335,112 @@ export function DeriveDialog({
                       <Button type="button" variant="outline" onClick={() => setPickingForId(it.id)}>
                         Choose
                       </Button>
+                    </div>
+
+                    <div
+                      className="mb-0 mt-3 flex flex-col gap-2 border-t pt-3"
+                      role="group"
+                      aria-label="Common details"
+                    >
+                      <p className="text-sm font-medium">Details</p>
+
+                      <Field className="gap-2">
+                        <div className="flex flex-col gap-2 @md/field-group:flex-row @md/field-group:items-center @md/field-group:justify-between">
+                          <div className="flex flex-col gap-0.5">
+                            <FieldLabel htmlFor={`derive-base-graded-${it.id}`}>Graded</FieldLabel>
+                            <FieldDescription>Whether the item is professionally graded.</FieldDescription>
+                          </div>
+                          <Switch
+                            id={`derive-base-graded-${it.id}`}
+                            checked={it.chooseFromBase.graded}
+                            onCheckedChange={(checked) =>
+                              setItems((prev) =>
+                                prev.map((x) =>
+                                  x.id === it.id
+                                    ? {
+                                        ...x,
+                                        chooseFromBase: { ...x.chooseFromBase, graded: checked },
+                                      }
+                                    : x
+                                )
+                              )
+                            }
+                          />
+                        </div>
+                      </Field>
+
+                      {it.chooseFromBase.graded ? (
+                        <div className="flex flex-col gap-3">
+                          <Field className="gap-2">
+                            <FieldLabel htmlFor={`derive-base-provider-${it.id}`}>Provider</FieldLabel>
+                            <Select
+                              value={it.chooseFromBase.provider}
+                              onValueChange={(v) => {
+                                if (!PROVIDERS.includes(v as any)) return
+                                setItems((prev) =>
+                                  prev.map((x) =>
+                                    x.id === it.id
+                                      ? {
+                                          ...x,
+                                          chooseFromBase: {
+                                            ...x.chooseFromBase,
+                                            provider: v as any,
+                                          },
+                                        }
+                                      : x
+                                  )
+                                )
+                              }}
+                            >
+                              <SelectTrigger
+                                id={`derive-base-provider-${it.id}`}
+                                className="w-full"
+                                size="default"
+                              >
+                                <SelectValue placeholder="Select provider" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {PROVIDERS.map((p) => (
+                                    <SelectItem key={p} value={p}>
+                                      {p}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </Field>
+
+                          <Field className="gap-2">
+                            <FieldLabel htmlFor={`derive-base-grade-${it.id}`}>Grade</FieldLabel>
+                            <Input
+                              id={`derive-base-grade-${it.id}`}
+                              type="number"
+                              inputMode="decimal"
+                              step="any"
+                              min={0}
+                              placeholder="e.g. 10"
+                              className="w-full"
+                              value={it.chooseFromBase.grade}
+                              onChange={(e) =>
+                                setItems((prev) =>
+                                  prev.map((x) =>
+                                    x.id === it.id
+                                      ? {
+                                          ...x,
+                                          chooseFromBase: {
+                                            ...x.chooseFromBase,
+                                            grade: e.target.value,
+                                          },
+                                        }
+                                      : x
+                                  )
+                                )
+                              }
+                            />
+                          </Field>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ) : it.mode === "create_new" ? (
@@ -664,6 +767,11 @@ export function DeriveDialog({
                     id: uid(),
                     mode: null,
                     selectedBase: null,
+                    chooseFromBase: {
+                      graded: false,
+                      provider: "PSA",
+                      grade: "",
+                    },
                     createNew: {
                       sourceImage: null,
                       sourceImageUrl: null,
@@ -756,6 +864,12 @@ export function DeriveDialog({
               x.id === pickingItem.id ? { ...x, selectedBase: selected } : x
             )
           )
+          // Invalidate cached signed image for this draft so it refreshes when base changes.
+          setPickedBaseImageUrls((prev) => {
+            const next = { ...prev }
+            delete next[pickingItem.id]
+            return next
+          })
           setPickingForId(null)
         }}
       />
@@ -779,6 +893,7 @@ export function DeriveDialog({
         sourceQuantity={Math.max(0, sourceQuantity || 0)}
         sourceCollectionItemId={_sourceCollectionItemId}
         sourceGraded={_sourceGraded}
+        drafts={items}
         targets={costTargets}
         generalCosts={[]}
         perItemCosts={perItemCosts}
