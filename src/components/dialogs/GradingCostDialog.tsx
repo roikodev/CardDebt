@@ -37,6 +37,7 @@ type Props = {
   onOpenChange: (open: boolean) => void
   collectionItemId: string
   sourceQuantity: number
+  onSubmitted?: () => void
 }
 
 function uid(): string {
@@ -68,6 +69,7 @@ export function GradingCostDialog({
   onOpenChange,
   collectionItemId: _collectionItemId,
   sourceQuantity,
+  onSubmitted,
 }: Props) {
   const [costs, setCosts] = useState<CostEntry[]>([])
   const [quantity, setQuantity] = useState(1)
@@ -271,6 +273,7 @@ export function GradingCostDialog({
         onDone={() => {
           setSummaryOpen(false)
           onOpenChange(false)
+          onSubmitted?.()
         }}
       />
     </>

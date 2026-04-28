@@ -24,15 +24,29 @@ type BuyEntry = {
   quantity: number
 }
 
+type UserCollectionRow = {
+  id: string
+  graded: boolean
+  collection_item_id: string
+  collection_base: CollectionBase | null
+}
+
+type MiscCostLine = {
+  date: string
+  price: number
+  type: string
+  description: string | null
+}
+
 type DerivedRecordRow = {
+  id: string
   from_user_collection_id: string
+  to_user_collection_id: string
   created_at: string
-  from_user_collection: {
-    id: string
-    graded: boolean
-    collection_item_id: string
-    collection_base: CollectionBase | null
-  } | null
+  from_user_collection: UserCollectionRow | null
+  to_user_collection: UserCollectionRow | null
+  costLines: MiscCostLine[]
+  costTotal: number
 }
 
 function Skeleton({ className }: { className: string }) {
@@ -57,6 +71,8 @@ export function CollectionInfo() {
   const search = Route.useSearch()
   const graded = Boolean(search.graded)
 
+  const [recordsView, setRecordsView] = useState<"purchase" | "derived">("purchase")
+  const [reloadKey, setReloadKey] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [item, setItem] = useState<CollectionBase | null>(null)
@@ -98,6 +114,7 @@ export function CollectionInfo() {
     setDerivedError(null)
     setDerivedRecords([])
     setDerivedImageUrls({})
+    setRecordsView("purchase")
 
     abortRef.current?.abort()
     abortRef.current = new AbortController()
@@ -152,9 +169,18 @@ export function CollectionInfo() {
         )
       )
 
-      const userCollectionIds = Array.from(
+      const allUcForCardRes = await supabase
+        .from("user_collection")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("collection_item_id", collection_item_id)
+        .eq("graded", graded)
+
+      if (signal.aborted) return
+
+      const allUcIdsForCard = Array.from(
         new Set(
-          (ucRes.data ?? [])
+          (allUcForCardRes.data ?? [])
             .map((r) => (r as { id: string }).id)
             .filter((v): v is string => Boolean(v))
         )
@@ -192,13 +218,22 @@ export function CollectionInfo() {
         setBuyEntries((buysRes.data ?? []) as BuyEntry[])
       }
 
-      // Derived records
-      if (userCollectionIds.length) {
+      // Derived records (mappings where this page's card appears as source or target)
+      if (allUcForCardRes.error) {
+        setDerivedError(allUcForCardRes.error.message)
+        setDerivedLoading(false)
+      } else if (!allUcIdsForCard.length) {
+        setDerivedLoading(false)
+      } else {
+        const uuidList = allUcIdsForCard.join(",")
+
         const derivedRes = await supabase
           .from("user_derived_collection")
-          .select("from_user_collection_id, created_at")
+          .select("id, from_user_collection_id, to_user_collection_id, created_at")
           .eq("user_id", userId)
-          .in("to_user_collection_id", userCollectionIds)
+          .or(
+            `to_user_collection_id.in.(${uuidList}),from_user_collection_id.in.(${uuidList})`
+          )
           .order("created_at", { ascending: false })
 
         if (signal.aborted) return
@@ -207,55 +242,165 @@ export function CollectionInfo() {
           setDerivedError(derivedRes.error.message)
           setDerivedLoading(false)
         } else {
-          const fromIds = Array.from(
+          const seedMappings = (derivedRes.data ?? []) as Array<{
+            id: string
+            from_user_collection_id: string
+            to_user_collection_id: string
+            created_at: string
+          }>
+
+          // Also include other derived items that share the same source (from_user_collection_id)
+          const seedFromIds = Array.from(
+            new Set(seedMappings.map((r) => r.from_user_collection_id).filter(Boolean))
+          )
+
+          let rawMappings = seedMappings
+          if (seedFromIds.length) {
+            const siblingRes = await supabase
+              .from("user_derived_collection")
+              .select("id, from_user_collection_id, to_user_collection_id, created_at")
+              .eq("user_id", userId)
+              .in("from_user_collection_id", seedFromIds)
+              .order("created_at", { ascending: false })
+
+            if (signal.aborted) return
+
+            if (!siblingRes.error && siblingRes.data?.length) {
+              const all = [...seedMappings, ...(siblingRes.data as any)]
+              const seen = new Set<string>()
+              rawMappings = all.filter((r) => {
+                if (!r?.id) return false
+                if (seen.has(r.id)) return false
+                seen.add(r.id)
+                return true
+              })
+            }
+          }
+
+          const ucJoinIds = Array.from(
             new Set(
-              (derivedRes.data ?? [])
-                .map((r) => (r as { from_user_collection_id: string }).from_user_collection_id)
-                .filter((v): v is string => Boolean(v))
+              rawMappings.flatMap((r) => [r.from_user_collection_id, r.to_user_collection_id])
             )
           )
 
-          let fromMap = new Map<string, DerivedRecordRow["from_user_collection"]>()
-          if (fromIds.length) {
-            const fromUcRes = await supabase
+          let ucMap = new Map<string, UserCollectionRow>()
+          if (ucJoinIds.length) {
+            const ucJoinRes = await supabase
               .from("user_collection")
               .select(
                 "id, graded, collection_item_id, collection_base:collection_item_id ( id, game_title, card_no, name, image_cloud_path )"
               )
               .eq("user_id", userId)
-              .in("id", fromIds)
+              .in("id", ucJoinIds)
 
             if (signal.aborted) return
 
-            if (!fromUcRes.error) {
-              const rows = (fromUcRes.data ?? []) as unknown as Array<{
-                id: string
-                graded: boolean
-                collection_item_id: string
-                collection_base: CollectionBase | null
-              }>
-              rows.forEach((r) => fromMap.set(r.id, r))
+            if (!ucJoinRes.error && ucJoinRes.data) {
+              const rows = ucJoinRes.data as unknown as UserCollectionRow[]
+              rows.forEach((r) => ucMap.set(r.id, r))
             }
           }
 
-          const merged: DerivedRecordRow[] = (derivedRes.data ?? []).map((r) => {
-            const row = r as { from_user_collection_id: string; created_at: string }
+          const mappingIds = rawMappings.map((r) => r.id)
+          const costsByMappingId = new Map<string, MiscCostLine[]>()
+
+          if (mappingIds.length) {
+            const udcmRes = await supabase
+              .from("user_derived_collection_miscellaneous")
+              .select("user_derived_collection_id, miscellaneous_entries_id")
+              .eq("user_id", userId)
+              .in("user_derived_collection_id", mappingIds)
+
+            if (signal.aborted) return
+
+            if (udcmRes.error) {
+              // If link table isn't readable due to RLS, just show no costs.
+            } else if (udcmRes.data?.length) {
+              const links = udcmRes.data as unknown as Array<{
+                user_derived_collection_id: string
+                miscellaneous_entries_id: string
+              }>
+
+              const miscIds = Array.from(
+                new Set(
+                  links
+                    .map((l) => l.miscellaneous_entries_id)
+                    .filter((v): v is string => Boolean(v))
+                )
+              )
+
+              const miscMap = new Map<string, MiscCostLine>()
+              if (miscIds.length) {
+                const miscRes = await supabase
+                  .from("miscellaneous_entries")
+                  .select("id, date, price, type, description")
+                  .eq("user_id", userId)
+                  .in("id", miscIds)
+
+                if (signal.aborted) return
+
+                if (!miscRes.error && miscRes.data) {
+                  for (const me of miscRes.data as unknown as Array<{
+                    id: string
+                    date: string
+                    price: number
+                    type: string
+                    description: string | null
+                  }>) {
+                    miscMap.set(me.id, {
+                      date: me.date,
+                      price: Number(me.price) || 0,
+                      type: me.type,
+                      description: me.description ?? null,
+                    })
+                  }
+                }
+              }
+
+              for (const l of links) {
+                const line = miscMap.get(l.miscellaneous_entries_id)
+                if (!line) continue
+                const existing = costsByMappingId.get(l.user_derived_collection_id) ?? []
+                costsByMappingId.set(l.user_derived_collection_id, [...existing, line])
+              }
+            }
+          }
+
+          const merged: DerivedRecordRow[] = rawMappings.map((r) => {
+            const lines = costsByMappingId.get(r.id) ?? []
+            const costTotal = lines.reduce((s, l) => s + l.price, 0)
             return {
-              from_user_collection_id: row.from_user_collection_id,
-              created_at: row.created_at,
-              from_user_collection: fromMap.get(row.from_user_collection_id) ?? null,
+              id: r.id,
+              from_user_collection_id: r.from_user_collection_id,
+              to_user_collection_id: r.to_user_collection_id,
+              created_at: r.created_at,
+              from_user_collection: ucMap.get(r.from_user_collection_id) ?? null,
+              to_user_collection: ucMap.get(r.to_user_collection_id) ?? null,
+              costLines: lines,
+              costTotal,
             }
           })
 
           setDerivedRecords(merged)
           setDerivedLoading(false)
 
-          // Signed images for derived records
+          // Signed images for source + derived items
           if (workerOrigin?.trim() && token) {
             const baseUrl = workerOrigin.replace(/\/+$/, "")
+            const pathKeys: Array<{ key: string; path: string | null | undefined }> = []
+            for (const dr of merged) {
+              pathKeys.push({
+                key: `from:${dr.from_user_collection_id}`,
+                path: dr.from_user_collection?.collection_base?.image_cloud_path ?? null,
+              })
+              pathKeys.push({
+                key: `to:${dr.to_user_collection_id}`,
+                path: dr.to_user_collection?.collection_base?.image_cloud_path ?? null,
+              })
+            }
             await Promise.all(
-              merged.map(async (dr) => {
-                const filePath = dr.from_user_collection?.collection_base?.image_cloud_path
+              pathKeys.map(async ({ key, path }) => {
+                const filePath = path
                 if (!filePath) return
                 try {
                   const res = await fetch(
@@ -265,10 +410,7 @@ export function CollectionInfo() {
                   if (!res.ok) return
                   const data = (await res.json()) as { url?: string }
                   if (!data.url) return
-                  setDerivedImageUrls((prev) => ({
-                    ...prev,
-                    [dr.from_user_collection_id]: data.url!,
-                  }))
+                  setDerivedImageUrls((prev) => ({ ...prev, [key]: data.url! }))
                 } catch {
                   // ignore
                 }
@@ -276,8 +418,6 @@ export function CollectionInfo() {
             )
           }
         }
-      } else {
-        setDerivedLoading(false)
       }
 
       // Signed image URL for display (optional)
@@ -301,7 +441,7 @@ export function CollectionInfo() {
     })()
 
     return () => abortRef.current?.abort()
-  }, [collection_item_id, graded, user?.id, workerOrigin])
+  }, [collection_item_id, graded, user?.id, workerOrigin, reloadKey])
 
   return (
     <main className="flex h-screen flex-col overflow-y-auto bg-background text-foreground">
@@ -326,12 +466,12 @@ export function CollectionInfo() {
           {/* Left: item info */}
           <section className="min-w-0 rounded-2xl border bg-zinc-900 p-4 text-left text-white lg:sticky lg:top-6 lg:self-start">
             <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
-              <div className="aspect-[4/3] w-full bg-white/5">
+              <div className="aspect-[4/3] w-full max-h-72 bg-white/5">
                 {imageUrl ? (
                   <img
                     src={imageUrl}
                     alt={title}
-                    className="h-full w-full object-cover object-left-top"
+                    className="h-full w-full object-contain"
                   />
                 ) : (
                   <div className="h-full w-full animate-pulse bg-white/10" />
@@ -339,7 +479,7 @@ export function CollectionInfo() {
               </div>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-2">
               {loading && !grading ? (
                 <div className="flex items-center justify-start">
                   <Skeleton className="h-5 w-24" />
@@ -352,8 +492,14 @@ export function CollectionInfo() {
               {loading && !item ? (
                 <Skeleton className="h-5 w-40" />
               ) : (
-                <h1 className="text-base font-semibold leading-snug">{title}</h1>
+                <h1 className="text-base font-semibold leading-snug m-0">{title}</h1>
               )}
+
+              <p className="text-sm text-white/70">
+                Current quantity:{" "}
+                <span className="font-semibold text-white">{sourceQuantity}</span>
+              </p>
+
               <dl className="space-y-2 text-sm">
                 {loading && !item ? (
                   <>
@@ -417,21 +563,53 @@ export function CollectionInfo() {
 
           {/* Right: purchase records */}
           <section className="min-w-0 rounded-2xl border bg-card/40 p-4 text-left">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">Purchase records</h2>
-              {loading ? (
-                <SkeletonMuted className="h-4 w-20" />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {buyEntries.length} record{buyEntries.length === 1 ? "" : "s"}
-                </p>
-              )}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold">
+                  {recordsView === "purchase" ? "Purchase records" : "Derived records"}
+                </h2>
+                {recordsView === "purchase" ? (
+                  loading ? (
+                    <SkeletonMuted className="mt-1 h-4 w-20" />
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {buyEntries.length} record{buyEntries.length === 1 ? "" : "s"}
+                    </p>
+                  )
+                ) : derivedLoading ? (
+                  <SkeletonMuted className="mt-1 h-4 w-20" />
+                ) : (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {derivedRecords.length} record{derivedRecords.length === 1 ? "" : "s"}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={recordsView === "purchase" ? "default" : "outline"}
+                  onClick={() => setRecordsView("purchase")}
+                >
+                  Purchase
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={recordsView === "derived" ? "default" : "outline"}
+                  onClick={() => setRecordsView("derived")}
+                >
+                  Derived
+                </Button>
+              </div>
             </div>
 
-            {loading ? (
+            {recordsView === "purchase" ? (
+              loading ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="rounded-xl border bg-background/40 p-3">
+                  <div key={i} className="rounded-xl border bg-background/40 p-2">
                     <div className="flex items-baseline justify-between gap-3">
                       <SkeletonMuted className="h-4 w-24" />
                       <SkeletonMuted className="h-4 w-20" />
@@ -454,76 +632,57 @@ export function CollectionInfo() {
                 ))}
               </div>
             ) : buyEntries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No purchase records found.</p>
-            ) : (
-              <>
-                {/* Desktop header */}
-                <div className="hidden grid-cols-[140px_1fr_90px_110px] gap-3 border-b pb-2 text-xs font-medium text-muted-foreground lg:grid">
-                  <div>Date</div>
-                  <div>Price (per 1)</div>
-                  <div>Qty</div>
-                  <div className="text-right">Total</div>
-                </div>
+                <p className="text-sm text-muted-foreground">No purchase records found.</p>
+              ) : (
+                <>
+                  {/* Desktop header */}
+                  <div className="hidden grid-cols-[140px_1fr_90px_110px] gap-3 border-b pb-2 text-xs font-medium text-muted-foreground lg:grid">
+                    <div>Date</div>
+                    <div>Price (per 1)</div>
+                    <div>Qty</div>
+                    <div className="text-right">Total</div>
+                  </div>
 
-                <div className="mt-2 space-y-2">
-                  {buyEntries.map((b) => {
-                    const total = (Number(b.price_hkd) || 0) * (Number(b.quantity) || 0)
-                    return (
-                      <div
-                        key={b.id}
-                        className="rounded-xl border bg-background/40 p-3"
-                      >
-                        {/* Mobile layout */}
-                        <div className="grid gap-2 lg:hidden">
-                          <div className="flex items-baseline justify-between gap-3">
-                            <p className="text-sm font-medium">{b.purchase_date}</p>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            <span className="text-xs">Price</span>
-                            <div className="mt-0.5 flex items-baseline justify-between gap-3">
-                              <div className="min-w-0 text-foreground">
-                                {formatMoneyHKD(Number(b.price_hkd))}{" "}
-                                <span className="text-muted-foreground">×</span>{" "}
-                                {b.quantity}
-                              </div>
-                              <div className="shrink-0 text-foreground">
-                                {formatMoneyHKD(total)}
+                  <div className="mt-2 space-y-2">
+                    {buyEntries.map((b) => {
+                      const total = (Number(b.price_hkd) || 0) * (Number(b.quantity) || 0)
+                      return (
+                        <div key={b.id} className="rounded-xl border bg-background/40 p-2">
+                          {/* Mobile layout */}
+                          <div className="grid gap-2 lg:hidden">
+                            <div className="flex items-baseline justify-between gap-3">
+                              <p className="text-sm font-medium">{b.purchase_date}</p>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              <span className="text-xs">Price</span>
+                              <div className="mt-0.5 flex items-baseline justify-between gap-3">
+                                <div className="min-w-0 text-foreground">
+                                  {formatMoneyHKD(Number(b.price_hkd))}{" "}
+                                  <span className="text-muted-foreground">×</span> {b.quantity}
+                                </div>
+                                <div className="shrink-0 text-foreground">
+                                  {formatMoneyHKD(total)}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Desktop row */}
-                        <div className="hidden grid-cols-[140px_1fr_90px_110px] items-center gap-3 lg:grid">
-                          <div className="text-sm">{b.purchase_date}</div>
-                          <div className="text-sm">{formatMoneyHKD(Number(b.price_hkd))}</div>
-                          <div className="text-sm">{b.quantity}</div>
-                          <div className="text-right text-sm font-semibold">
-                            {formatMoneyHKD(total)}
+                          {/* Desktop row */}
+                          <div className="hidden grid-cols-[140px_1fr_90px_110px] items-center gap-3 lg:grid">
+                            <div className="text-sm">{b.purchase_date}</div>
+                            <div className="text-sm">{formatMoneyHKD(Number(b.price_hkd))}</div>
+                            <div className="text-sm">{b.quantity}</div>
+                            <div className="text-right text-sm font-semibold">
+                              {formatMoneyHKD(total)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-          </section>
-
-          {/* Derived Records */}
-          <section className="min-w-0 rounded-2xl border bg-card/40 p-4 text-left lg:col-start-2">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">Derived Records</h2>
-              {derivedLoading ? (
-                <SkeletonMuted className="h-4 w-20" />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {derivedRecords.length} record{derivedRecords.length === 1 ? "" : "s"}
-                </p>
-              )}
-            </div>
-
-            {derivedError ? (
+                      )
+                    })}
+                  </div>
+                </>
+              )
+            ) : derivedError ? (
               <p className="text-sm text-destructive">{derivedError}</p>
             ) : derivedLoading ? (
               <div className="space-y-2">
@@ -542,42 +701,147 @@ export function CollectionInfo() {
             ) : derivedRecords.length === 0 ? (
               <p className="text-sm text-muted-foreground">No derived records found.</p>
             ) : (
-              <div className="space-y-2">
-                {derivedRecords.map((dr) => {
-                  const base = dr.from_user_collection?.collection_base
-                  const name = base?.name ?? "Untitled"
-                  const img = derivedImageUrls[dr.from_user_collection_id]
-                  const targetCollectionItemId = dr.from_user_collection?.collection_item_id
-                  const targetGraded = dr.from_user_collection?.graded ?? false
-                  return (
-                    <Link
-                      key={`${dr.from_user_collection_id}-${dr.created_at}`}
-                      to="/user/my-collection/$collection_item_id"
-                      params={{ collection_item_id: targetCollectionItemId ?? "" }}
-                      search={{ graded: targetGraded }}
-                      className="flex items-center gap-3 rounded-xl border bg-background/40 p-3 transition hover:bg-muted/30"
-                    >
-                      <div className="h-12 w-12 overflow-hidden rounded-lg border bg-muted/30">
-                        {img ? (
-                          <img
-                            src={img}
-                            alt={name}
-                            className="h-full w-full object-cover object-left-top"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="h-full w-full animate-pulse bg-muted/50" />
+              <div className="space-y-3">
+                {(() => {
+                  const metaLine = (base: CollectionBase | null | undefined) =>
+                    [base?.game_title, base?.card_no].filter(Boolean).join(" · ") || "—"
+
+                  const sideLink = (
+                    ucId: string | undefined,
+                    graded: boolean,
+                    baseName: string,
+                    img: string | undefined,
+                    label: string,
+                    subtitle: string
+                  ) =>
+                    ucId ? (
+                      <Link
+                        to="/user/my-collection/$collection_item_id"
+                        params={{ collection_item_id: ucId }}
+                        search={{ graded }}
+                        className="flex min-w-0 flex-1 items-start gap-2 rounded-lg border bg-muted/20 p-2 transition hover:bg-muted/40"
+                      >
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted/30">
+                          {img ? (
+                            <img
+                              src={img}
+                              alt={baseName}
+                              className="h-full w-full object-cover object-left-top"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="h-full w-full animate-pulse bg-muted/50" />
+                          )}
+                        </div>
+                        <div className="min-w-0 text-left">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {label}
+                          </p>
+                          <p className="truncate text-sm font-medium">{baseName}</p>
+                          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="flex min-w-0 flex-1 items-start gap-2 rounded-lg border bg-muted/20 p-2 opacity-70">
+                        <div className="h-10 w-10 shrink-0 rounded-md bg-muted/50" />
+                        <div className="min-w-0 text-left">
+                          <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
+                          <p className="text-sm text-muted-foreground">—</p>
+                        </div>
+                      </div>
+                    )
+
+                  const groups = derivedRecords.reduce((acc, r) => {
+                    const key = r.from_user_collection_id
+                    if (!acc.has(key)) acc.set(key, [])
+                    acc.get(key)!.push(r)
+                    return acc
+                  }, new Map<string, DerivedRecordRow[]>())
+
+                  const orderedGroups = Array.from(groups.entries())
+                    .map(([fromId, rows]) => {
+                      const latest = rows.reduce(
+                        (max, r) =>
+                          new Date(r.created_at).getTime() > max
+                            ? new Date(r.created_at).getTime()
+                            : max,
+                        0
+                      )
+                      return { fromId, rows, latest }
+                    })
+                    .sort((a, b) => b.latest - a.latest)
+
+                  return orderedGroups.map(({ fromId, rows }) => {
+                    const first = rows[0]
+                    const fromBase = first.from_user_collection?.collection_base
+                    const fromName = fromBase?.name ?? "Source"
+                    const imgFrom = derivedImageUrls[`from:${fromId}`]
+                    const fromItemId = first.from_user_collection?.collection_item_id
+                    const fromG = first.from_user_collection?.graded ?? false
+
+                    const derivedRows = [...rows].sort(
+                      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                    )
+
+                    return (
+                      <div key={`src-${fromId}`} className="rounded-xl border bg-background/40 p-3 text-left">
+                        {sideLink(
+                          fromItemId,
+                          fromG,
+                          fromName,
+                          imgFrom,
+                          "Source",
+                          metaLine(fromBase)
                         )}
+
+                        <div className="mt-3 space-y-2 border-t pt-3">
+                          {derivedRows.map((dr) => {
+                            const toBase = dr.to_user_collection?.collection_base
+                            const toName = toBase?.name ?? "Derived item"
+                            const imgTo = derivedImageUrls[`to:${dr.to_user_collection_id}`]
+                            const toItemId = dr.to_user_collection?.collection_item_id
+                            const toG = dr.to_user_collection?.graded ?? false
+
+                            return (
+                              <div key={dr.id} className="flex flex-col gap-1 rounded-lg border bg-muted/10 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    {sideLink(
+                                      toItemId,
+                                      toG,
+                                      toName,
+                                      imgTo,
+                                      "Derived item",
+                                      metaLine(toBase)
+                                    )}
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                    <p className="text-sm font-semibold tabular-nums">
+                                      {formatMoneyHKD(dr.costTotal)}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                      {new Date(dr.created_at).toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {dr.costLines.length ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    {dr.costLines
+                                      .map((c) => `${c.type} ${formatMoneyHKD(Number(c.price) || 0)}`)
+                                      .join(" · ")}
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">No cost entries.</p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{name}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {new Date(dr.created_at).toLocaleString()}
-                        </p>
-                      </div>
-                    </Link>
-                  )
-                })}
+                    )
+                  })
+                })()}
               </div>
             )}
           </section>
@@ -590,6 +854,7 @@ export function CollectionInfo() {
         sourceCollectionItemId={collection_item_id}
         sourceGraded={graded}
         sourceQuantity={sourceQuantity}
+        onSubmitted={() => setReloadKey((k) => k + 1)}
       />
 
       <GradingCostDialog
@@ -597,6 +862,7 @@ export function CollectionInfo() {
         onOpenChange={setGradeOpen}
         collectionItemId={collection_item_id}
         sourceQuantity={sourceQuantity}
+        onSubmitted={() => setReloadKey((k) => k + 1)}
       />
     </main>
   )

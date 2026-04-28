@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 import type { DerivedItemCostTarget, CostEntry } from "@/components/dialogs/DerivedItemCostDialog"
 import { ArrowRight } from "lucide-react"
+import { toast } from "sonner"
 
 type Provider = "PSA"
 type DeriveMode = "create_new" | "choose_from_base"
@@ -52,6 +53,7 @@ type Props = {
   targets: DerivedItemCostTarget[]
   generalCosts?: CostEntry[]
   perItemCosts: Record<string, CostEntry[]>
+  onSubmitted?: () => void
 }
 
 function moneyHKD(n: number): string {
@@ -81,6 +83,7 @@ export function DeriveSummaryDialog({
   targets,
   generalCosts: _generalCosts,
   perItemCosts,
+  onSubmitted,
 }: Props) {
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
   const [source, setSource] = useState<SourceBase | null>(null)
@@ -417,6 +420,8 @@ export function DeriveSummaryDialog({
     }
 
     onOpenChange(false)
+    onSubmitted?.()
+    toast.success("Saved successfully", { duration: 5000 })
   }
 
   return (

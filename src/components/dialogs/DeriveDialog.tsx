@@ -69,6 +69,7 @@ type Props = {
   sourceCollectionItemId: string
   sourceGraded: boolean
   sourceQuantity: number
+  onSubmitted?: () => void
 }
 
 function uid(): string {
@@ -83,6 +84,7 @@ export function DeriveDialog({
   sourceCollectionItemId: _sourceCollectionItemId,
   sourceGraded: _sourceGraded,
   sourceQuantity,
+  onSubmitted,
 }: Props) {
   const [items, setItems] = useState<DerivedItemDraft[]>(() => [
     {
@@ -897,6 +899,12 @@ export function DeriveDialog({
         targets={costTargets}
         generalCosts={[]}
         perItemCosts={perItemCosts}
+        onSubmitted={() => {
+          setSummaryOpen(false)
+          setCostOpen(false)
+          onOpenChange(false)
+          onSubmitted?.()
+        }}
       />
     </>
   )
