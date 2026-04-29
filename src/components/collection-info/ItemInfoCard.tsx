@@ -1,0 +1,143 @@
+import { Button } from "@/components/ui/button"
+import { GradedChip } from "@/components/GradedChip"
+import { GradingChip } from "@/components/GradingChip"
+import type { CollectionBase } from "@/components/collection-info/types"
+
+function Skeleton({ className }: { className: string }) {
+  return <div className={`animate-pulse rounded bg-white/10 ${className}`} />
+}
+
+type Props = {
+  loading: boolean
+  imageUrl: string | null
+  title: string
+  grading: { provider: string; grade: number } | null
+  gradingRecordCount: number
+  item: CollectionBase | null
+  itemFields: Array<{ label: string; value: string | null }>
+  sourceQuantity: number
+  availableQuantity: number
+  graded: boolean
+  onOpenGrade: () => void
+  onOpenDerive: () => void
+}
+
+export function ItemInfoCard({
+  loading,
+  imageUrl,
+  title,
+  grading,
+  gradingRecordCount,
+  item,
+  itemFields,
+  sourceQuantity,
+  availableQuantity,
+  graded,
+  onOpenGrade,
+  onOpenDerive,
+}: Props) {
+  const disableActions = loading || !item || availableQuantity <= 0
+
+  return (
+    <section className="min-w-0 rounded-2xl border bg-zinc-900 p-4 text-left text-white lg:sticky lg:top-6 lg:self-start">
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+        <div className="aspect-[4/3] w-full max-h-72 bg-white/5">
+          {imageUrl ? (
+            <img src={imageUrl} alt={title} className="h-full w-full object-contain" />
+          ) : (
+            <div className="h-full w-full animate-pulse bg-white/10" />
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {loading && !grading ? (
+          <div className="flex items-center justify-start">
+            <Skeleton className="h-5 w-24" />
+          </div>
+        ) : grading && Number(grading.grade) > 1 ? (
+          <div className="flex items-center justify-start gap-2">
+            <GradedChip provider={grading.provider} grade={grading.grade} tone="dark" />
+            <GradingChip count={gradingRecordCount} tone="dark" />
+          </div>
+        ) : loading ? (
+          <Skeleton className="h-5 w-28" />
+        ) : (
+          <div className="flex items-center justify-start">
+            <GradingChip count={gradingRecordCount} tone="dark" />
+          </div>
+        )}
+
+        {loading && !item ? (
+          <Skeleton className="h-5 w-40" />
+        ) : (
+          <h1 className="m-0 text-base font-semibold leading-snug">{title}</h1>
+        )}
+
+        <div className="grid grid-cols-[110px_1fr] gap-3 text-sm">
+          <span className="text-white/60">Current quantity</span>
+          <span className="min-w-0 text-white/90">{sourceQuantity}</span>
+        </div>
+
+        <dl className="space-y-2 text-sm">
+          {loading && !item ? (
+            <>
+              <div className="grid grid-cols-[110px_1fr] gap-3">
+                <dt className="text-white/60">Game Title</dt>
+                <dd className="min-w-0">
+                  <Skeleton className="h-4 w-32" />
+                </dd>
+              </div>
+              <div className="grid grid-cols-[110px_1fr] gap-3">
+                <dt className="text-white/60">Card Number</dt>
+                <dd className="min-w-0">
+                  <Skeleton className="h-4 w-24" />
+                </dd>
+              </div>
+              <div className="grid grid-cols-[110px_1fr] gap-3">
+                <dt className="text-white/60">Name</dt>
+                <dd className="min-w-0">
+                  <Skeleton className="h-4 w-40" />
+                </dd>
+              </div>
+            </>
+          ) : itemFields.length ? (
+            itemFields.map((f) => (
+              <div key={f.label} className="grid grid-cols-[110px_1fr] gap-3">
+                <dt className="text-white/60">{f.label}</dt>
+                <dd className="min-w-0 text-white/90">{f.value}</dd>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-white/60">No item details found.</p>
+          )}
+        </dl>
+
+        <div className="pt-2">
+          {!graded ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10"
+              onClick={onOpenGrade}
+              disabled={disableActions}
+            >
+              Grade
+            </Button>
+          ) : null}
+          <div className={!graded ? "mt-2" : undefined}>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10"
+              onClick={onOpenDerive}
+              disabled={disableActions}
+            >
+              Derive
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}

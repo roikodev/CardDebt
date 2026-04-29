@@ -29,12 +29,20 @@ type SourceBase = {
   image_cloud_path: string | null
 }
 
+type SourceUserCollectionRow = {
+  id: string
+  created_at: string
+  collection_item_id: string
+  graded: boolean
+}
+
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   collectionItemId: string
   sourceQuantity: number
   quantity: number
+  sendingDate: string
   costs: CostEntry[]
   onDone?: () => void
 }
@@ -49,18 +57,27 @@ function sumCosts(costs: CostEntry[] | undefined): number {
   return costs.reduce((sum, c) => sum + (Number(c.costHKD) || 0), 0)
 }
 
+function uid(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : String(Date.now() + Math.random())
+}
+
 export function GradingCostSummaryDialog({
   open,
   onOpenChange,
   collectionItemId,
   sourceQuantity,
   quantity,
+  sendingDate,
   costs,
   onDone,
 }: Props) {
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
   const [source, setSource] = useState<SourceBase | null>(null)
   const [sourceImg, setSourceImg] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const per1 = useMemo(() => sumCosts(costs), [costs])
@@ -70,6 +87,8 @@ export function GradingCostSummaryDialog({
     if (!open) return
     setSource(null)
     setSourceImg(null)
+    setSubmitError(null)
+    setSubmitting(false)
     abortRef.current?.abort()
     abortRef.current = new AbortController()
     const { signal } = abortRef.current
@@ -105,6 +124,149 @@ export function GradingCostSummaryDialog({
 
     return () => abortRef.current?.abort()
   }, [collectionItemId, open, workerOrigin])
+
+  async function handleDone() {
+    if (submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+
+    const userRes = await supabase.auth.getUser()
+    const userId = userRes.data.user?.id ?? null
+    if (!userId) {
+      setSubmitError("You are not signed in.")
+      setSubmitting(false)
+      return
+    }
+
+    // Step 1: load source user_collection rows by collection_item_id + graded in ascending created_at.
+    const takeCount = Math.max(0, Math.trunc(Number(quantity) || 0))
+    if (!takeCount) {
+      setSubmitError("Quantity must be at least 1.")
+      setSubmitting(false)
+      return
+    }
+
+    const sourceRowsRes = await supabase
+      .from("user_collection")
+      .select("id, created_at, collection_item_id, graded")
+      .eq("user_id", userId)
+      .eq("collection_item_id", collectionItemId)
+      .eq("graded", false)
+      .eq("derived", false)
+      .eq("grading", false)
+      .order("created_at", { ascending: true })
+      .limit(takeCount)
+
+    if (sourceRowsRes.error) {
+      setSubmitError(sourceRowsRes.error.message)
+      setSubmitting(false)
+      return
+    }
+
+    const sourceRows = (sourceRowsRes.data ?? []) as SourceUserCollectionRow[]
+    if (sourceRows.length < takeCount) {
+      setSubmitError("No matching source records found.")
+      setSubmitting(false)
+      return
+    }
+
+    const targetIds = sourceRows.map((r) => r.id).filter((v): v is string => Boolean(v))
+    if (!targetIds.length) {
+      setSubmitError("No matching source records found.")
+      setSubmitting(false)
+      return
+    }
+
+    const updateRes = await supabase
+      .from("user_collection")
+      .update({ grading: true })
+      .in("id", targetIds)
+
+    if (updateRes.error) {
+      setSubmitError(updateRes.error.message)
+      setSubmitting(false)
+      return
+    }
+
+    const sentAtIso = sendingDate?.trim() ? `${sendingDate}T00:00:00` : null
+    if (!sentAtIso) {
+      setSubmitError("Sending Date is required.")
+      setSubmitting(false)
+      return
+    }
+
+    const sendingRows = targetIds.map((id) => ({
+      user_id: userId,
+      user_collection_id: id,
+      sent_at: sentAtIso,
+    }))
+
+    const sendingRes = await supabase
+      .from("user_collection_sending_to_grade")
+      .insert(sendingRows)
+
+    if (sendingRes.error) {
+      setSubmitError(sendingRes.error.message)
+      setSubmitting(false)
+      return
+    }
+
+    // For each sending-to-grade item, create miscellaneous entries from grading costs
+    // and map them to user_collection_miscellaneous.
+    const validCosts = costs.filter((c) => (c.date ?? "").trim().length > 0)
+    if (validCosts.length) {
+      const miscellaneousRows: Array<{
+        id: string
+        user_id: string
+        type: string
+        description: string | null
+        price: number
+        date: string
+      }> = []
+      const ucmRows: Array<{
+        user_id: string
+        user_collection_id: string
+        miscellaneous_entries_id: string
+      }> = []
+
+      for (const userCollectionId of targetIds) {
+        for (const c of validCosts) {
+          const miscId = uid()
+          miscellaneousRows.push({
+            id: miscId,
+            user_id: userId,
+            type: c.type,
+            description: c.description?.trim() ? c.description.trim() : null,
+            price: Number(c.costHKD) || 0,
+            date: c.date,
+          })
+          ucmRows.push({
+            user_id: userId,
+            user_collection_id: userCollectionId,
+            miscellaneous_entries_id: miscId,
+          })
+        }
+      }
+
+      const miscRes = await supabase.from("miscellaneous_entries").insert(miscellaneousRows)
+      if (miscRes.error) {
+        setSubmitError(miscRes.error.message)
+        setSubmitting(false)
+        return
+      }
+
+      const ucmRes = await supabase.from("user_collection_miscellaneous").insert(ucmRows)
+      if (ucmRes.error) {
+        setSubmitError(ucmRes.error.message)
+        setSubmitting(false)
+        return
+      }
+    }
+
+    onDone?.()
+    onOpenChange(false)
+    setSubmitting(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,25 +350,29 @@ export function GradingCostSummaryDialog({
 
             <div className="rounded-xl border bg-card p-3">
               <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">Sending Date</p>
+                <p className="text-sm font-semibold">{sendingDate || "—"}</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-card p-3">
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold">Total cost</p>
                 <p className="text-sm font-semibold">{moneyHKD(total)}</p>
               </div>
+              {submitError ? (
+                <p className="mt-2 text-sm text-destructive">{submitError}</p>
+              ) : null}
             </div>
           </div>
         </div>
 
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Back
             </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                onDone?.()
-                onOpenChange(false)
-              }}
-            >
+            <Button type="button" onClick={handleDone} disabled={submitting}>
               Done
             </Button>
           </div>

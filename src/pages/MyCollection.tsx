@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { GradedChip } from "@/components/GradedChip"
 import { GradingChip } from "@/components/GradingChip"
 import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
@@ -20,9 +21,13 @@ type UserCollectionRow = {
   id: string
   derived?: boolean
   graded: boolean
+  grading: boolean
   collection_item_id: string
   collection_base: CollectionBase | null
-  user_collection_grading?: { provider: string; grade: number } | null
+  user_collection_grading?:
+    | { provider: string; grade: number }
+    | { provider: string; grade: number }[]
+    | null
 }
 
 type CollectionGroup = {
@@ -31,7 +36,8 @@ type CollectionGroup = {
   graded: boolean
   count: number
   base: CollectionBase | null
-  grading: { provider: string; grade: number } | null
+  gradedLevelCounts: Record<string, { provider: string; grade: number; count: number }>
+  gradingCount: number
 }
 
 // --- Sub-Component: Individual Card Thumbnail ---
@@ -68,8 +74,8 @@ function CollectionCard({
 
   const name = group.base?.name ?? "Untitled"
   const meta = [group.base?.game_title, group.base?.card_no].filter(Boolean).join(" · ")
-  const grading = group.grading
-
+  const gradingCount = group.gradingCount
+  const gradedLevels = Object.values(group.gradedLevelCounts).sort((a, b) => b.grade - a.grade)
   return (
     <Link
       to="/user/my-collection/$collection_item_id"
@@ -87,13 +93,22 @@ function CollectionCard({
           <div className="h-full w-full animate-pulse bg-muted/50" />
         )}
       </div>
-      <div className="flex h-[88px] flex-col gap-1 p-3">
-        <div className="h-5">
-          {grading ? (
-            <div className="flex items-center justify-start">
-              <GradingChip provider={grading.provider} grade={grading.grade} tone="light" />
+      <div className="flex min-h-[92px] flex-col gap-1 p-3">
+        <div className="min-h-5">
+          {(gradedLevels.length > 0 || gradingCount > 0) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {gradedLevels.map((lvl) => (
+                <GradedChip
+                  key={`${lvl.provider}-${lvl.grade}`}
+                  provider={lvl.provider}
+                  grade={lvl.grade}
+                  count={lvl.count}
+                  tone="light"
+                />
+              ))}
+              {gradingCount > 0 && <GradingChip count={gradingCount} tone="light" />}
             </div>
-          ) : null}
+          )}
         </div>
         <p className="line-clamp-2 text-sm font-medium leading-snug">{name}</p>
         <p className="text-xs text-muted-foreground">{meta || "—"}</p>
@@ -136,7 +151,7 @@ export function MyCollection() {
       const { data } = await supabase
         .from("user_collection")
         .select(`
-          id, derived, graded, collection_item_id, 
+          id, derived, graded, grading, collection_item_id, 
           collection_base:collection_item_id ( id, game_title, card_no, name, image_cloud_path ), 
           user_collection_grading:user_collection_grading ( provider, grade )
         `)
@@ -146,14 +161,35 @@ export function MyCollection() {
 
       const rows = data as unknown as UserCollectionRow[]
       const map = new Map<string, CollectionGroup>()
+      console.log(rows)
       rows?.forEach(r => {
         const key = `${r.collection_item_id}:${r.graded ? "1" : "0"}`
-        const existing = map.get(key)
-        if (existing) existing.count++
-        else map.set(key, {
-          key, collection_item_id: r.collection_item_id, graded: r.graded, count: 1,
-          base: r.collection_base, grading: r.graded && r.user_collection_grading ? r.user_collection_grading : null,
-        })
+        const rawGrading = r.user_collection_grading
+        const gradingDetail = Array.isArray(rawGrading) ? (rawGrading[0] ?? null) : (rawGrading ?? null)
+        const levelKey = gradingDetail ? `${gradingDetail.provider}:${gradingDetail.grade}` : null
+        const isGrading = Boolean(r.grading)
+        let target = map.get(key)
+        if (!target) {
+          target = {
+            key,
+            collection_item_id: r.collection_item_id,
+            graded: r.graded,
+            count: 0,
+            base: r.collection_base,
+            gradedLevelCounts: {},
+            gradingCount: 0,
+          }
+          map.set(key, target)
+        }
+
+        target.count++
+        if (isGrading) target.gradingCount++
+        if (r.graded && gradingDetail && levelKey) {
+          const current = target.gradedLevelCounts[levelKey]
+          target.gradedLevelCounts[levelKey] = current
+            ? { ...current, count: current.count + 1 }
+            : { provider: gradingDetail.provider, grade: gradingDetail.grade, count: 1 }
+        }
       })
       setGroups(Array.from(map.values()))
       setLoading(false)
@@ -196,7 +232,7 @@ export function MyCollection() {
               {rowVirtualizer.getVirtualItems().map((vRow) => {
                 const startIndex = vRow.index * cols
                 const rowItems = groups.slice(startIndex, startIndex + cols)
-
+                console.log(rowItems)
                 return (
                   <div
                     key={vRow.key}
