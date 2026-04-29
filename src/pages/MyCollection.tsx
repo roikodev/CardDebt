@@ -124,6 +124,7 @@ export function MyCollection() {
 
   const [loading, setLoading] = useState(false)
   const [groups, setGroups] = useState<CollectionGroup[]>([])
+  const [groupFilter, setGroupFilter] = useState<"all" | "graded" | "raw">("all")
 
   useEffect(() => {
     if (!user?.id) return
@@ -187,54 +188,87 @@ export function MyCollection() {
 
   return (
     <main className="flex h-screen max-h-screen flex-col overflow-hidden bg-background text-foreground">
-      <div className="mx-auto flex h-full w-full max-w-7xl flex-col px-4 py-6">
-        <header className="flex shrink-0 items-center gap-4 pb-6">
+      <div className="mx-auto flex h-full w-full max-w-7xl flex-col">
+        <header className="flex shrink-0 items-center gap-4 px-4 py-6">
           <Button variant="ghost" className="gap-2" onClick={() => navigate({ to: "/user/dashboard" })}>
             <ArrowLeft className="size-5" />
             Dashboard
           </Button>
           <h1 className="text-xl font-semibold">My Collection</h1>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={groupFilter === "all" ? "default" : "outline"}
+              onClick={() => setGroupFilter("all")}
+            >
+              All
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={groupFilter === "graded" ? "default" : "outline"}
+              onClick={() => setGroupFilter("graded")}
+            >
+              Graded
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={groupFilter === "raw" ? "default" : "outline"}
+              onClick={() => setGroupFilter("raw")}
+            >
+              Raw
+            </Button>
+          </div>
         </header>
 
         {/* This container now grows to fill the remaining space and handles scrolling */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden rounded-xl scrollbar-hide">
+        <div
+          className="scrollbar-hide flex-1 overflow-y-auto overflow-x-hidden rounded-xl px-4 pb-4 [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           {loading ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {[...Array(12)].map((_, i) => <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />)}
             </div>
           ) : (
             <div className="space-y-6">
-              <section>
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-base font-semibold">Graded</h2>
-                  <span className="text-sm text-muted-foreground">{gradedGroups.length} groups</span>
-                </div>
-                {gradedGroups.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No graded groups.</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                    {gradedGroups.map((g) => (
-                      <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
-                    ))}
+              {groupFilter !== "raw" && (
+                <section>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-base font-semibold">Graded</h2>
+                    <span className="text-sm text-muted-foreground">{gradedGroups.length} groups</span>
                   </div>
-                )}
-              </section>
+                  {gradedGroups.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No graded groups.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                      {gradedGroups.map((g) => (
+                        <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
 
-              <section>
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-base font-semibold">Raw Cards</h2>
-                  <span className="text-sm text-muted-foreground">{rawCardGroups.length} groups</span>
-                </div>
-                {rawCardGroups.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No raw card groups.</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                    {rawCardGroups.map((g) => (
-                      <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
-                    ))}
+              {groupFilter !== "graded" && (
+                <section>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-base font-semibold">Raw</h2>
+                    <span className="text-sm text-muted-foreground">{rawCardGroups.length} groups</span>
                   </div>
-                )}
-              </section>
+                  {rawCardGroups.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No raw card groups.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                      {rawCardGroups.map((g) => (
+                        <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
           )}
         </div>

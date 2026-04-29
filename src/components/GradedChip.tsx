@@ -7,7 +7,7 @@ type Props = {
 }
 
 export function GradedChip({ provider, grade, count, tone = "light", className }: Props) {
-  const label = `${provider} ${grade}${typeof count === "number" ? `: ${count}` : ""}`
+  const label = `${provider} ${grade}${typeof count === "number" ? ` x ${count}` : ""}`
   const isPsa10 = provider === "PSA" && Number(grade) === 10
   const isPsa9 = provider === "PSA" && Number(grade) === 9
 
