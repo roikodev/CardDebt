@@ -73,6 +73,7 @@ export function GradingCostDialog({
 }: Props) {
   const [costs, setCosts] = useState<CostEntry[]>([])
   const [quantity, setQuantity] = useState(1)
+  const [sendingDate, setSendingDate] = useState(todayISODate())
   const [summaryOpen, setSummaryOpen] = useState(false)
 
   const maxQuantity = useMemo(() => Math.max(0, sourceQuantity || 0), [sourceQuantity])
@@ -82,6 +83,7 @@ export function GradingCostDialog({
     if (open) return
     setCosts([])
     setQuantity(1)
+    setSendingDate(todayISODate())
     setSummaryOpen(false)
   }, [open])
 
@@ -114,6 +116,16 @@ export function GradingCostDialog({
                       const n = Number(e.target.value)
                       setQuantity(Number.isFinite(n) ? Math.max(1, Math.trunc(n)) : 1)
                     }}
+                  />
+                </Field>
+
+                <Field className="gap-2">
+                  <FieldLabel htmlFor="grading-sending-date">Sending Date</FieldLabel>
+                  <Input
+                    id="grading-sending-date"
+                    type="date"
+                    value={sendingDate}
+                    onChange={(e) => setSendingDate(e.target.value)}
                   />
                 </Field>
               </FieldGroup>
@@ -268,6 +280,7 @@ export function GradingCostDialog({
         onOpenChange={setSummaryOpen}
         collectionItemId={_collectionItemId}
         quantity={quantity}
+        sendingDate={sendingDate}
         sourceQuantity={maxQuantity}
         costs={costs}
         onDone={() => {

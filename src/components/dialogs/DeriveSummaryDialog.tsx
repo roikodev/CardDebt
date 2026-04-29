@@ -174,6 +174,7 @@ export function DeriveSummaryDialog({
       .eq("collection_item_id", sourceCollectionItemId)
       .eq("graded", sourceGraded)
       .eq("derived", false)
+      .eq("grading", false)
       .order("created_at", { ascending: true })
       .limit(setsInt)
 
