@@ -46,3 +46,10 @@ export type GradingRecordRow = {
   costLines: MiscCostLine[]
   costTotal: number
 }
+
+export type OverviewCollectionRow = {
+  id: string
+  derived: boolean
+  grading: boolean
+  created_at: string
+}

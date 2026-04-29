@@ -5,8 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-import { useVirtualizer } from "@tanstack/react-virtual"
+import { useEffect, useMemo, useState } from "react"
 
 // --- Types ---
 type CollectionBase = {
@@ -125,24 +124,6 @@ export function MyCollection() {
 
   const [loading, setLoading] = useState(false)
   const [groups, setGroups] = useState<CollectionGroup[]>([])
-  const [cols, setCols] = useState(2)
-  const [rowHeight, setRowHeight] = useState(280)
-  
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    const update = () => {
-      const w = window.innerWidth
-      if (w >= 1280) { setCols(6); setRowHeight(240); }
-      else if (w >= 1024) { setCols(5); setRowHeight(250); }
-      else if (w >= 768) { setCols(4); setRowHeight(260); }
-      else if (w >= 640) { setCols(3); setRowHeight(270); }
-      else { setCols(2); setRowHeight(280); }
-    }
-    update()
-    window.addEventListener("resize", update)
-    return () => window.removeEventListener("resize", update)
-  }, [])
 
   useEffect(() => {
     if (!user?.id) return
@@ -161,7 +142,6 @@ export function MyCollection() {
 
       const rows = data as unknown as UserCollectionRow[]
       const map = new Map<string, CollectionGroup>()
-      console.log(rows)
       rows?.forEach(r => {
         const key = `${r.collection_item_id}:${r.graded ? "1" : "0"}`
         const rawGrading = r.user_collection_grading
@@ -196,13 +176,14 @@ export function MyCollection() {
     })()
   }, [user?.id])
 
-  const rowCount = Math.ceil(groups.length / cols)
-  const rowVirtualizer = useVirtualizer({
-    count: rowCount,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 5,
-  })
+  const gradedGroups = useMemo(
+    () => groups.filter((g) => g.graded).sort((a, b) => b.count - a.count),
+    [groups]
+  )
+  const rawCardGroups = useMemo(
+    () => groups.filter((g) => !g.graded).sort((a, b) => b.count - a.count),
+    [groups]
+  )
 
   return (
     <main className="flex h-screen max-h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -216,39 +197,44 @@ export function MyCollection() {
         </header>
 
         {/* This container now grows to fill the remaining space and handles scrolling */}
-        <div 
-          ref={scrollRef} 
-          className="flex-1 overflow-y-auto overflow-x-hidden rounded-xl scrollbar-hide"
-        >
+        <div className="flex-1 overflow-y-auto overflow-x-hidden rounded-xl scrollbar-hide">
           {loading ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {[...Array(12)].map((_, i) => <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />)}
             </div>
           ) : (
-            <div
-              className="relative w-full"
-              style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-            >
-              {rowVirtualizer.getVirtualItems().map((vRow) => {
-                const startIndex = vRow.index * cols
-                const rowItems = groups.slice(startIndex, startIndex + cols)
-                console.log(rowItems)
-                return (
-                  <div
-                    key={vRow.key}
-                    className="absolute left-0 top-0 grid w-full gap-4 py-2"
-                    style={{
-                      height: `${vRow.size}px`,
-                      transform: `translateY(${vRow.start}px)`,
-                      gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                    }}
-                  >
-                    {rowItems.map((g) => (
+            <div className="space-y-6">
+              <section>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-base font-semibold">Graded</h2>
+                  <span className="text-sm text-muted-foreground">{gradedGroups.length} groups</span>
+                </div>
+                {gradedGroups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No graded groups.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                    {gradedGroups.map((g) => (
                       <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
                     ))}
                   </div>
-                )
-              })}
+                )}
+              </section>
+
+              <section>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-base font-semibold">Raw Cards</h2>
+                  <span className="text-sm text-muted-foreground">{rawCardGroups.length} groups</span>
+                </div>
+                {rawCardGroups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No raw card groups.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                    {rawCardGroups.map((g) => (
+                      <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           )}
         </div>

@@ -15,6 +15,7 @@ import type {
   DerivedRecordRow,
   GradingRecordRow,
   MiscCostLine,
+  OverviewCollectionRow,
   UserCollectionRow,
 } from "@/components/collection-info/types"
 
@@ -32,7 +33,7 @@ export function CollectionInfo() {
   const search = Route.useSearch()
   const graded = Boolean(search.graded)
 
-  const [recordsView, setRecordsView] = useState<"purchase" | "derived" | "grading">("purchase")
+  const [recordsView, setRecordsView] = useState<"overview" | "purchase" | "derived" | "grading">("overview")
   const [reloadKey, setReloadKey] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +49,7 @@ export function CollectionInfo() {
   const [derivedRecords, setDerivedRecords] = useState<DerivedRecordRow[]>([])
   const [derivedImageUrls, setDerivedImageUrls] = useState<Record<string, string>>({})
   const [gradingRecords, setGradingRecords] = useState<GradingRecordRow[]>([])
+  const [overviewRows, setOverviewRows] = useState<OverviewCollectionRow[]>([])
   const [deriveOpen, setDeriveOpen] = useState(false)
   const [gradeOpen, setGradeOpen] = useState(false)
   const [sourceQuantity, setSourceQuantity] = useState(0)
@@ -80,7 +82,8 @@ export function CollectionInfo() {
     setDerivedRecords([])
     setDerivedImageUrls({})
     setGradingRecords([])
-    setRecordsView("purchase")
+    setOverviewRows([])
+    setRecordsView("overview")
 
     abortRef.current?.abort()
     abortRef.current = new AbortController()
@@ -142,12 +145,16 @@ export function CollectionInfo() {
 
       const allUcForCardRes = await supabase
         .from("user_collection")
-        .select("id, grading")
+        .select("id, derived, grading, created_at")
         .eq("user_id", userId)
         .eq("collection_item_id", collection_item_id)
         .eq("graded", graded)
 
       if (signal.aborted) return
+
+      if (!allUcForCardRes.error && allUcForCardRes.data) {
+        setOverviewRows((allUcForCardRes.data ?? []) as OverviewCollectionRow[])
+      }
 
       const allUcIdsForCard = Array.from(
         new Set(
@@ -549,6 +556,7 @@ export function CollectionInfo() {
             derivedRecords={derivedRecords}
             derivedImageUrls={derivedImageUrls}
             gradingRecords={gradingRecords}
+            overviewRows={overviewRows}
             sourceImageUrl={imageUrl}
             sourceTitle={title}
             formatMoneyHKD={formatMoneyHKD}
