@@ -4,11 +4,20 @@ import type {
   GradingRecordRow,
   OverviewCollectionRow,
 } from "@/components/collection-info/types"
+import { cn } from "@/lib/utils"
 
 export type RecordsView = "overview" | "purchase" | "derived" | "grading"
 
-export function SkeletonMuted({ className }: { className: string }) {
-  return <div className={`animate-pulse rounded bg-muted/50 ${className}`} />
+/** Shimmer block: stays within flex/grid parents (min-w-0, max-w-full, overflow hidden). */
+export function SkeletonMuted({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "min-h-[0.5rem] min-w-0 max-w-full shrink overflow-hidden rounded-md bg-muted/50 animate-pulse",
+        className
+      )}
+    />
+  )
 }
 
 export function getPanelMeta(args: {

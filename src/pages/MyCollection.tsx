@@ -373,32 +373,8 @@ export function MyCollection() {
               {[...Array(12)].map((_, i) => <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />)}
             </div>
           ) : (
-            <div className="space-y-6">
-              {groupFilter === "empty" ? (
-                <section>
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Empty</h2>
-                    <span className="text-sm text-muted-foreground">{emptyBases.length} items</span>
-                  </div>
-                  {emptyLoading ? (
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                      {[...Array(12)].map((_, i) => (
-                        <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />
-                      ))}
-                    </div>
-                  ) : emptyBases.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No empty items.</p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                      {emptyBases.map((b) => (
-                        <EmptyCollectionCard key={b.id} base={b} workerOrigin={workerOrigin} />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              ) : null}
-
-              {groupFilter !== "raw" && (
+            <div className="space-y-6 pt-4 pb-40">
+              {(groupFilter === "all" || groupFilter === "graded") && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-base font-semibold">Graded</h2>
@@ -416,7 +392,7 @@ export function MyCollection() {
                 </section>
               )}
 
-              {groupFilter !== "graded" && (
+              {(groupFilter === "all" || groupFilter === "raw") && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-base font-semibold">Raw</h2>
@@ -428,6 +404,30 @@ export function MyCollection() {
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                       {rawCardGroups.map((g) => (
                         <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {(groupFilter === "all" || groupFilter === "empty") && (
+                <section>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-base font-semibold">Empty</h2>
+                    <span className="text-sm text-muted-foreground">{emptyBases.length} items</span>
+                  </div>
+                  {emptyLoading ? (
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                      {[...Array(12)].map((_, i) => (
+                        <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />
+                      ))}
+                    </div>
+                  ) : emptyBases.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No empty items.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                      {emptyBases.map((b) => (
+                        <EmptyCollectionCard key={b.id} base={b} workerOrigin={workerOrigin} />
                       ))}
                     </div>
                   )}

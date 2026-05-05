@@ -9,15 +9,15 @@ type Props = {
 export function OverviewRecordsSection({ loading, overviewRows }: Props) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="rounded-xl border bg-background/40 p-3">
-            <SkeletonMuted className="h-4 w-16" />
-            <div className="mt-2">
-              <SkeletonMuted className="h-5 w-20" />
+          <div key={i} className="min-w-0 overflow-hidden rounded-xl border bg-background/40 p-3">
+            <SkeletonMuted className="h-4 w-full max-w-16" />
+            <div className="mt-2 min-w-0">
+              <SkeletonMuted className="h-5 w-full max-w-20" />
             </div>
-            <div className="mt-2">
-              <SkeletonMuted className="h-3 w-24" />
+            <div className="mt-2 min-w-0">
+              <SkeletonMuted className="h-3 w-full max-w-24" />
             </div>
           </div>
         ))}

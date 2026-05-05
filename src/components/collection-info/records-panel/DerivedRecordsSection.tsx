@@ -23,12 +23,12 @@ export function DerivedRecordsSection({
     return (
       <div className="space-y-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-xl border bg-background/40 p-3">
-            <SkeletonMuted className="h-12 w-12" />
+          <div key={i} className="flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border bg-background/40 p-3">
+            <SkeletonMuted className="h-12 w-12 shrink-0" />
             <div className="min-w-0 flex-1">
-              <SkeletonMuted className="h-4 w-40" />
-              <div className="mt-2">
-                <SkeletonMuted className="h-3 w-24" />
+              <SkeletonMuted className="h-4 w-full max-w-[10rem]" />
+              <div className="mt-2 min-w-0">
+                <SkeletonMuted className="h-3 w-full max-w-24" />
               </div>
             </div>
           </div>

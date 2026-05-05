@@ -29,7 +29,7 @@ type Props = {
 
 export function RecordsPanel(props: Props) {
   return (
-    <section className="min-w-0 rounded-2xl border bg-card/40 p-4 text-left">
+    <section className="min-w-0 overflow-hidden rounded-2xl border bg-card/40 p-3 text-left sm:p-4">
       <RecordsPanelHeader
         recordsView={props.recordsView}
         setRecordsView={props.setRecordsView}
