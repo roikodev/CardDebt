@@ -21,6 +21,7 @@ export type UserCollectionRow = {
 }
 
 export type MiscCostLine = {
+  id: string
   date: string
   price: number
   type: string

@@ -251,6 +251,7 @@ export function CollectionInfo() {
                 description: string | null
               }>) {
                 miscMap.set(me.id, {
+                  id: me.id,
                   date: me.date,
                   price: Number(me.price) || 0,
                   type: me.type,
@@ -443,6 +444,7 @@ export function CollectionInfo() {
                     description: string | null
                   }>) {
                     miscMap.set(me.id, {
+                      id: me.id,
                       date: me.date,
                       price: Number(me.price) || 0,
                       type: me.type,

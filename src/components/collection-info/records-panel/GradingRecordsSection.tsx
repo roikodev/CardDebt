@@ -2,6 +2,8 @@ import { SkeletonMuted } from "@/components/collection-info/records-panel/shared
 import type { GradingRecordRow } from "@/components/collection-info/types"
 import { Button } from "@/components/ui/button"
 import { UpdateGradingExecutionDialog } from "@/components/dialogs/UpdateGradingExecutionDialog"
+import { EditGradingRecordDialog } from "@/components/dialogs/EditGradingRecordDialog"
+import { CancelGradingRecordDialog } from "@/components/dialogs/CancelGradingRecordDialog"
 import { useState } from "react"
 
 type Props = {
@@ -22,6 +24,8 @@ export function GradingRecordsSection({
   onUpdated,
 }: Props) {
   const [updating, setUpdating] = useState<null | { recordId: string; userCollectionId: string }>(null)
+  const [editing, setEditing] = useState<null | { recordId: string; userCollectionId: string }>(null)
+  const [cancelling, setCancelling] = useState<null | { recordId: string; userCollectionId: string }>(null)
 
   if (loading) {
     return (
@@ -61,14 +65,33 @@ export function GradingRecordsSection({
             </div>
             <div className="ml-auto flex shrink-0 flex-col items-end gap-2 text-right">
               <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(r.costTotal)}</p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setUpdating({ recordId: r.id, userCollectionId: r.user_collection_id })}
-              >
-                Update
-              </Button>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="bg-white text-black hover:bg-white/90"
+                  onClick={() => setUpdating({ recordId: r.id, userCollectionId: r.user_collection_id })}
+                >
+                  Update
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditing({ recordId: r.id, userCollectionId: r.user_collection_id })}
+                >
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setCancelling({ recordId: r.id, userCollectionId: r.user_collection_id })}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           </div>
           {r.costLines.length ? (
@@ -90,6 +113,29 @@ export function GradingRecordsSection({
         sendingRecordId={updating?.recordId ?? ""}
         userCollectionId={updating?.userCollectionId ?? ""}
         onUpdated={onUpdated}
+      />
+
+      <EditGradingRecordDialog
+        open={Boolean(editing)}
+        onOpenChange={(o) => {
+          if (!o) setEditing(null)
+        }}
+        userCollectionId={editing?.userCollectionId ?? ""}
+        initialLines={
+          gradingRecords.find((x) => x.id === editing?.recordId)?.costLines ?? []
+        }
+        onSaved={onUpdated}
+      />
+
+      <CancelGradingRecordDialog
+        open={Boolean(cancelling)}
+        onOpenChange={(o) => {
+          if (!o) setCancelling(null)
+        }}
+        sendingRecordId={cancelling?.recordId ?? ""}
+        userCollectionId={cancelling?.userCollectionId ?? ""}
+        costLines={gradingRecords.find((x) => x.id === cancelling?.recordId)?.costLines ?? []}
+        onCancelled={onUpdated}
       />
     </>
   )
