@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -12,14 +13,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field"
+  FormMoneyInput,
+  FormQuantityStepper,
+  FormSelectField,
+  FormSwitchField,
+  FormTextInput,
+} from "@/components/form-input"
+import { FieldError, FieldGroup } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -28,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 
@@ -266,7 +266,12 @@ export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,44rem)] gap-0 overflow-y-auto overflow-x-hidden p-0 sm:max-w-md">
+      <DialogContent className="max-h-[min(90dvh,44rem)] gap-0 overflow-x-hidden p-0 sm:max-w-md">
+        <form
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          onSubmit={handleSubmit(onSubmit)}
+        >
+          <DialogBody className="px-0">
         <div className="p-4 pb-2">
           <DialogHeader>
             <DialogTitle>Buy</DialogTitle>
@@ -294,7 +299,6 @@ export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) 
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="px-4">
             <FieldGroup>
               {errors.root?.message ? (
@@ -312,22 +316,14 @@ export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) 
                   name="graded"
                   control={control}
                   render={({ field }) => (
-                    <Field className="gap-2" data-invalid={!!errors.graded}>
-                      <div className="flex flex-col gap-2 @md/field-group:flex-row @md/field-group:items-center @md/field-group:justify-between">
-                        <div className="flex flex-col gap-0.5">
-                          <FieldLabel htmlFor="buycb-graded">Graded</FieldLabel>
-                          <FieldDescription>
-                            Whether the item is professionally graded.
-                          </FieldDescription>
-                        </div>
-                        <Switch
-                          id="buycb-graded"
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          aria-invalid={!!errors.graded}
-                        />
-                      </div>
-                    </Field>
+                    <FormSwitchField
+                      id="buycb-graded"
+                      label="Graded"
+                      description="Whether the item is professionally graded."
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      invalid={!!errors.graded}
+                    />
                   )}
                 />
 
@@ -337,8 +333,12 @@ export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) 
                       name="provider"
                       control={control}
                       render={({ field: providerField }) => (
-                        <Field className="gap-2" data-invalid={!!errors.provider}>
-                          <FieldLabel htmlFor="buycb-provider">Provider</FieldLabel>
+                        <FormSelectField
+                          label="Provider"
+                          htmlFor="buycb-provider"
+                          error={errors.provider?.message}
+                          invalid={!!errors.provider}
+                        >
                           <Select
                             value={providerField.value}
                             onValueChange={providerField.onChange}
@@ -361,91 +361,73 @@ export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) 
                               </SelectGroup>
                             </SelectContent>
                           </Select>
-                          {errors.provider?.message ? (
-                            <FieldError errors={[{ message: errors.provider.message }]} />
-                          ) : null}
-                        </Field>
+                        </FormSelectField>
                       )}
                     />
 
-                    <Field className="gap-2" data-invalid={!!errors.grade}>
-                      <FieldLabel htmlFor="buycb-grade">Grade</FieldLabel>
-                      <Input
-                        id="buycb-grade"
-                        type="number"
-                        inputMode="decimal"
-                        step="any"
-                        min={0}
-                        placeholder="e.g. 10"
-                        aria-invalid={!!errors.grade}
-                        className="w-full"
-                        {...register("grade")}
-                      />
-                      {errors.grade?.message ? (
-                        <FieldError errors={[{ message: errors.grade.message }]} />
-                      ) : null}
-                    </Field>
-                  </div>
-                ) : null}
-
-                <Field className="gap-2" data-invalid={!!errors.price}>
-                  <FieldLabel htmlFor="buycb-price">Price (per 1)</FieldLabel>
-                  <div className="relative">
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-y-0 left-0 flex items-center rounded-l-lg border border-input bg-muted/50 px-2 text-sm text-muted-foreground"
-                    >
-                      HKD$
-                    </span>
-                    <Input
-                      id="buycb-price"
+                    <FormTextInput
+                      label="Grade"
+                      id="buycb-grade"
+                      error={errors.grade?.message}
+                      invalid={!!errors.grade}
                       type="number"
                       inputMode="decimal"
                       step="any"
                       min={0}
-                      aria-invalid={!!errors.price}
-                      className="w-full pl-16"
-                      {...register("price")}
+                      placeholder="e.g. 10"
+                      {...register("grade")}
                     />
                   </div>
-                  {errors.price?.message ? (
-                    <FieldError errors={[{ message: errors.price.message }]} />
-                  ) : null}
-                </Field>
+                ) : null}
 
-                <Field className="gap-2" data-invalid={!!errors.quantity}>
-                  <FieldLabel htmlFor="buycb-quantity">Quantity</FieldLabel>
-                  <Input
-                    id="buycb-quantity"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    step={1}
-                    aria-invalid={!!errors.quantity}
-                    className="w-full"
-                    {...register("quantity")}
-                  />
-                  {errors.quantity?.message ? (
-                    <FieldError errors={[{ message: errors.quantity.message }]} />
-                  ) : null}
-                </Field>
+                <FormMoneyInput
+                  label="Price (per 1)"
+                  htmlFor="buycb-price"
+                  error={errors.price?.message}
+                  invalid={!!errors.price}
+                  inputProps={{
+                    id: "buycb-price",
+                    type: "number",
+                    inputMode: "decimal",
+                    step: "any",
+                    min: 0,
+                    ...register("price"),
+                  }}
+                />
 
-                <Field className="gap-2" data-invalid={!!errors.purchaseDate}>
-                  <FieldLabel htmlFor="buycb-purchase-date">Purchase Date</FieldLabel>
-                  <Input
-                    id="buycb-purchase-date"
-                    type="date"
-                    aria-invalid={!!errors.purchaseDate}
-                    className="w-full"
-                    {...register("purchaseDate")}
-                  />
-                  {errors.purchaseDate?.message ? (
-                    <FieldError errors={[{ message: errors.purchaseDate.message }]} />
-                  ) : null}
-                </Field>
+                <Controller
+                  name="quantity"
+                  control={control}
+                  render={({ field }) => (
+                    <FormQuantityStepper
+                      label="Quantity"
+                      id="buycb-quantity"
+                      error={errors.quantity?.message}
+                      invalid={!!errors.quantity}
+                      min={1}
+                      value={
+                        typeof field.value === "number" && Number.isFinite(field.value)
+                          ? field.value
+                          : Number(field.value) || 1
+                      }
+                      onValueChange={(n) => field.onChange(n)}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
+
+                <FormTextInput
+                  label="Purchase Date"
+                  id="buycb-purchase-date"
+                  error={errors.purchaseDate?.message}
+                  invalid={!!errors.purchaseDate}
+                  type="date"
+                  {...register("purchaseDate")}
+                />
               </div>
             </FieldGroup>
           </div>
+          </DialogBody>
 
           <DialogFooter>
             <Button

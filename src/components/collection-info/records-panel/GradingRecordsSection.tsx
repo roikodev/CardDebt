@@ -20,10 +20,10 @@ export function GradingRecordsSection({
     return (
       <div className="space-y-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="rounded-xl border bg-background/40 p-3">
-            <SkeletonMuted className="h-4 w-40" />
-            <div className="mt-2">
-              <SkeletonMuted className="h-3 w-24" />
+          <div key={i} className="min-w-0 overflow-hidden rounded-xl border bg-background/40 p-3">
+            <SkeletonMuted className="h-4 w-full max-w-[10rem]" />
+            <div className="mt-2 min-w-0">
+              <SkeletonMuted className="h-3 w-full max-w-24" />
             </div>
           </div>
         ))}

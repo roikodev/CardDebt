@@ -188,7 +188,7 @@ export function Dashboard() {
                 <DialogTitle>Buy</DialogTitle>
                 <DialogDescription>Choose how you want to add this purchase.</DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="mt-4 grid grid-cols-2 gap-3">
                 <Button
                   type="button"
                   variant="outline"

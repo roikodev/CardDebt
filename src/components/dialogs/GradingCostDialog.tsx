@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -9,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -18,7 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  FormMoneyInput,
+  FormQuantityStepper,
+  FormSelectField,
+  FormTextInput,
+} from "@/components/form-input"
+import { FieldGroup } from "@/components/ui/field"
 import { Plus, Trash2 } from "lucide-react"
 import { GradingCostSummaryDialog } from "@/components/dialogs/GradingCostSummaryDialog"
 
@@ -90,8 +96,8 @@ export function GradingCostDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[min(90dvh,46rem)] overflow-y-auto sm:max-w-lg p-0">
-          <div className="p-5 sm:p-6">
+        <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0">
+          <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
             <DialogHeader className="px-0">
               <DialogTitle>Grading costs</DialogTitle>
               <DialogDescription>
@@ -101,33 +107,23 @@ export function GradingCostDialog({
 
             <div className="mt-4 rounded-xl border bg-card p-3">
               <FieldGroup>
-                <Field className="gap-2">
-                  <FieldLabel htmlFor="grading-quantity">Quantity</FieldLabel>
-                  <Input
-                    id="grading-quantity"
-                    type="number"
-                    inputMode="numeric"
-                    step={1}
-                    min={1}
-                    max={maxQuantity}
-                    className="w-full"
-                    value={String(quantity)}
-                    onChange={(e) => {
-                      const n = Number(e.target.value)
-                      setQuantity(Number.isFinite(n) ? Math.max(1, Math.trunc(n)) : 1)
-                    }}
-                  />
-                </Field>
+                <FormQuantityStepper
+                  label="Quantity"
+                  id="grading-quantity"
+                  value={quantity}
+                  onValueChange={setQuantity}
+                  min={1}
+                  max={Math.max(1, maxQuantity)}
+                  disabled={maxQuantity < 1}
+                />
 
-                <Field className="gap-2">
-                  <FieldLabel htmlFor="grading-sending-date">Sending Date</FieldLabel>
-                  <Input
-                    id="grading-sending-date"
-                    type="date"
-                    value={sendingDate}
-                    onChange={(e) => setSendingDate(e.target.value)}
-                  />
-                </Field>
+                <FormTextInput
+                  label="Sending Date"
+                  id="grading-sending-date"
+                  type="date"
+                  value={sendingDate}
+                  onChange={(e) => setSendingDate(e.target.value)}
+                />
               </FieldGroup>
             </div>
 
@@ -152,24 +148,21 @@ export function GradingCostDialog({
                   {costs.map((c) => (
                     <div key={c.id} className="rounded-lg border bg-muted/30 p-3">
                       <FieldGroup>
-                        <Field className="gap-2">
-                          <FieldLabel htmlFor={`grade-date-${c.id}`}>Date</FieldLabel>
-                          <Input
-                            id={`grade-date-${c.id}`}
-                            type="date"
-                            value={c.date}
-                            onChange={(e) =>
-                              setCosts((prev) =>
-                                prev.map((x) =>
-                                  x.id === c.id ? { ...x, date: e.target.value } : x
-                                )
+                        <FormTextInput
+                          label="Date"
+                          id={`grade-date-${c.id}`}
+                          type="date"
+                          value={c.date}
+                          onChange={(e) =>
+                            setCosts((prev) =>
+                              prev.map((x) =>
+                                x.id === c.id ? { ...x, date: e.target.value } : x
                               )
-                            }
-                          />
-                        </Field>
+                            )
+                          }
+                        />
 
-                        <Field className="gap-2">
-                          <FieldLabel htmlFor={`grade-type-${c.id}`}>Type</FieldLabel>
+                        <FormSelectField label="Type" htmlFor={`grade-type-${c.id}`}>
                           <Select
                             value={c.type}
                             onValueChange={(v) =>
@@ -197,49 +190,41 @@ export function GradingCostDialog({
                               </SelectGroup>
                             </SelectContent>
                           </Select>
-                        </Field>
+                        </FormSelectField>
 
                         {c.type === "Other" ? (
-                          <Field className="gap-2">
-                            <FieldLabel htmlFor={`grade-desc-${c.id}`}>Description</FieldLabel>
-                            <Input
-                              id={`grade-desc-${c.id}`}
-                              value={c.description}
-                              onChange={(e) =>
-                                setCosts((prev) =>
-                                  prev.map((x) =>
-                                    x.id === c.id ? { ...x, description: e.target.value } : x
-                                  )
+                          <FormTextInput
+                            label="Description"
+                            id={`grade-desc-${c.id}`}
+                            value={c.description}
+                            onChange={(e) =>
+                              setCosts((prev) =>
+                                prev.map((x) =>
+                                  x.id === c.id ? { ...x, description: e.target.value } : x
                                 )
-                              }
-                            />
-                          </Field>
+                              )
+                            }
+                          />
                         ) : null}
 
-                        <Field className="gap-2">
-                          <FieldLabel htmlFor={`grade-cost-${c.id}`}>Cost</FieldLabel>
-                          <div className="relative">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-muted-foreground">
-                              HKD$
-                            </div>
-                            <Input
-                              id={`grade-cost-${c.id}`}
-                              type="number"
-                              inputMode="decimal"
-                              step="any"
-                              min={0}
-                              className="pl-14"
-                              value={c.costHKD}
-                              onChange={(e) =>
-                                setCosts((prev) =>
-                                  prev.map((x) =>
-                                    x.id === c.id ? { ...x, costHKD: e.target.value } : x
-                                  )
+                        <FormMoneyInput
+                          label="Cost"
+                          htmlFor={`grade-cost-${c.id}`}
+                          inputProps={{
+                            id: `grade-cost-${c.id}`,
+                            type: "number",
+                            inputMode: "decimal",
+                            step: "any",
+                            min: 0,
+                            value: c.costHKD,
+                            onChange: (e) =>
+                              setCosts((prev) =>
+                                prev.map((x) =>
+                                  x.id === c.id ? { ...x, costHKD: e.target.value } : x
                                 )
-                              }
-                            />
-                          </div>
-                        </Field>
+                              ),
+                          }}
+                        />
                       </FieldGroup>
 
                       <div className="mt-3 flex justify-end">
@@ -260,7 +245,7 @@ export function GradingCostDialog({
                 <p className="mt-2 text-sm text-muted-foreground">No costs.</p>
               )}
             </div>
-          </div>
+          </DialogBody>
 
           <DialogFooter className="px-0 pb-5 sm:pb-6">
             <div className="flex w-full justify-end gap-2 px-5 sm:px-6">

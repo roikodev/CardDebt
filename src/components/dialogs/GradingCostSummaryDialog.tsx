@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -270,8 +271,8 @@ export function GradingCostSummaryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,46rem)] overflow-y-auto sm:max-w-lg p-0">
-        <div className="p-5 sm:p-6">
+      <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0">
+        <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
             <DialogTitle>Grading cost summary</DialogTitle>
             <DialogDescription>Review quantity and costs before finishing.</DialogDescription>
@@ -365,7 +366,7 @@ export function GradingCostSummaryDialog({
               ) : null}
             </div>
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">

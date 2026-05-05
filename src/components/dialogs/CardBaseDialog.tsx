@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -182,9 +183,9 @@ export function CardBaseDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[min(90dvh,46rem)] min-h-[30rem] flex-col gap-3 overflow-hidden sm:max-w-3xl"
+        className="flex max-h-[min(90dvh,46rem)] min-h-[30rem] min-w-0 flex-col gap-3 overflow-hidden p-4 sm:max-w-3xl"
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle>Choose from my Card Base</DialogTitle>
           <DialogDescription>
             Select an item from your collection base.
@@ -192,14 +193,15 @@ export function CardBaseDialog({
         </DialogHeader>
 
         {!hasWorker ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="shrink-0 text-sm text-muted-foreground">
             Missing <code>VITE_CF_WORKER_ORIGIN</code>. Unable to load cloud images.
           </p>
         ) : null}
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? <p className="shrink-0 text-sm text-destructive">{error}</p> : null}
 
         {loading ? (
+          <DialogBody className="min-h-0 px-0 pt-0">
           <div
             className="grid gap-3"
             style={{ gridTemplateColumns }}
@@ -208,12 +210,15 @@ export function CardBaseDialog({
               <SkeletonTile key={i} />
             ))}
           </div>
+          </DialogBody>
         ) : items.length === 0 ? (
+          <DialogBody className="min-h-0 px-0 pt-0">
           <p className="text-sm text-muted-foreground">No items found.</p>
+          </DialogBody>
         ) : (
-          <div
+          <DialogBody
             ref={scrollRef}
-            className="min-h-0 flex-1 overflow-auto"
+            className="min-h-0 px-0 pt-0"
           >
             <div
               className="relative w-full"
@@ -277,7 +282,7 @@ export function CardBaseDialog({
                 )
               })}
             </div>
-          </div>
+          </DialogBody>
         )}
       </DialogContent>
     </Dialog>

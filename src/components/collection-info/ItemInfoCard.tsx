@@ -2,9 +2,17 @@ import { Button } from "@/components/ui/button"
 import { GradedChip } from "@/components/GradedChip"
 import { GradingChip } from "@/components/GradingChip"
 import type { CollectionBase } from "@/components/collection-info/types"
+import { cn } from "@/lib/utils"
 
 function Skeleton({ className }: { className: string }) {
-  return <div className={`animate-pulse rounded bg-white/10 ${className}`} />
+  return (
+    <div
+      className={cn(
+        "min-h-[0.5rem] min-w-0 max-w-full overflow-hidden rounded-md bg-white/10 animate-pulse",
+        className
+      )}
+    />
+  )
 }
 
 type Props = {
@@ -39,9 +47,9 @@ export function ItemInfoCard({
   const disableActions = loading || !item || availableQuantity <= 0
 
   return (
-    <section className="min-w-0 rounded-2xl border bg-zinc-900 p-4 text-left text-white lg:sticky lg:top-6 lg:self-start">
+    <section className="min-w-0 overflow-hidden rounded-2xl border bg-zinc-900 p-3 text-left text-white sm:p-4 lg:sticky lg:top-6 lg:self-start">
       <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
-        <div className="aspect-[4/3] w-full max-h-72 bg-white/5">
+        <div className="aspect-[4/3] w-full max-h-72 min-h-0 bg-white/5">
           {imageUrl ? (
             <img src={imageUrl} alt={title} className="h-full w-full object-contain" />
           ) : (
@@ -52,8 +60,8 @@ export function ItemInfoCard({
 
       <div className="mt-4 space-y-2">
         {loading && !grading ? (
-          <div className="flex items-center justify-start">
-            <Skeleton className="h-5 w-24" />
+          <div className="flex min-w-0 items-center justify-start">
+            <Skeleton className="h-5 w-full max-w-28" />
           </div>
         ) : grading && Number(grading.grade) > 1 ? (
           <div className="flex items-center justify-start gap-2">
@@ -61,7 +69,7 @@ export function ItemInfoCard({
             <GradingChip count={gradingRecordCount} tone="dark" />
           </div>
         ) : loading ? (
-          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-5 w-full max-w-32" />
         ) : (
           <div className="flex items-center justify-start">
             <GradingChip count={gradingRecordCount} tone="dark" />
@@ -69,12 +77,12 @@ export function ItemInfoCard({
         )}
 
         {loading && !item ? (
-          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-5 w-full max-w-[14rem]" />
         ) : (
           <h1 className="m-0 text-base font-semibold leading-snug">{title}</h1>
         )}
 
-        <div className="grid grid-cols-[110px_1fr] gap-3 text-sm">
+        <div className="grid min-w-0 grid-cols-1 gap-2 text-sm sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
           <span className="text-white/60">Current quantity</span>
           <span className="min-w-0 text-white/90">{sourceQuantity}</span>
         </div>
@@ -82,28 +90,31 @@ export function ItemInfoCard({
         <dl className="space-y-2 text-sm">
           {loading && !item ? (
             <>
-              <div className="grid grid-cols-[110px_1fr] gap-3">
+              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
                 <dt className="text-white/60">Game Title</dt>
                 <dd className="min-w-0">
-                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-full max-w-[10rem]" />
                 </dd>
               </div>
-              <div className="grid grid-cols-[110px_1fr] gap-3">
+              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
                 <dt className="text-white/60">Card Number</dt>
                 <dd className="min-w-0">
-                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-full max-w-[8rem]" />
                 </dd>
               </div>
-              <div className="grid grid-cols-[110px_1fr] gap-3">
+              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
                 <dt className="text-white/60">Name</dt>
                 <dd className="min-w-0">
-                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-full max-w-[14rem]" />
                 </dd>
               </div>
             </>
           ) : itemFields.length ? (
             itemFields.map((f) => (
-              <div key={f.label} className="grid grid-cols-[110px_1fr] gap-3">
+              <div
+                key={f.label}
+                className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3"
+              >
                 <dt className="text-white/60">{f.label}</dt>
                 <dd className="min-w-0 text-white/90">{f.value}</dd>
               </div>

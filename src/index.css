@@ -541,3 +541,17 @@ code {
     @apply bg-background text-foreground;}
   html {
     @apply font-sans;}}
+
+@layer components {
+  /* Hide scrollbars inside dialogs; wheel/touch/keyboard scrolling still works */
+  [data-slot="dialog-content"],
+  [data-slot="dialog-content"] * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  [data-slot="dialog-content"]::-webkit-scrollbar,
+  [data-slot="dialog-content"] *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}

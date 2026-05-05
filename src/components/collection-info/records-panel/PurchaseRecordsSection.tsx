@@ -12,22 +12,22 @@ export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD }: 
     return (
       <div className="space-y-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border bg-background/40 p-2">
-            <div className="flex items-baseline justify-between gap-3">
-              <SkeletonMuted className="h-4 w-24" />
-              <SkeletonMuted className="h-4 w-20" />
+          <div key={i} className="min-w-0 overflow-hidden rounded-xl border bg-background/40 p-2">
+            <div className="flex min-w-0 items-baseline justify-between gap-2 sm:gap-3">
+              <SkeletonMuted className="h-4 min-w-0 flex-1 max-w-[min(100%,7rem)]" />
+              <SkeletonMuted className="h-4 w-20 shrink-0 sm:w-24" />
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div>
-                <SkeletonMuted className="h-3 w-10" />
-                <div className="mt-1">
-                  <SkeletonMuted className="h-4 w-24" />
+            <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
+              <div className="min-w-0">
+                <SkeletonMuted className="h-3 w-full max-w-10" />
+                <div className="mt-1 min-w-0">
+                  <SkeletonMuted className="h-4 w-full max-w-28" />
                 </div>
               </div>
-              <div className="text-right">
-                <SkeletonMuted className="ml-auto h-3 w-8" />
+              <div className="min-w-0 text-right">
+                <SkeletonMuted className="ml-auto h-3 w-full max-w-8" />
                 <div className="mt-1">
-                  <SkeletonMuted className="ml-auto h-4 w-10" />
+                  <SkeletonMuted className="ml-auto h-4 w-full max-w-12" />
                 </div>
               </div>
             </div>
