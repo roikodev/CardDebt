@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -427,18 +428,18 @@ export function DeriveSummaryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,46rem)] overflow-y-auto sm:max-w-lg p-0">
-        <div className="p-5 sm:p-6">
+      <DialogContent className="max-h-[min(90dvh,46rem)] min-w-0 overflow-x-hidden sm:max-w-lg p-0">
+        <DialogBody className="min-w-0 px-4 pt-4 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
             <DialogTitle>Derive summary</DialogTitle>
             <DialogDescription>Review the derived items and costs.</DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 space-y-3">
-            <div className="rounded-xl border bg-card p-3">
+          <div className="mt-4 min-w-0 space-y-3">
+            <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
               <p className="text-sm font-semibold">Source</p>
-              <div className="mt-2 flex items-start gap-3">
-                <div className="h-14 w-14 overflow-hidden rounded-lg border bg-muted/30">
+              <div className="mt-2 flex min-w-0 items-start gap-3">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-muted/30">
                   {sourceImg ? (
                     <img
                       src={sourceImg}
@@ -450,39 +451,39 @@ export function DeriveSummaryDialog({
                     <div className="h-full w-full animate-pulse bg-muted/50" />
                   )}
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{source?.name ?? "—"}</p>
-                  <p className="truncate text-xs text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-medium leading-snug">{source?.name ?? "—"}</p>
+                  <p className="mt-0.5 break-words text-xs leading-snug text-muted-foreground">
                     {[source?.game_title, source?.card_no].filter(Boolean).join(" · ") || "—"}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 break-words text-xs text-muted-foreground">
                     graded: {String(sourceGraded)} · current qty: {sourceQuantity}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-xl border bg-card p-3">
-              <div className="flex items-center gap-2 text-sm">
+            <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                 <span className="font-semibold">Derive</span>
-                <ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" />
-                <span className="text-muted-foreground">
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="min-w-0 text-muted-foreground">
                   consume {sets} source item{sets === 1 ? "" : "s"}
                 </span>
               </div>
             </div>
 
-            <div className="rounded-xl border bg-card p-3">
-              <p className="text-sm font-semibold">Derived items (cost per 1)</p>
+            <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
+              <p className="text-sm font-semibold leading-snug">Derived items (cost per 1)</p>
               {derivedRows.length ? (
                 <div className="mt-3 space-y-2">
                   {derivedRows.map((r) => (
                     <div
                       key={r.id}
-                      className="rounded-lg border bg-muted/30 p-3"
+                      className="min-w-0 overflow-hidden rounded-lg border bg-muted/30 p-3"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-3">
+                      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                        <div className="flex min-w-0 flex-1 items-start gap-3">
                           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border bg-muted/30">
                             {r.imageSrc ? (
                               <img
@@ -495,37 +496,37 @@ export function DeriveSummaryDialog({
                               <div className="h-full w-full animate-pulse bg-muted/50" />
                             )}
                           </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{r.title}</p>
-                            <p className="truncate text-xs text-muted-foreground">{r.subtitle}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words text-sm font-medium leading-snug">{r.title}</p>
+                            <p className="break-words text-xs leading-snug text-muted-foreground">{r.subtitle}</p>
                           </div>
                         </div>
-                        <div className="text-right text-sm font-semibold">
+                        <div className="shrink-0 text-left text-sm font-semibold tabular-nums sm:text-right">
                           {moneyHKD(r.per1)}
                         </div>
                       </div>
 
                       {(perItemCosts[r.id] ?? []).length ? (
-                        <div className="mt-3 space-y-2 border-t pt-3">
+                        <div className="mt-3 min-w-0 space-y-2 border-t pt-3">
                           {(perItemCosts[r.id] ?? []).map((c) => (
                             <div
                               key={c.id}
-                              className="flex items-start justify-between gap-3 rounded-lg border bg-muted/30 p-3"
+                              className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                             >
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium">
+                              <div className="min-w-0 flex-1">
+                                <p className="break-words text-sm font-medium leading-snug">
                                   {c.type}{" "}
                                   <span className="text-xs font-normal text-muted-foreground">
                                     · {c.date}
                                   </span>
                                 </p>
                                 {c.type === "Other" && c.description?.trim() ? (
-                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                  <p className="mt-0.5 break-words text-xs leading-snug text-muted-foreground">
                                     {c.description.trim()}
                                   </p>
                                 ) : null}
                               </div>
-                              <p className="shrink-0 text-sm font-semibold">
+                              <p className="shrink-0 text-sm font-semibold tabular-nums sm:text-right">
                                 {moneyHKD(Number(c.costHKD) || 0)}
                               </p>
                             </div>
@@ -543,43 +544,47 @@ export function DeriveSummaryDialog({
 
             </div>
 
-            <div className="rounded-xl border bg-card p-3">
-              <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
+              <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 <p className="text-sm font-semibold">Total cost</p>
-                <p className="text-sm font-semibold">{moneyHKD(total)}</p>
+                <p className="shrink-0 text-sm font-semibold tabular-nums">{moneyHKD(total)}</p>
               </div>
               {saveError ? (
-                <p className="mt-2 text-sm text-destructive">{saveError}</p>
+                <p className="mt-2 break-words text-sm text-destructive">{saveError}</p>
               ) : null}
-              <div className="mt-3 grid gap-2 text-sm">
-                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-                  <div className="min-w-0">
+              <div className="mt-3 grid min-w-0 gap-2 text-sm">
+                <div className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium">Derived items</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="break-words text-xs text-muted-foreground">
                       {moneyHKD(derivedPer1)} per 1 × {sets} set{sets === 1 ? "" : "s"}
                     </p>
                   </div>
-                  <p className="shrink-0 font-semibold">{moneyHKD(derivedTotal)}</p>
+                  <p className="shrink-0 font-semibold tabular-nums sm:text-right">{moneyHKD(derivedTotal)}</p>
                 </div>
 
-                <div className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2">
+                <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-3 rounded-lg border bg-background px-3 py-2">
                   <p className="font-semibold">Total</p>
-                  <p className="font-semibold">{moneyHKD(total)}</p>
+                  <p className="shrink-0 font-semibold tabular-nums">{moneyHKD(total)}</p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </DialogBody>
 
-        <DialogFooter className="px-0 pb-5 sm:pb-6">
-          <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Back
-            </Button>
-            <Button type="button" onClick={handleDone} disabled={saving}>
-              Done
-            </Button>
-          </div>
+        <DialogFooter className="gap-2 px-4 pb-5 pt-0 sm:px-6 sm:pb-6">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full min-w-0 sm:w-auto"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Back
+          </Button>
+          <Button type="button" className="w-full min-w-0 sm:w-auto" onClick={handleDone} disabled={saving}>
+            Done
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

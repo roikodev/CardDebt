@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -9,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -18,7 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  FormMoneyInput,
+  FormSelectField,
+  FormTextInput,
+} from "@/components/form-input"
+import { FieldGroup } from "@/components/ui/field"
 import { Plus, Trash2 } from "lucide-react"
 
 export type DerivedItemCostType = "Grading" | "Postal" | "Other"
@@ -106,8 +111,8 @@ export function DerivedItemCostDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,46rem)] overflow-y-auto sm:max-w-lg p-0">
-        <div className="p-5 sm:p-6">
+      <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0">
+        <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
             <DialogTitle>Derived item costs</DialogTitle>
             <DialogDescription>
@@ -146,25 +151,25 @@ export function DerivedItemCostDialog({
                       {costs.map((c) => (
                         <div key={c.id} className="rounded-lg border bg-muted/30 p-3">
                           <FieldGroup>
-                            <Field className="gap-2">
-                              <FieldLabel htmlFor={`item-${t.id}-date-${c.id}`}>Date</FieldLabel>
-                              <Input
-                                id={`item-${t.id}-date-${c.id}`}
-                                type="date"
-                                value={c.date}
-                                onChange={(e) =>
-                                  setPerItemCosts((prev) => ({
-                                    ...prev,
-                                    [t.id]: (prev[t.id] ?? []).map((x) =>
-                                      x.id === c.id ? { ...x, date: e.target.value } : x
-                                    ),
-                                  }))
-                                }
-                              />
-                            </Field>
+                            <FormTextInput
+                              label="Date"
+                              id={`item-${t.id}-date-${c.id}`}
+                              type="date"
+                              value={c.date}
+                              onChange={(e) =>
+                                setPerItemCosts((prev) => ({
+                                  ...prev,
+                                  [t.id]: (prev[t.id] ?? []).map((x) =>
+                                    x.id === c.id ? { ...x, date: e.target.value } : x
+                                  ),
+                                }))
+                              }
+                            />
 
-                            <Field className="gap-2">
-                              <FieldLabel htmlFor={`item-${t.id}-type-${c.id}`}>Type</FieldLabel>
+                            <FormSelectField
+                              label="Type"
+                              htmlFor={`item-${t.id}-type-${c.id}`}
+                            >
                               <Select
                                 value={c.type}
                                 onValueChange={(v) =>
@@ -193,51 +198,43 @@ export function DerivedItemCostDialog({
                                   </SelectGroup>
                                 </SelectContent>
                               </Select>
-                            </Field>
+                            </FormSelectField>
 
                             {c.type === "Other" ? (
-                              <Field className="gap-2">
-                                <FieldLabel htmlFor={`item-${t.id}-desc-${c.id}`}>Description</FieldLabel>
-                                <Input
-                                  id={`item-${t.id}-desc-${c.id}`}
-                                  value={c.description}
-                                  onChange={(e) =>
-                                    setPerItemCosts((prev) => ({
-                                      ...prev,
-                                      [t.id]: (prev[t.id] ?? []).map((x) =>
-                                        x.id === c.id ? { ...x, description: e.target.value } : x
-                                      ),
-                                    }))
-                                  }
-                                />
-                              </Field>
+                              <FormTextInput
+                                label="Description"
+                                id={`item-${t.id}-desc-${c.id}`}
+                                value={c.description}
+                                onChange={(e) =>
+                                  setPerItemCosts((prev) => ({
+                                    ...prev,
+                                    [t.id]: (prev[t.id] ?? []).map((x) =>
+                                      x.id === c.id ? { ...x, description: e.target.value } : x
+                                    ),
+                                  }))
+                                }
+                              />
                             ) : null}
 
-                            <Field className="gap-2">
-                              <FieldLabel htmlFor={`item-${t.id}-cost-${c.id}`}>Cost</FieldLabel>
-                              <div className="relative">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-muted-foreground">
-                                  HKD$
-                                </div>
-                                <Input
-                                  id={`item-${t.id}-cost-${c.id}`}
-                                  type="number"
-                                  inputMode="decimal"
-                                  step="any"
-                                  min={0}
-                                  className="pl-14"
-                                  value={c.costHKD}
-                                  onChange={(e) =>
-                                    setPerItemCosts((prev) => ({
-                                      ...prev,
-                                      [t.id]: (prev[t.id] ?? []).map((x) =>
-                                        x.id === c.id ? { ...x, costHKD: e.target.value } : x
-                                      ),
-                                    }))
-                                  }
-                                />
-                              </div>
-                            </Field>
+                            <FormMoneyInput
+                              label="Cost"
+                              htmlFor={`item-${t.id}-cost-${c.id}`}
+                              inputProps={{
+                                id: `item-${t.id}-cost-${c.id}`,
+                                type: "number",
+                                inputMode: "decimal",
+                                step: "any",
+                                min: 0,
+                                value: c.costHKD,
+                                onChange: (e) =>
+                                  setPerItemCosts((prev) => ({
+                                    ...prev,
+                                    [t.id]: (prev[t.id] ?? []).map((x) =>
+                                      x.id === c.id ? { ...x, costHKD: e.target.value } : x
+                                    ),
+                                  })),
+                              }}
+                            />
                           </FieldGroup>
 
                           <div className="mt-3 flex justify-end">
@@ -266,7 +263,7 @@ export function DerivedItemCostDialog({
               )
             })}
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
