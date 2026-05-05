@@ -22,6 +22,7 @@ type Props = {
   title: string
   gradedLevelCounts: Record<string, { provider: string; grade: number; count: number }>
   gradingCount: number
+  overviewCounts: { available: number; grading: number; derived: number }
   item: CollectionBase | null
   itemFields: Array<{ label: string; value: string | null }>
   sourceQuantity: number
@@ -37,6 +38,7 @@ export function ItemInfoCard({
   title,
   gradedLevelCounts,
   gradingCount,
+  overviewCounts,
   item,
   itemFields,
   sourceQuantity,
@@ -140,6 +142,37 @@ export function ItemInfoCard({
             <p className="text-sm text-white/60">No item details found.</p>
           )}
         </dl>
+
+        <div className="pt-2">
+          {loading ? (
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200">
+                <span>Available</span>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+                  {overviewCounts.available}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200">
+                <span>Grading</span>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+                  {overviewCounts.grading}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-blue-500/15 px-3 py-1.5 text-xs font-semibold text-blue-200">
+                <span>Derived</span>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+                  {overviewCounts.derived}
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
 
         <div className="pt-2">
           {!graded ? (

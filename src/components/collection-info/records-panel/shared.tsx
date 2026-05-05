@@ -6,7 +6,7 @@ import type {
 } from "@/components/collection-info/types"
 import { cn } from "@/lib/utils"
 
-export type RecordsView = "overview" | "purchase" | "derived" | "grading"
+export type RecordsView = "purchase" | "derived" | "grading"
 
 /** Shimmer block: stays within flex/grid parents (min-w-0, max-w-full, overflow hidden). */
 export function SkeletonMuted({ className }: { className?: string }) {
@@ -29,11 +29,8 @@ export function getPanelMeta(args: {
   gradingRecords: GradingRecordRow[]
   overviewRows: OverviewCollectionRow[]
 }) {
-  const { recordsView, loading, derivedLoading, buyEntries, derivedRecords, gradingRecords, overviewRows } = args
+  const { recordsView, loading, derivedLoading, buyEntries, derivedRecords, gradingRecords } = args
 
-  if (recordsView === "overview") {
-    return { title: "Overview", loading, count: overviewRows.length, label: "item" }
-  }
   if (recordsView === "purchase") {
     return { title: "Purchase records", loading, count: buyEntries.length, label: "record" }
   }

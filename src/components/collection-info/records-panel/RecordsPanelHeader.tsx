@@ -44,15 +44,6 @@ export function RecordsPanelHeader(props: Props) {
         <Button
           type="button"
           size="sm"
-          variant={props.recordsView === "overview" ? "default" : "outline"}
-          className={cn("min-w-0 px-2 text-xs sm:px-3 sm:text-sm")}
-          onClick={() => props.setRecordsView("overview")}
-        >
-          Overview
-        </Button>
-        <Button
-          type="button"
-          size="sm"
           variant={props.recordsView === "purchase" ? "default" : "outline"}
           className={cn("min-w-0 px-2 text-xs sm:px-3 sm:text-sm")}
           onClick={() => props.setRecordsView("purchase")}

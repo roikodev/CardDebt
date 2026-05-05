@@ -33,7 +33,7 @@ export function CollectionInfo() {
   const search = Route.useSearch()
   const graded = Boolean(search.graded)
 
-  const [recordsView, setRecordsView] = useState<"overview" | "purchase" | "derived" | "grading">("overview")
+  const [recordsView, setRecordsView] = useState<"purchase" | "derived" | "grading">("purchase")
   const [reloadKey, setReloadKey] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,6 +58,12 @@ export function CollectionInfo() {
   const abortRef = useRef<AbortController | null>(null)
 
   const title = item?.name ?? "Untitled"
+  const overviewCounts = useMemo(() => {
+    const available = overviewRows.filter((r) => !r.derived && !r.grading).length
+    const grading = overviewRows.filter((r) => !r.derived && r.grading).length
+    const derived = overviewRows.filter((r) => r.derived).length
+    return { available, grading, derived }
+  }, [overviewRows])
   const itemFields = useMemo(() => {
     return [
       { label: "Game Title", value: item?.game_title ?? null },
@@ -83,7 +89,7 @@ export function CollectionInfo() {
     setDerivedImageUrls({})
     setGradingRecords([])
     setOverviewRows([])
-    setRecordsView("overview")
+    setRecordsView("purchase")
 
     abortRef.current?.abort()
     abortRef.current = new AbortController()
@@ -546,6 +552,7 @@ export function CollectionInfo() {
               title={title}
             gradedLevelCounts={gradedLevelCounts}
             gradingCount={gradingCount}
+              overviewCounts={overviewCounts}
               item={item}
               itemFields={itemFields}
               sourceQuantity={sourceQuantity}
