@@ -95,6 +95,7 @@ export function DeriveGradedSelectionDialog({
         .eq("graded", true)
         .eq("derived", false)
         .eq("grading", false)
+        .eq("deleted", false)
         .order("created_at", { ascending: true })
 
       if (signal.aborted) return

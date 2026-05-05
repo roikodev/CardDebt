@@ -217,6 +217,7 @@ export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) 
       user_id: userId,
       graded: values.graded,
       derived: false,
+      deleted: false,
       collection_item_id: item.id,
       buying_entries_id: buyEntryId,
     }))

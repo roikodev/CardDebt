@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { GradedChip } from "@/components/GradedChip"
 import { GradingChip } from "@/components/GradingChip"
+import { AvailableChip } from "@/components/AvailableChip"
 import type { CollectionBase } from "@/components/collection-info/types"
 import { cn } from "@/lib/utils"
 import { useMemo } from "react"
@@ -60,7 +61,7 @@ export function ItemInfoCard({
   return (
     <section className="min-w-0 overflow-hidden rounded-2xl border bg-zinc-900 p-3 text-left text-white sm:p-4 lg:sticky lg:top-6 lg:self-start">
       <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
-        <div className="aspect-[4/3] w-full max-h-72 min-h-0 bg-white/5">
+        <div className="aspect-[4/3] w-full max-h-48 min-h-0 bg-white/5 sm:max-h-56 lg:max-h-44">
           {imageUrl ? (
             <img src={imageUrl} alt={title} className="h-full w-full object-contain" />
           ) : (
@@ -69,112 +70,88 @@ export function ItemInfoCard({
         </div>
       </div>
 
-      <div className="mt-4 space-y-2">
-        {loading && gradedLevels.length === 0 && gradingCount === 0 ? (
-          <div className="flex min-w-0 items-center justify-start">
-            <Skeleton className="h-5 w-full max-w-28" />
-          </div>
-        ) : gradedLevels.length > 0 || gradingCount > 0 ? (
-          <div className="flex flex-wrap items-center justify-start gap-2">
-            {gradedLevels.map((lvl) => (
-              <GradedChip
-                key={`${lvl.provider}-${lvl.grade}`}
-                provider={lvl.provider}
-                grade={lvl.grade}
-                count={lvl.count}
-                tone="dark"
-              />
-            ))}
-            {gradingCount > 0 ? <GradingChip count={gradingCount} tone="dark" /> : null}
-          </div>
-        ) : loading ? (
-          <Skeleton className="h-5 w-full max-w-32" />
-        ) : (
-          <div className="flex items-center justify-start">
-            <GradingChip count={gradingCount} tone="dark" />
-          </div>
-        )}
+      <div className="mt-3 space-y-2 lg:mt-4">
+        <div className="space-y-2">
+          {loading && gradedLevels.length === 0 && gradingCount === 0 ? (
+            <div className="flex min-w-0 items-center justify-start">
+              <Skeleton className="h-5 w-full max-w-28" />
+            </div>
+          ) : gradedLevels.length > 0 || gradingCount > 0 || overviewCounts.available > 0 ? (
+            <div className="flex flex-wrap items-center justify-start gap-2">
+              {gradedLevels.map((lvl) => (
+                <GradedChip
+                  key={`${lvl.provider}-${lvl.grade}`}
+                  provider={lvl.provider}
+                  grade={lvl.grade}
+                  count={lvl.count}
+                  tone="dark"
+                />
+              ))}
+              {overviewCounts.available > 0 ? (
+                <AvailableChip count={overviewCounts.available} tone="dark" />
+              ) : null}
+              {gradingCount > 0 ? <GradingChip count={gradingCount} tone="dark" /> : null}
+            </div>
+          ) : loading ? (
+            <Skeleton className="h-5 w-full max-w-32" />
+          ) : (
+            <div className="flex items-center justify-start">
+              <GradingChip count={gradingCount} tone="dark" />
+            </div>
+          )}
 
-        {loading && !item ? (
-          <Skeleton className="h-5 w-full max-w-[14rem]" />
-        ) : (
-          <h1 className="m-0 text-base font-semibold leading-snug">{title}</h1>
-        )}
-
-        <div className="grid min-w-0 grid-cols-1 gap-2 text-sm sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
-          <span className="text-white/60">Current quantity</span>
-          <span className="min-w-0 text-white/90">{sourceQuantity}</span>
-        </div>
-
-        <dl className="space-y-2 text-sm">
           {loading && !item ? (
-            <>
-              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
-                <dt className="text-white/60">Game Title</dt>
-                <dd className="min-w-0">
-                  <Skeleton className="h-4 w-full max-w-[10rem]" />
-                </dd>
-              </div>
-              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
-                <dt className="text-white/60">Card Number</dt>
-                <dd className="min-w-0">
-                  <Skeleton className="h-4 w-full max-w-[8rem]" />
-                </dd>
-              </div>
-              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
-                <dt className="text-white/60">Name</dt>
-                <dd className="min-w-0">
-                  <Skeleton className="h-4 w-full max-w-[14rem]" />
-                </dd>
-              </div>
-            </>
-          ) : itemFields.length ? (
-            itemFields.map((f) => (
-              <div
-                key={f.label}
-                className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3"
-              >
-                <dt className="text-white/60">{f.label}</dt>
-                <dd className="min-w-0 text-white/90">{f.value}</dd>
-              </div>
-            ))
+            <Skeleton className="h-5 w-full max-w-[14rem]" />
           ) : (
-            <p className="text-sm text-white/60">No item details found.</p>
+            <h1 className="m-0 text-base font-semibold leading-snug">{title}</h1>
           )}
-        </dl>
 
-        <div className="pt-2">
-          {loading ? (
-            <div className="flex flex-wrap gap-2">
-              <Skeleton className="h-6 w-24 rounded-full" />
-              <Skeleton className="h-6 w-24 rounded-full" />
-              <Skeleton className="h-6 w-24 rounded-full" />
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200">
-                <span>Available</span>
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
-                  {overviewCounts.available}
-                </span>
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200">
-                <span>Grading</span>
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
-                  {overviewCounts.grading}
-                </span>
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-blue-500/15 px-3 py-1.5 text-xs font-semibold text-blue-200">
-                <span>Derived</span>
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
-                  {overviewCounts.derived}
-                </span>
-              </span>
-            </div>
-          )}
+          <div className="grid min-w-0 grid-cols-1 gap-2 text-sm sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
+            <span className="text-white/60">Current quantity</span>
+            <span className="min-w-0 text-white/90">{sourceQuantity}</span>
+          </div>
+
+          <dl className="space-y-2 text-sm">
+            {loading && !item ? (
+              <>
+                <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
+                  <dt className="text-white/60">Game Title</dt>
+                  <dd className="min-w-0">
+                    <Skeleton className="h-4 w-full max-w-[10rem]" />
+                  </dd>
+                </div>
+                <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
+                  <dt className="text-white/60">Card Number</dt>
+                  <dd className="min-w-0">
+                    <Skeleton className="h-4 w-full max-w-[8rem]" />
+                  </dd>
+                </div>
+                <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
+                  <dt className="text-white/60">Name</dt>
+                  <dd className="min-w-0">
+                    <Skeleton className="h-4 w-full max-w-[14rem]" />
+                  </dd>
+                </div>
+              </>
+            ) : itemFields.length ? (
+              itemFields.map((f) => (
+                <div
+                  key={f.label}
+                  className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3"
+                >
+                  <dt className="text-white/60">{f.label}</dt>
+                  <dd className="min-w-0 text-white/90">{f.value}</dd>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-white/60">No item details found.</p>
+            )}
+          </dl>
+
+          {/* Overview chips removed; shown as mini chips above. */}
         </div>
 
-        <div className="pt-2">
+        <div className="mt-3 border-t border-white/10 pt-3">
           {!graded ? (
             <Button
               type="button"

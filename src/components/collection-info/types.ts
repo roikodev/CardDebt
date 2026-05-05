@@ -21,6 +21,7 @@ export type UserCollectionRow = {
 }
 
 export type MiscCostLine = {
+  id: string
   date: string
   price: number
   type: string
@@ -43,6 +44,7 @@ export type GradingRecordRow = {
   user_collection_id: string
   sent_at: string
   created_at: string
+  executed?: boolean
   costLines: MiscCostLine[]
   costTotal: number
 }

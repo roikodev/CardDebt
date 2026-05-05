@@ -72,24 +72,29 @@ export function CollectionInfo() {
     ].filter((f) => f.value)
   }, [item?.card_no, item?.game_title, item?.name])
 
-  useEffect(() => {
+  async function fetchAll({ soft }: { soft: boolean }) {
     const userId = user?.id
     if (!userId) return
 
-    setLoading(true)
-    setError(null)
-    setItem(null)
-    setImageUrl(null)
-    setBuyEntries([])
-    setGradedLevelCounts({})
-    setGradingCount(0)
-    setDerivedLoading(true)
-    setDerivedError(null)
-    setDerivedRecords([])
-    setDerivedImageUrls({})
-    setGradingRecords([])
-    setOverviewRows([])
-    setRecordsView("purchase")
+    if (!soft) {
+      setLoading(true)
+      setError(null)
+      setItem(null)
+      setImageUrl(null)
+      setBuyEntries([])
+      setGradedLevelCounts({})
+      setGradingCount(0)
+      setDerivedLoading(true)
+      setDerivedError(null)
+      setDerivedRecords([])
+      setDerivedImageUrls({})
+      setGradingRecords([])
+      setOverviewRows([])
+      setRecordsView("purchase")
+    } else {
+      // Keep existing UI; refresh data in background.
+      setError(null)
+    }
 
     abortRef.current?.abort()
     abortRef.current = new AbortController()
@@ -99,22 +104,26 @@ export function CollectionInfo() {
       const sessionRes = await supabase.auth.getSession()
       const token = sessionRes.data.session?.access_token ?? null
 
-      const itemRes = await supabase
-        .from("collection_base")
-        .select("id, game_title, card_no, name, image_cloud_path")
-        .eq("id", collection_item_id)
-        .single()
+      let baseItem: CollectionBase | null = item
+      // Only re-fetch base item on hard load (navigation) or if we don't have it yet.
+      if (!soft || !baseItem) {
+        const itemRes = await supabase
+          .from("collection_base")
+          .select("id, game_title, card_no, name, image_cloud_path")
+          .eq("id", collection_item_id)
+          .single()
 
-      if (signal.aborted) return
+        if (signal.aborted) return
 
-      if (itemRes.error) {
-        setError(itemRes.error.message)
-        setLoading(false)
-        return
+        if (itemRes.error) {
+          setError(itemRes.error.message)
+          setLoading(false)
+          return
+        }
+
+        baseItem = itemRes.data as CollectionBase
+        setItem(baseItem)
       }
-
-      const baseItem = itemRes.data as CollectionBase
-      setItem(baseItem)
 
       const ucRes = await supabase
         .from("user_collection")
@@ -125,6 +134,7 @@ export function CollectionInfo() {
         .eq("collection_item_id", collection_item_id)
         .eq("graded", graded)
         .eq("derived", false)
+        .eq("deleted", false)
 
       if (signal.aborted) return
 
@@ -182,6 +192,7 @@ export function CollectionInfo() {
         .eq("user_id", userId)
         .eq("collection_item_id", collection_item_id)
         .eq("graded", graded)
+        .eq("deleted", false)
 
       if (signal.aborted) return
 
@@ -240,6 +251,7 @@ export function CollectionInfo() {
                 description: string | null
               }>) {
                 miscMap.set(me.id, {
+                  id: me.id,
                   date: me.date,
                   price: Number(me.price) || 0,
                   type: me.type,
@@ -259,9 +271,10 @@ export function CollectionInfo() {
 
         const gradingRecordsRes = await supabase
           .from("user_collection_sending_to_grade")
-          .select("id, user_collection_id, sent_at, created_at")
+            .select("id, user_collection_id, sent_at, created_at, executed")
           .eq("user_id", userId)
           .in("user_collection_id", allUcIdsForCard)
+            .eq("executed", false)
           .order("sent_at", { ascending: false })
 
         if (signal.aborted) return
@@ -374,6 +387,7 @@ export function CollectionInfo() {
               )
               .eq("user_id", userId)
               .in("id", ucJoinIds)
+              .eq("deleted", false)
 
             if (signal.aborted) return
 
@@ -430,6 +444,7 @@ export function CollectionInfo() {
                     description: string | null
                   }>) {
                     miscMap.set(me.id, {
+                      id: me.id,
                       date: me.date,
                       price: Number(me.price) || 0,
                       type: me.type,
@@ -521,9 +536,23 @@ export function CollectionInfo() {
 
       setLoading(false)
     })()
+  }
+
+  useEffect(() => {
+    // Hard load: show skeletons.
+    fetchAll({ soft: false })
 
     return () => abortRef.current?.abort()
-  }, [collection_item_id, graded, user?.id, workerOrigin, reloadKey])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collection_item_id, graded, user?.id, workerOrigin])
+
+  useEffect(() => {
+    // Soft refresh (after updates/submits): keep UI visible.
+    if (!reloadKey) return
+    fetchAll({ soft: true })
+    return () => abortRef.current?.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadKey])
 
   return (
     <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
@@ -580,6 +609,7 @@ export function CollectionInfo() {
                 sourceImageUrl={imageUrl}
                 sourceTitle={title}
                 formatMoneyHKD={formatMoneyHKD}
+              onRefresh={() => setReloadKey((k) => k + 1)}
               />
             </div>
           </div>

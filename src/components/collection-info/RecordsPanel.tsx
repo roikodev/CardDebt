@@ -24,6 +24,7 @@ type Props = {
   sourceImageUrl: string | null
   sourceTitle: string
   formatMoneyHKD: (n: number) => string
+  onRefresh?: () => void
 }
 
 export function RecordsPanel(props: Props) {
@@ -47,6 +48,7 @@ export function RecordsPanel(props: Props) {
           sourceImageUrl={props.sourceImageUrl}
           sourceTitle={props.sourceTitle}
           formatMoneyHKD={props.formatMoneyHKD}
+          onUpdated={props.onRefresh}
         />
       ) : props.recordsView === "purchase" ? (
         <PurchaseRecordsSection

@@ -184,6 +184,7 @@ export function DeriveSummaryDialog({
         .eq("graded", sourceGraded)
         .eq("derived", false)
         .eq("grading", false)
+        .eq("deleted", false)
         .order("created_at", { ascending: true })
         .limit(setsInt)
 
@@ -208,6 +209,7 @@ export function DeriveSummaryDialog({
         .eq("graded", sourceGraded)
         .eq("derived", false)
         .eq("grading", false)
+        .eq("deleted", false)
 
       if (validateRes.error) {
         setSaveError(validateRes.error.message)
@@ -229,7 +231,11 @@ export function DeriveSummaryDialog({
       return
     }
 
-    const updRes = await supabase.from("user_collection").update({ derived: true }).in("id", srcIds)
+    const updRes = await supabase
+      .from("user_collection")
+      .update({ derived: true })
+      .in("id", srcIds)
+      .eq("deleted", false)
     if (updRes.error) {
       setSaveError(updRes.error.message)
       setSaving(false)
@@ -349,6 +355,7 @@ export function DeriveSummaryDialog({
             user_id: userId,
             graded,
             derived: false,
+            deleted: false,
             collection_item_id: baseId,
             buying_entries_id: null,
           },
@@ -361,7 +368,10 @@ export function DeriveSummaryDialog({
         row: any
       }>
 
-      const ucInsertRes = await supabase.from("user_collection").insert(toInsert.map((x) => x.row)).select("id")
+      const ucInsertRes = await supabase
+        .from("user_collection")
+        .insert(toInsert.map((x) => x.row))
+        .select("id")
       if (ucInsertRes.error || !ucInsertRes.data?.length) {
         setSaveError(ucInsertRes.error?.message ?? "Failed to create derived collection items.")
         setSaving(false)
