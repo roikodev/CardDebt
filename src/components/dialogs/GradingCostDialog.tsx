@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 
 import {
   Dialog,
@@ -85,13 +85,12 @@ export function GradingCostDialog({
   const maxQuantity = useMemo(() => Math.max(0, sourceQuantity || 0), [sourceQuantity])
   const canNext = useMemo(() => quantity >= 1 && quantity <= maxQuantity, [maxQuantity, quantity])
 
-  useEffect(() => {
-    if (open) return
+  const resetForm = () => {
     setCosts([])
     setQuantity(1)
     setSendingDate(todayISODate())
     setSummaryOpen(false)
-  }, [open])
+  }
 
   return (
     <>
@@ -268,9 +267,11 @@ export function GradingCostDialog({
         sendingDate={sendingDate}
         sourceQuantity={maxQuantity}
         costs={costs}
+        onBack={() => setSummaryOpen(false)}
         onDone={() => {
           setSummaryOpen(false)
           onOpenChange(false)
+          resetForm()
           onSubmitted?.()
         }}
       />

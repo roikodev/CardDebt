@@ -40,10 +40,10 @@ export function CollectionInfo() {
   const [item, setItem] = useState<CollectionBase | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [buyEntries, setBuyEntries] = useState<BuyEntry[]>([])
-  const [grading, setGrading] = useState<{ provider: string; grade: number } | null>(
-    null
-  )
-  const [gradingRecordCount, setGradingRecordCount] = useState(0)
+  const [gradedLevelCounts, setGradedLevelCounts] = useState<
+    Record<string, { provider: string; grade: number; count: number }>
+  >({})
+  const [gradingCount, setGradingCount] = useState(0)
   const [derivedLoading, setDerivedLoading] = useState(false)
   const [derivedError, setDerivedError] = useState<string | null>(null)
   const [derivedRecords, setDerivedRecords] = useState<DerivedRecordRow[]>([])
@@ -75,8 +75,8 @@ export function CollectionInfo() {
     setItem(null)
     setImageUrl(null)
     setBuyEntries([])
-    setGrading(null)
-    setGradingRecordCount(0)
+    setGradedLevelCounts({})
+    setGradingCount(0)
     setDerivedLoading(true)
     setDerivedError(null)
     setDerivedRecords([])
@@ -134,6 +134,33 @@ export function CollectionInfo() {
           (r) => !(r as { grading?: boolean | null }).grading
         ).length
       )
+
+      const ucRows = (ucRes.data ?? []) as Array<{
+        grading?: boolean | null
+        user_collection_grading?:
+          | { provider: string; grade: number }
+          | { provider: string; grade: number }[]
+          | null
+      }>
+
+      setGradingCount(ucRows.filter((r) => Boolean(r.grading)).length)
+
+      if (graded) {
+        const levelCounts: Record<string, { provider: string; grade: number; count: number }> = {}
+        for (const r of ucRows) {
+          const raw = r.user_collection_grading
+          const g = Array.isArray(raw) ? raw[0] : raw ?? null
+          if (!g?.provider || typeof g.grade !== "number") continue
+          const levelKey = `${g.provider}:${g.grade}`
+          const current = levelCounts[levelKey]
+          levelCounts[levelKey] = current
+            ? { ...current, count: current.count + 1 }
+            : { provider: g.provider, grade: g.grade, count: 1 }
+        }
+        setGradedLevelCounts(levelCounts)
+      } else {
+        setGradedLevelCounts({})
+      }
 
       const ids = Array.from(
         new Set(
@@ -247,26 +274,7 @@ export function CollectionInfo() {
         }
       }
 
-      if (!allUcForCardRes.error && allUcForCardRes.data) {
-        const count = (allUcForCardRes.data as Array<{ grading?: boolean | null }>).filter(
-          (r) => Boolean(r.grading)
-        ).length
-        setGradingRecordCount(count)
-      }
-
-      if (graded) {
-        const first = ((ucRes.data ?? [])[0] ?? null) as unknown as {
-          user_collection_grading?:
-            | { provider: string; grade: number }
-            | { provider: string; grade: number }[]
-            | null
-        } | null
-        const raw = first?.user_collection_grading
-        const g = Array.isArray(raw) ? raw[0] : raw ?? null
-        if (g?.provider && typeof g.grade === "number") {
-          setGrading({ provider: g.provider, grade: g.grade })
-        }
-      }
+      // NOTE: Grading/graded chip summary is derived from `ucRes` above to stay consistent with `MyCollection`.
 
       if (ids.length) {
         const buysRes = await supabase
@@ -514,7 +522,7 @@ export function CollectionInfo() {
   return (
     <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 pb-40 sm:pb-6">
           <div className="mb-4 flex items-center gap-3">
             <Button
               type="button"
@@ -536,8 +544,8 @@ export function CollectionInfo() {
               loading={loading}
               imageUrl={imageUrl}
               title={title}
-              grading={grading}
-              gradingRecordCount={gradingRecordCount}
+            gradedLevelCounts={gradedLevelCounts}
+            gradingCount={gradingCount}
               item={item}
               itemFields={itemFields}
               sourceQuantity={sourceQuantity}
@@ -547,21 +555,26 @@ export function CollectionInfo() {
               onOpenDerive={() => setDeriveOpen(true)}
             />
 
-            <RecordsPanel
-              recordsView={recordsView}
-              setRecordsView={setRecordsView}
-              loading={loading}
-              buyEntries={buyEntries}
-              derivedLoading={derivedLoading}
-              derivedError={derivedError}
-              derivedRecords={derivedRecords}
-              derivedImageUrls={derivedImageUrls}
-              gradingRecords={gradingRecords}
-              overviewRows={overviewRows}
-              sourceImageUrl={imageUrl}
-              sourceTitle={title}
-              formatMoneyHKD={formatMoneyHKD}
-            />
+            <div
+              key={recordsView}
+              className="animate-in fade-in-0 duration-200"
+            >
+              <RecordsPanel
+                recordsView={recordsView}
+                setRecordsView={setRecordsView}
+                loading={loading}
+                buyEntries={buyEntries}
+                derivedLoading={derivedLoading}
+                derivedError={derivedError}
+                derivedRecords={derivedRecords}
+                derivedImageUrls={derivedImageUrls}
+                gradingRecords={gradingRecords}
+                overviewRows={overviewRows}
+                sourceImageUrl={imageUrl}
+                sourceTitle={title}
+                formatMoneyHKD={formatMoneyHKD}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -164,10 +164,9 @@ export function CardBaseDialog({
 
   useEffect(() => {
     if (open) return
+    // Keep state when closed so user can go Back and continue.
     abortRef.current?.abort()
     abortRef.current = null
-    setItems([])
-    setImageUrls({})
   }, [open])
 
   const rowCount = useMemo(() => Math.ceil(items.length / cols), [cols, items.length])

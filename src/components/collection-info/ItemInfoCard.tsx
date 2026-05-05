@@ -3,6 +3,7 @@ import { GradedChip } from "@/components/GradedChip"
 import { GradingChip } from "@/components/GradingChip"
 import type { CollectionBase } from "@/components/collection-info/types"
 import { cn } from "@/lib/utils"
+import { useMemo } from "react"
 
 function Skeleton({ className }: { className: string }) {
   return (
@@ -19,8 +20,8 @@ type Props = {
   loading: boolean
   imageUrl: string | null
   title: string
-  grading: { provider: string; grade: number } | null
-  gradingRecordCount: number
+  gradedLevelCounts: Record<string, { provider: string; grade: number; count: number }>
+  gradingCount: number
   item: CollectionBase | null
   itemFields: Array<{ label: string; value: string | null }>
   sourceQuantity: number
@@ -34,8 +35,8 @@ export function ItemInfoCard({
   loading,
   imageUrl,
   title,
-  grading,
-  gradingRecordCount,
+  gradedLevelCounts,
+  gradingCount,
   item,
   itemFields,
   sourceQuantity,
@@ -45,6 +46,14 @@ export function ItemInfoCard({
   onOpenDerive,
 }: Props) {
   const disableActions = loading || !item || availableQuantity <= 0
+  const gradedLevels = useMemo(() => {
+    const levels = Object.values(gradedLevelCounts) as Array<{
+      provider: string
+      grade: number
+      count: number
+    }>
+    return levels.sort((a, b) => b.grade - a.grade)
+  }, [gradedLevelCounts])
 
   return (
     <section className="min-w-0 overflow-hidden rounded-2xl border bg-zinc-900 p-3 text-left text-white sm:p-4 lg:sticky lg:top-6 lg:self-start">
@@ -59,20 +68,28 @@ export function ItemInfoCard({
       </div>
 
       <div className="mt-4 space-y-2">
-        {loading && !grading ? (
+        {loading && gradedLevels.length === 0 && gradingCount === 0 ? (
           <div className="flex min-w-0 items-center justify-start">
             <Skeleton className="h-5 w-full max-w-28" />
           </div>
-        ) : grading && Number(grading.grade) > 1 ? (
-          <div className="flex items-center justify-start gap-2">
-            <GradedChip provider={grading.provider} grade={grading.grade} tone="dark" />
-            <GradingChip count={gradingRecordCount} tone="dark" />
+        ) : gradedLevels.length > 0 || gradingCount > 0 ? (
+          <div className="flex flex-wrap items-center justify-start gap-2">
+            {gradedLevels.map((lvl) => (
+              <GradedChip
+                key={`${lvl.provider}-${lvl.grade}`}
+                provider={lvl.provider}
+                grade={lvl.grade}
+                count={lvl.count}
+                tone="dark"
+              />
+            ))}
+            {gradingCount > 0 ? <GradingChip count={gradingCount} tone="dark" /> : null}
           </div>
         ) : loading ? (
           <Skeleton className="h-5 w-full max-w-32" />
         ) : (
           <div className="flex items-center justify-start">
-            <GradingChip count={gradingRecordCount} tone="dark" />
+            <GradingChip count={gradingCount} tone="dark" />
           </div>
         )}
 
