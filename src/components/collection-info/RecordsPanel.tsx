@@ -1,6 +1,5 @@
 import { DerivedRecordsSection } from "@/components/collection-info/records-panel/DerivedRecordsSection"
 import { GradingRecordsSection } from "@/components/collection-info/records-panel/GradingRecordsSection"
-import { OverviewRecordsSection } from "@/components/collection-info/records-panel/OverviewRecordsSection"
 import { PurchaseRecordsSection } from "@/components/collection-info/records-panel/PurchaseRecordsSection"
 import { RecordsPanelHeader } from "@/components/collection-info/records-panel/RecordsPanelHeader"
 import type { RecordsView } from "@/components/collection-info/records-panel/shared"
@@ -41,9 +40,7 @@ export function RecordsPanel(props: Props) {
         overviewRows={props.overviewRows}
       />
 
-      {props.recordsView === "overview" ? (
-        <OverviewRecordsSection loading={props.loading} overviewRows={props.overviewRows} />
-      ) : props.recordsView === "grading" ? (
+      {props.recordsView === "grading" ? (
         <GradingRecordsSection
           loading={props.loading}
           gradingRecords={props.gradingRecords}

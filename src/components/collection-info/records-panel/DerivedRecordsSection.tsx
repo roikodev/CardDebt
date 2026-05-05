@@ -54,7 +54,7 @@ export function DerivedRecordsSection({
         to="/user/my-collection/$collection_item_id"
         params={{ collection_item_id: ucId }}
         search={{ graded }}
-        className="flex min-w-0 flex-1 items-start gap-2 rounded-md p-1.5 transition hover:bg-muted/25"
+        className="flex w-full min-w-0 flex-1 items-start gap-2 rounded-md p-1.5 transition hover:bg-muted/25"
       >
         <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted/30">
           {img ? (
@@ -81,7 +81,7 @@ export function DerivedRecordsSection({
         </div>
       </Link>
     ) : (
-      <div className="flex min-w-0 flex-1 items-start gap-2 rounded-md p-1.5 opacity-70">
+      <div className="flex w-full min-w-0 flex-1 items-start gap-2 rounded-md p-1.5 opacity-70">
         <div className="h-10 w-10 shrink-0 rounded-md bg-muted/50" />
         <div className="min-w-0 text-left">
           <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
@@ -124,11 +124,11 @@ export function DerivedRecordsSection({
 
         return (
           <div key={`src-${fromId}`} className="rounded-xl border bg-background/30 p-3 text-left">
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1">
+            <div className="flex flex-col items-start gap-3 sm:flex-row">
+              <div className="w-full min-w-0 flex-1">
                 {sideLink(fromItemId, fromG, fromName, imgFrom, "Source", metaLine(fromBase))}
               </div>
-              <div className="shrink-0 text-right">
+              <div className="w-full shrink-0 rounded-lg border bg-muted/20 px-3 py-2 text-left sm:w-auto sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
                 <p className="text-xs text-muted-foreground">Total deriving cost</p>
                 <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(sourceDerivedTotal)}</p>
               </div>
@@ -144,14 +144,14 @@ export function DerivedRecordsSection({
 
                 return (
                   <div key={dr.id} className="rounded-md p-1.5">
-                    <div className="flex items-start gap-2">
-                      <div className="pt-2 text-muted-foreground">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                      <div className="hidden pt-2 text-muted-foreground sm:block">
                         <ArrowRight className="size-4" aria-hidden="true" />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="w-full min-w-0 flex-1">
                         {sideLink(toItemId, toG, toName, imgTo, "Derived item", metaLine(toBase))}
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="flex w-full shrink-0 items-baseline justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2 text-left sm:w-auto sm:flex-col sm:items-end sm:justify-start sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
                         <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(dr.costTotal)}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {new Date(dr.created_at).toLocaleDateString()}
@@ -160,11 +160,11 @@ export function DerivedRecordsSection({
                     </div>
 
                     {dr.costLines.length ? (
-                      <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                      <p className="mt-1 text-xs text-muted-foreground sm:pl-6">
                         {dr.costLines.map((c) => `${c.type} ${formatMoneyHKD(Number(c.price) || 0)}`).join(" · ")}
                       </p>
                     ) : (
-                      <p className="mt-1 pl-6 text-xs text-muted-foreground">No cost entries.</p>
+                      <p className="mt-1 text-xs text-muted-foreground sm:pl-6">No cost entries.</p>
                     )}
                   </div>
                 )

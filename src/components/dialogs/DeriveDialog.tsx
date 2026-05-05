@@ -36,6 +36,7 @@ import {
   type DerivedItemCostTarget,
 } from "./DerivedItemCostDialog"
 import { DeriveSummaryDialog } from "@/components/dialogs/DeriveSummaryDialog"
+import { DeriveGradedSelectionDialog } from "@/components/dialogs/DeriveGradedSelectionDialog"
 import { LayoutGrid, Plus, PlusSquare, Trash2 } from "lucide-react"
 
 type DeriveMode = "create_new" | "choose_from_base"
@@ -116,6 +117,8 @@ export function DeriveDialog({
   const [pickedBaseImageUrls, setPickedBaseImageUrls] = useState<Record<string, string>>({})
   const abortRef = useRef<AbortController | null>(null)
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [gradedSelectionOpen, setGradedSelectionOpen] = useState(false)
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [costOpen, setCostOpen] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [perItemCosts, setPerItemCosts] = useState<Record<string, import("./DerivedItemCostDialog").CostEntry[]>>({})
@@ -214,9 +217,16 @@ export function DeriveDialog({
 
   useEffect(() => {
     if (open) return
+    // Keep form state when the dialog closes (Back/Cancel).
+    // Reset only after the flow is successfully submitted.
     abortRef.current?.abort()
+  }, [open])
+
+  const resetFlow = () => {
     setPickedBaseImageUrls({})
     setSubmitAttempted(false)
+    setGradedSelectionOpen(false)
+    setSelectedSourceIds([])
     setCostOpen(false)
     setSummaryOpen(false)
     setPerItemCosts({})
@@ -226,11 +236,24 @@ export function DeriveDialog({
         if (it.createNew.sourceImageUrl) URL.revokeObjectURL(it.createNew.sourceImageUrl)
         return {
           ...it,
-          createNew: { ...it.createNew, sourceImage: null, sourceImageUrl: null },
+          mode: null,
+          selectedBase: null,
+          chooseFromBase: { graded: false, provider: "PSA", grade: "" },
+          createNew: {
+            sourceImage: null,
+            sourceImageUrl: null,
+            gameTitle: null,
+            category: "Card",
+            cardNo: "",
+            name: "",
+            graded: false,
+            provider: "PSA",
+            grade: "",
+          },
         }
       })
     )
-  }, [open])
+  }
 
   return (
     <>
@@ -827,6 +850,11 @@ export function DeriveDialog({
                 onClick={() => {
                   setSubmitAttempted(true)
                   if (!canConfirm) return
+                  const setsInt = Math.max(0, Math.trunc(Number(sets) || 0))
+                  if (_sourceGraded && setsInt > 0) {
+                    setGradedSelectionOpen(true)
+                    return
+                  }
                   setCostOpen(true)
                 }}
               >
@@ -859,12 +887,28 @@ export function DeriveDialog({
         }}
       />
 
+      <DeriveGradedSelectionDialog
+        open={gradedSelectionOpen}
+        onOpenChange={setGradedSelectionOpen}
+        sourceCollectionItemId={_sourceCollectionItemId}
+        requiredCount={Math.max(0, Math.trunc(Number(sets) || 0))}
+        onConfirm={(ids) => {
+          setSelectedSourceIds(ids)
+          setCostOpen(true)
+        }}
+      />
+
       <DerivedItemCostDialog
         open={costOpen}
         onOpenChange={setCostOpen}
         sets={sets}
         maxSets={Math.max(0, sourceQuantity || 0)}
         targets={costTargets}
+        onBack={() => {
+          setCostOpen(false)
+          const setsInt = Math.max(0, Math.trunc(Number(sets) || 0))
+          if (_sourceGraded && setsInt > 0) setGradedSelectionOpen(true)
+        }}
         onNext={({ perItemCosts }) => {
           setPerItemCosts(perItemCosts)
           setSummaryOpen(true)
@@ -878,14 +922,20 @@ export function DeriveDialog({
         sourceQuantity={Math.max(0, sourceQuantity || 0)}
         sourceCollectionItemId={_sourceCollectionItemId}
         sourceGraded={_sourceGraded}
+        sourceUserCollectionIds={selectedSourceIds.length ? selectedSourceIds : undefined}
         drafts={items}
         targets={costTargets}
         generalCosts={[]}
         perItemCosts={perItemCosts}
+        onBack={() => {
+          setSummaryOpen(false)
+          setCostOpen(true)
+        }}
         onSubmitted={() => {
           setSummaryOpen(false)
           setCostOpen(false)
           onOpenChange(false)
+          resetFlow()
           onSubmitted?.()
         }}
       />

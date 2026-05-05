@@ -50,11 +50,13 @@ type Props = {
   sourceQuantity: number
   sourceCollectionItemId: string
   sourceGraded: boolean
+  sourceUserCollectionIds?: string[]
   drafts: Draft[]
   targets: DerivedItemCostTarget[]
   generalCosts?: CostEntry[]
   perItemCosts: Record<string, CostEntry[]>
   onSubmitted?: () => void
+  onBack?: () => void
 }
 
 function moneyHKD(n: number): string {
@@ -80,11 +82,13 @@ export function DeriveSummaryDialog({
   sourceQuantity,
   sourceCollectionItemId,
   sourceGraded,
+  sourceUserCollectionIds,
   drafts,
   targets,
   generalCosts: _generalCosts,
   perItemCosts,
   onSubmitted,
+  onBack,
 }: Props) {
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
   const [source, setSource] = useState<SourceBase | null>(null)
@@ -168,26 +172,56 @@ export function DeriveSummaryDialog({
       return
     }
 
-    const srcRes = await supabase
-      .from("user_collection")
-      .select("id, created_at")
-      .eq("user_id", userId)
-      .eq("collection_item_id", sourceCollectionItemId)
-      .eq("graded", sourceGraded)
-      .eq("derived", false)
-      .eq("grading", false)
-      .order("created_at", { ascending: true })
-      .limit(setsInt)
+    let srcIds: string[] = []
+    if (sourceUserCollectionIds?.length) {
+      srcIds = [...new Set(sourceUserCollectionIds)].slice(0, setsInt)
+    } else {
+      const srcRes = await supabase
+        .from("user_collection")
+        .select("id, created_at")
+        .eq("user_id", userId)
+        .eq("collection_item_id", sourceCollectionItemId)
+        .eq("graded", sourceGraded)
+        .eq("derived", false)
+        .eq("grading", false)
+        .order("created_at", { ascending: true })
+        .limit(setsInt)
 
-    if (srcRes.error) {
-      setSaveError(srcRes.error.message)
-      setSaving(false)
-      return
+      if (srcRes.error) {
+        setSaveError(srcRes.error.message)
+        setSaving(false)
+        return
+      }
+
+      srcIds = (srcRes.data ?? [])
+        .map((r) => (r as { id: string }).id)
+        .filter((v): v is string => Boolean(v))
     }
 
-    const srcIds = (srcRes.data ?? [])
-      .map((r) => (r as { id: string }).id)
-      .filter((v): v is string => Boolean(v))
+    if (srcIds.length) {
+      const validateRes = await supabase
+        .from("user_collection")
+        .select("id")
+        .eq("user_id", userId)
+        .in("id", srcIds)
+        .eq("collection_item_id", sourceCollectionItemId)
+        .eq("graded", sourceGraded)
+        .eq("derived", false)
+        .eq("grading", false)
+
+      if (validateRes.error) {
+        setSaveError(validateRes.error.message)
+        setSaving(false)
+        return
+      }
+
+      const validIds = new Set(
+        (validateRes.data ?? [])
+          .map((r) => (r as { id: string }).id)
+          .filter((v): v is string => Boolean(v))
+      )
+      srcIds = srcIds.filter((id) => validIds.has(id))
+    }
 
     if (srcIds.length < setsInt) {
       setSaveError("Not enough available items to derive from.")
@@ -572,12 +606,15 @@ export function DeriveSummaryDialog({
           </div>
         </DialogBody>
 
-        <DialogFooter className="gap-2 px-4 pb-5 pt-0 sm:px-6 sm:pb-6">
+        <DialogFooter className="gap-2 px-4 pb-5 pt-3 sm:px-6 sm:pb-6">
           <Button
             type="button"
             variant="outline"
             className="w-full min-w-0 sm:w-auto"
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              if (onBack) onBack()
+              else onOpenChange(false)
+            }}
             disabled={saving}
           >
             Back

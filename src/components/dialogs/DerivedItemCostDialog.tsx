@@ -52,6 +52,7 @@ type Props = {
   onNext?: (payload: {
     perItemCosts: Record<string, CostEntry[]>
   }) => void
+  onBack?: () => void
 }
 
 function uid(): string {
@@ -85,6 +86,7 @@ export function DerivedItemCostDialog({
   maxSets,
   targets,
   onNext,
+  onBack,
 }: Props) {
   const [perItemCosts, setPerItemCosts] = useState<Record<string, CostEntry[]>>({})
 
@@ -104,10 +106,7 @@ export function DerivedItemCostDialog({
     })
   }, [open, targetIds])
 
-  useEffect(() => {
-    if (open) return
-    setPerItemCosts({})
-  }, [open])
+  // Do not clear state on close; only clear when the overall flow is submitted.
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -267,7 +266,14 @@ export function DerivedItemCostDialog({
 
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (onBack) onBack()
+                else onOpenChange(false)
+              }}
+            >
               Back
             </Button>
             <Button

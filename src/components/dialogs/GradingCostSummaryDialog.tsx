@@ -46,6 +46,7 @@ type Props = {
   sendingDate: string
   costs: CostEntry[]
   onDone?: () => void
+  onBack?: () => void
 }
 
 function moneyHKD(n: number): string {
@@ -73,6 +74,7 @@ export function GradingCostSummaryDialog({
   sendingDate,
   costs,
   onDone,
+  onBack,
 }: Props) {
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
   const [source, setSource] = useState<SourceBase | null>(null)
@@ -370,7 +372,15 @@ export function GradingCostSummaryDialog({
 
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (onBack) onBack()
+                else onOpenChange(false)
+              }}
+              disabled={submitting}
+            >
               Back
             </Button>
             <Button type="button" onClick={handleDone} disabled={submitting}>
