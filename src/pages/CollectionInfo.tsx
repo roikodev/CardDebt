@@ -512,55 +512,57 @@ export function CollectionInfo() {
   }, [collection_item_id, graded, user?.id, workerOrigin, reloadKey])
 
   return (
-    <main className="flex h-screen flex-col overflow-y-auto bg-background text-foreground">
-      <div className="mx-auto w-full max-w-7xl px-4 py-6">
-        <div className="mb-4 flex items-center gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            className="gap-2 px-2"
-            onClick={() => navigate({ to: "/user/my-collection" })}
-          >
-            <ArrowLeft aria-hidden="true" className="size-5" />
-            My Collection
-          </Button>
-        </div>
+    <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6">
+          <div className="mb-4 flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              className="gap-2 px-2"
+              onClick={() => navigate({ to: "/user/my-collection" })}
+            >
+              <ArrowLeft aria-hidden="true" className="size-5" />
+              My Collection
+            </Button>
+          </div>
 
-        {error ? (
-          <p className="mb-3 text-left text-sm text-destructive">{error}</p>
-        ) : null}
+          {error ? (
+            <p className="mb-3 text-left text-sm text-destructive">{error}</p>
+          ) : null}
 
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[360px_1fr]">
-          <ItemInfoCard
-            loading={loading}
-            imageUrl={imageUrl}
-            title={title}
-            grading={grading}
-            gradingRecordCount={gradingRecordCount}
-            item={item}
-            itemFields={itemFields}
-            sourceQuantity={sourceQuantity}
-            availableQuantity={availableQuantity}
-            graded={graded}
-            onOpenGrade={() => setGradeOpen(true)}
-            onOpenDerive={() => setDeriveOpen(true)}
-          />
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[360px_1fr]">
+            <ItemInfoCard
+              loading={loading}
+              imageUrl={imageUrl}
+              title={title}
+              grading={grading}
+              gradingRecordCount={gradingRecordCount}
+              item={item}
+              itemFields={itemFields}
+              sourceQuantity={sourceQuantity}
+              availableQuantity={availableQuantity}
+              graded={graded}
+              onOpenGrade={() => setGradeOpen(true)}
+              onOpenDerive={() => setDeriveOpen(true)}
+            />
 
-          <RecordsPanel
-            recordsView={recordsView}
-            setRecordsView={setRecordsView}
-            loading={loading}
-            buyEntries={buyEntries}
-            derivedLoading={derivedLoading}
-            derivedError={derivedError}
-            derivedRecords={derivedRecords}
-            derivedImageUrls={derivedImageUrls}
-            gradingRecords={gradingRecords}
-            overviewRows={overviewRows}
-            sourceImageUrl={imageUrl}
-            sourceTitle={title}
-            formatMoneyHKD={formatMoneyHKD}
-          />
+            <RecordsPanel
+              recordsView={recordsView}
+              setRecordsView={setRecordsView}
+              loading={loading}
+              buyEntries={buyEntries}
+              derivedLoading={derivedLoading}
+              derivedError={derivedError}
+              derivedRecords={derivedRecords}
+              derivedImageUrls={derivedImageUrls}
+              gradingRecords={gradingRecords}
+              overviewRows={overviewRows}
+              sourceImageUrl={imageUrl}
+              sourceTitle={title}
+              formatMoneyHKD={formatMoneyHKD}
+            />
+          </div>
         </div>
       </div>
 

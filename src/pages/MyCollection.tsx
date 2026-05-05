@@ -40,6 +40,20 @@ type CollectionGroup = {
   gradingCount: number
 }
 
+function SkeletonCardTile() {
+  return <div className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />
+}
+
+function SkeletonGrid({ count = 12 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonCardTile key={i} />
+      ))}
+    </div>
+  )
+}
+
 // --- Sub-Component: Individual Card Thumbnail ---
 function CollectionCard({ 
   group, 
@@ -298,7 +312,7 @@ export function MyCollection() {
   )
 
   return (
-    <main className="flex h-screen max-h-screen flex-col overflow-hidden bg-background text-foreground">
+    <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <div className="relative mx-auto flex h-full w-full max-w-7xl flex-col">
         <CollapsibleHeader
           headerRef={headerRef}
@@ -369,8 +383,36 @@ export function MyCollection() {
           }}
         >
           {loading ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-              {[...Array(12)].map((_, i) => <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />)}
+            <div className="space-y-6 pt-4 pb-40">
+              {(groupFilter === "all" || groupFilter === "graded") && (
+                <section>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-base font-semibold">Graded</h2>
+                    <span className="h-4 w-16 animate-pulse rounded bg-muted" aria-hidden="true" />
+                  </div>
+                  <SkeletonGrid />
+                </section>
+              )}
+
+              {(groupFilter === "all" || groupFilter === "raw") && (
+                <section>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-base font-semibold">Raw</h2>
+                    <span className="h-4 w-16 animate-pulse rounded bg-muted" aria-hidden="true" />
+                  </div>
+                  <SkeletonGrid />
+                </section>
+              )}
+
+              {(groupFilter === "all" || groupFilter === "empty") && (
+                <section>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-base font-semibold">Empty</h2>
+                    <span className="h-4 w-16 animate-pulse rounded bg-muted" aria-hidden="true" />
+                  </div>
+                  <SkeletonGrid />
+                </section>
+              )}
             </div>
           ) : (
             <div className="space-y-6 pt-4 pb-40">

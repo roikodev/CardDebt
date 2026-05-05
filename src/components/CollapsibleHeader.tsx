@@ -44,7 +44,10 @@ export function useCollapsibleHeader(args: UseCollapsibleHeaderArgs = {}) {
   const onScroll = (scrollTop: number) => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
-      const y = scrollTop
+      // iOS rubber-banding can report negative scrollTop while bouncing.
+      // We never want that to drive a "collapse" (fade out / move up).
+      // When y <= 0: keep header fully visible at rest (offset = 0).
+      const y = Math.max(0, scrollTop)
       const dy = y - lastYRef.current
       lastYRef.current = y
 
