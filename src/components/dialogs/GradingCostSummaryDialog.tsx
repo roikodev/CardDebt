@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 type CostType = "Grading" | "Postal" | "Other"
 
@@ -157,6 +158,7 @@ export function GradingCostSummaryDialog({
       .eq("graded", false)
       .eq("derived", false)
       .eq("grading", false)
+      .eq("deleted", false)
       .order("created_at", { ascending: true })
       .limit(takeCount)
 
@@ -184,6 +186,7 @@ export function GradingCostSummaryDialog({
       .from("user_collection")
       .update({ grading: true })
       .in("id", targetIds)
+      .eq("deleted", false)
 
     if (updateRes.error) {
       setSubmitError(updateRes.error.message)
@@ -268,6 +271,7 @@ export function GradingCostSummaryDialog({
 
     onDone?.()
     onOpenChange(false)
+    toast.success("Saved successfully", { duration: 5000 })
     setSubmitting(false)
   }
 

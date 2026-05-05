@@ -408,6 +408,7 @@ export function BuyProductDialog({
       user_id: userId,
       graded: values.graded,
       derived: false,
+      deleted: false,
       collection_item_id: collectionItemId,
       buying_entries_id: buyEntryId,
     }))

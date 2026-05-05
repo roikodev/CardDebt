@@ -224,6 +224,7 @@ export function MyCollection() {
         `)
         .eq("user_id", user.id)
         .eq("derived", false)
+        .eq("deleted", false)
         .order("created_at", { ascending: false })
 
       const rows = data as unknown as UserCollectionRow[]
@@ -272,6 +273,7 @@ export function MyCollection() {
         .from("user_collection")
         .select("collection_item_id")
         .eq("user_id", user.id)
+        .eq("deleted", false)
 
       if (ownedRes.error) {
         setEmptyBases([])
