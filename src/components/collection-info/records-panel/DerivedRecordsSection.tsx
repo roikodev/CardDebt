@@ -2,6 +2,10 @@ import type { CollectionBase, DerivedRecordRow } from "@/components/collection-i
 import { SkeletonMuted } from "@/components/collection-info/records-panel/shared"
 import { Link } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { XCircle } from "lucide-react"
+import { useState } from "react"
+import { CancelDerivedRecordDialog } from "@/components/dialogs/CancelDerivedRecordDialog"
 
 type Props = {
   derivedError: string | null
@@ -9,6 +13,7 @@ type Props = {
   derivedRecords: DerivedRecordRow[]
   derivedImageUrls: Record<string, string>
   formatMoneyHKD: (n: number) => string
+  onUpdated?: () => void
 }
 
 export function DerivedRecordsSection({
@@ -17,7 +22,10 @@ export function DerivedRecordsSection({
   derivedRecords,
   derivedImageUrls,
   formatMoneyHKD,
+  onUpdated,
 }: Props) {
+  const [cancelling, setCancelling] = useState<null | { recordId: string; fromUcId: string; toUcId: string }>(null)
+
   if (derivedError) return <p className="text-sm text-destructive">{derivedError}</p>
   if (derivedLoading) {
     return (
@@ -108,6 +116,7 @@ export function DerivedRecordsSection({
     .sort((a, b) => b.latest - a.latest)
 
   return (
+    <>
     <div className="space-y-3">
       {orderedGroups.map(({ fromId, rows }) => {
         const first = rows[0]
@@ -143,7 +152,23 @@ export function DerivedRecordsSection({
                 const toG = dr.to_user_collection?.graded ?? false
 
                 return (
-                  <div key={dr.id} className="rounded-md p-1.5">
+                  <div key={dr.id} className="relative rounded-md p-1.5">
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      className="absolute right-1 top-1 z-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Cancel derived record"
+                      onClick={() =>
+                        setCancelling({
+                          recordId: dr.id,
+                          fromUcId: dr.from_user_collection_id,
+                          toUcId: dr.to_user_collection_id,
+                        })
+                      }
+                    >
+                      <XCircle className="size-4" aria-hidden="true" />
+                    </Button>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                       <div className="hidden pt-2 text-muted-foreground sm:block">
                         <ArrowRight className="size-4" aria-hidden="true" />
@@ -174,5 +199,17 @@ export function DerivedRecordsSection({
         )
       })}
     </div>
+
+    <CancelDerivedRecordDialog
+      open={Boolean(cancelling)}
+      onOpenChange={(o) => {
+        if (!o) setCancelling(null)
+      }}
+      recordId={cancelling?.recordId ?? ""}
+      fromUserCollectionId={cancelling?.fromUcId ?? ""}
+      toUserCollectionId={cancelling?.toUcId ?? ""}
+      onCancelled={onUpdated}
+    />
+    </>
   )
 }

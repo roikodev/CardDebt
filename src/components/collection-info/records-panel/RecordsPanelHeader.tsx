@@ -11,6 +11,7 @@ import type {
 type Props = {
   recordsView: RecordsView
   setRecordsView: (view: RecordsView) => void
+  hideGradingView?: boolean
   loading: boolean
   derivedLoading: boolean
   buyEntries: BuyEntry[]
@@ -59,15 +60,17 @@ export function RecordsPanelHeader(props: Props) {
         >
           Derived
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={props.recordsView === "grading" ? "default" : "outline"}
-          className={cn("min-w-0 truncate px-2 text-xs sm:px-3 sm:text-sm")}
-          onClick={() => props.setRecordsView("grading")}
-        >
-          Grading ({props.gradingRecords.length})
-        </Button>
+        {!props.hideGradingView ? (
+          <Button
+            type="button"
+            size="sm"
+            variant={props.recordsView === "grading" ? "default" : "outline"}
+            className={cn("min-w-0 truncate px-2 text-xs sm:px-3 sm:text-sm")}
+            onClick={() => props.setRecordsView("grading")}
+          >
+            Grading ({props.gradingRecords.length})
+          </Button>
+        ) : null}
       </div>
     </div>
   )

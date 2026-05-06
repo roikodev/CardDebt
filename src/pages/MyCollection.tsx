@@ -184,11 +184,7 @@ function EmptyCollectionCard({
         )}
       </div>
       <div className="flex min-h-[92px] flex-col gap-1 p-3">
-        <div className="min-h-5">
-          <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[11px] font-semibold leading-none text-foreground">
-            Empty
-          </span>
-        </div>
+        <div className="min-h-5" />
         <p className="line-clamp-2 text-sm font-medium leading-snug">{name}</p>
         <p className="text-xs text-muted-foreground">{meta || "—"}</p>
       </div>
@@ -204,7 +200,7 @@ export function MyCollection() {
 
   const [loading, setLoading] = useState(false)
   const [groups, setGroups] = useState<CollectionGroup[]>([])
-  const [groupFilter, setGroupFilter] = useState<"all" | "graded" | "raw" | "empty">("all")
+  const [groupFilter, setGroupFilter] = useState<"all" | "graded" | "raw" | "base">("all")
   const [emptyLoading, setEmptyLoading] = useState(false)
   const [emptyBases, setEmptyBases] = useState<CollectionBase[]>([])
 
@@ -265,28 +261,10 @@ export function MyCollection() {
 
   useEffect(() => {
     if (!user?.id) return
-    if (groupFilter !== "empty") return
+    if (groupFilter !== "base") return
 
     setEmptyLoading(true)
     ;(async () => {
-      const ownedRes = await supabase
-        .from("user_collection")
-        .select("collection_item_id")
-        .eq("user_id", user.id)
-        .eq("deleted", false)
-
-      if (ownedRes.error) {
-        setEmptyBases([])
-        setEmptyLoading(false)
-        return
-      }
-
-      const ownedIds = new Set(
-        (ownedRes.data ?? [])
-          .map((r) => (r as { collection_item_id: string | null }).collection_item_id)
-          .filter((v): v is string => Boolean(v))
-      )
-
       const baseRes = await supabase
         .from("collection_base")
         .select("id, game_title, card_no, name, image_cloud_path")
@@ -299,7 +277,7 @@ export function MyCollection() {
       }
 
       const allBases = (baseRes.data ?? []) as CollectionBase[]
-      setEmptyBases(allBases.filter((b) => !ownedIds.has(b.id)))
+      setEmptyBases(allBases)
       setEmptyLoading(false)
     })()
   }, [groupFilter, user?.id])
@@ -361,10 +339,10 @@ export function MyCollection() {
               <Button
                 type="button"
                 size="sm"
-                variant={groupFilter === "empty" ? "default" : "outline"}
-                onClick={() => setGroupFilter("empty")}
+                variant={groupFilter === "base" ? "default" : "outline"}
+                onClick={() => setGroupFilter("base")}
               >
-                Empty
+                Collection Base
               </Button>
             </>
           }
@@ -406,10 +384,10 @@ export function MyCollection() {
                 </section>
               )}
 
-              {(groupFilter === "all" || groupFilter === "empty") && (
+              {groupFilter === "base" && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Empty</h2>
+                    <h2 className="text-base font-semibold">Collection Base</h2>
                     <span className="h-4 w-16 animate-pulse rounded bg-muted" aria-hidden="true" />
                   </div>
                   <SkeletonGrid />
@@ -454,10 +432,10 @@ export function MyCollection() {
                 </section>
               )}
 
-              {(groupFilter === "all" || groupFilter === "empty") && (
+              {groupFilter === "base" && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Empty</h2>
+                    <h2 className="text-base font-semibold">Collection Base</h2>
                     <span className="text-sm text-muted-foreground">{emptyBases.length} items</span>
                   </div>
                   {emptyLoading ? (
@@ -467,7 +445,7 @@ export function MyCollection() {
                       ))}
                     </div>
                   ) : emptyBases.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No empty items.</p>
+                    <p className="text-sm text-muted-foreground">No collection base items.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                       {emptyBases.map((b) => (

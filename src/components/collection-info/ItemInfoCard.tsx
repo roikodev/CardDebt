@@ -4,7 +4,10 @@ import { GradingChip } from "@/components/GradingChip"
 import { AvailableChip } from "@/components/AvailableChip"
 import type { CollectionBase } from "@/components/collection-info/types"
 import { cn } from "@/lib/utils"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { DeleteUserCollectionItemsDialog } from "@/components/dialogs/DeleteUserCollectionItemsDialog"
+import { EditCollectionBaseDialog } from "@/components/dialogs/EditCollectionBaseDialog"
+import { BadgeCheck, Pencil, Sparkles, Trash2 } from "lucide-react"
 
 function Skeleton({ className }: { className: string }) {
   return (
@@ -21,6 +24,7 @@ type Props = {
   loading: boolean
   imageUrl: string | null
   title: string
+  workerOrigin?: string
   gradedLevelCounts: Record<string, { provider: string; grade: number; count: number }>
   gradingCount: number
   overviewCounts: { available: number; grading: number; derived: number }
@@ -31,12 +35,15 @@ type Props = {
   graded: boolean
   onOpenGrade: () => void
   onOpenDerive: () => void
+  onDeleted?: () => void
+  onEdited?: () => void
 }
 
 export function ItemInfoCard({
   loading,
   imageUrl,
   title,
+  workerOrigin,
   gradedLevelCounts,
   gradingCount,
   overviewCounts,
@@ -47,8 +54,12 @@ export function ItemInfoCard({
   graded,
   onOpenGrade,
   onOpenDerive,
+  onDeleted,
+  onEdited,
 }: Props) {
   const disableActions = loading || !item || availableQuantity <= 0
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const gradedLevels = useMemo(() => {
     const levels = Object.values(gradedLevelCounts) as Array<{
       provider: string
@@ -60,18 +71,25 @@ export function ItemInfoCard({
 
   return (
     <section className="min-w-0 overflow-hidden rounded-2xl border bg-zinc-900 p-3 text-left text-white sm:p-4 lg:sticky lg:top-6 lg:self-start">
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
-        <div className="aspect-[4/3] w-full max-h-48 min-h-0 bg-white/5 sm:max-h-56 lg:max-h-44">
-          {imageUrl ? (
-            <img src={imageUrl} alt={title} className="h-full w-full object-contain" />
-          ) : (
-            <div className="h-full w-full animate-pulse bg-white/10" />
-          )}
+      <div className="sm:grid sm:grid-cols-[minmax(220px,40%)_1fr] sm:items-stretch sm:gap-4 lg:block">
+        <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+          <div className="aspect-[4/3] w-full max-h-48 min-h-0 bg-white/5 sm:aspect-auto sm:h-full sm:max-h-none lg:aspect-[4/3] lg:h-auto lg:max-h-44">
+            {imageUrl ? (
+              <div className="flex h-full w-full items-center justify-center">
+                <img
+                  src={imageUrl}
+                  alt={title}
+                  className="h-full max-w-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="h-full w-full animate-pulse bg-white/10" />
+            )}
+          </div>
         </div>
-      </div>
 
-      <div className="mt-3 space-y-2 lg:mt-4">
-        <div className="space-y-2">
+        <div className="mt-3 space-y-2 sm:mt-0 lg:mt-4">
+          <div className="space-y-2">
           {loading && gradedLevels.length === 0 && gradingCount === 0 ? (
             <div className="flex min-w-0 items-center justify-start">
               <Skeleton className="h-5 w-full max-w-28" />
@@ -87,7 +105,7 @@ export function ItemInfoCard({
                   tone="dark"
                 />
               ))}
-              {overviewCounts.available > 0 ? (
+              {!graded && overviewCounts.available > 0 ? (
                 <AvailableChip count={overviewCounts.available} tone="dark" />
               ) : null}
               {gradingCount > 0 ? <GradingChip count={gradingCount} tone="dark" /> : null}
@@ -96,7 +114,7 @@ export function ItemInfoCard({
             <Skeleton className="h-5 w-full max-w-32" />
           ) : (
             <div className="flex items-center justify-start">
-              <GradingChip count={gradingCount} tone="dark" />
+              {gradingCount > 0 ? <GradingChip count={gradingCount} tone="dark" /> : null}
             </div>
           )}
 
@@ -149,33 +167,83 @@ export function ItemInfoCard({
           </dl>
 
           {/* Overview chips removed; shown as mini chips above. */}
-        </div>
+          </div>
 
-        <div className="mt-3 border-t border-white/10 pt-3">
-          {!graded ? (
+          <div className="mt-3 border-t border-white/10 pt-3">
+          <div className={!graded ? "space-y-2 sm:flex sm:gap-2 sm:space-y-0" : undefined}>
+            {!graded ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full bg-white text-black hover:bg-white/90 sm:flex-1"
+                onClick={onOpenGrade}
+                disabled={disableActions}
+              >
+                <BadgeCheck className="-ml-0.5 mr-2 size-4" aria-hidden="true" />
+                Grade
+              </Button>
+            ) : null}
             <Button
               type="button"
-              variant="outline"
-              className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10"
-              onClick={onOpenGrade}
-              disabled={disableActions}
-            >
-              Grade
-            </Button>
-          ) : null}
-          <div className={!graded ? "mt-2" : undefined}>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10"
+              variant="secondary"
+              className="w-full bg-white text-black hover:bg-white/90 sm:flex-1"
               onClick={onOpenDerive}
               disabled={disableActions}
             >
+              <Sparkles className="-ml-0.5 mr-2 size-4" aria-hidden="true" />
               Derive
             </Button>
           </div>
+
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10"
+              onClick={() => setEditOpen(true)}
+              disabled={loading || !item}
+            >
+              <Pencil className="-ml-0.5 mr-2 size-4" aria-hidden="true" />
+              Edit
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10"
+              onClick={() => setDeleteOpen(true)}
+              disabled={loading || !item || availableQuantity <= 0}
+            >
+              <Trash2 className="-ml-0.5 mr-2 size-4" aria-hidden="true" />
+              Delete Items
+            </Button>
+          </div>
+          </div>
         </div>
       </div>
+
+      <DeleteUserCollectionItemsDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        collectionItemId={item?.id ?? ""}
+        graded={graded}
+        maxQuantity={availableQuantity}
+        onDeleted={onDeleted}
+      />
+
+      <EditCollectionBaseDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        workerOrigin={workerOrigin}
+        collectionItemId={item?.id ?? ""}
+        initial={{
+          name: item?.name ?? null,
+          game_title: item?.game_title ?? null,
+          card_no: item?.card_no ?? null,
+          image_cloud_path: item?.image_cloud_path ?? null,
+        }}
+        onEdited={onEdited}
+      />
     </section>
   )
 }

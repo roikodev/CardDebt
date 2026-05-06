@@ -11,6 +11,8 @@ export type BuyEntry = {
   purchase_date: string
   price_hkd: number
   quantity: number
+  graded: boolean
+  collection_item_id: string
 }
 
 export type UserCollectionRow = {
