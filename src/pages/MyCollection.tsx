@@ -2,10 +2,19 @@ import { Button } from "@/components/ui/button"
 import { CollapsibleHeader, useCollapsibleHeader } from "@/components/CollapsibleHeader"
 import { GradedChip } from "@/components/GradedChip"
 import { GradingChip } from "@/components/GradingChip"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Filter } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 // --- Types ---
@@ -204,8 +213,25 @@ export function MyCollection() {
   const [emptyLoading, setEmptyLoading] = useState(false)
   const [emptyBases, setEmptyBases] = useState<CollectionBase[]>([])
 
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [nameQuery, setNameQuery] = useState("")
+  const [cardNoQuery, setCardNoQuery] = useState("")
+  const [gameTitle, setGameTitle] = useState<string | null>(null)
+  const [debouncedName, setDebouncedName] = useState("")
+  const [debouncedCardNo, setDebouncedCardNo] = useState("")
+
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const { headerRef, headerHeight, onScroll, animatedStyle } = useCollapsibleHeader()
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedName(nameQuery), 250)
+    return () => window.clearTimeout(id)
+  }, [nameQuery])
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedCardNo(cardNoQuery), 250)
+    return () => window.clearTimeout(id)
+  }, [cardNoQuery])
 
   useEffect(() => {
     if (!user?.id) return
@@ -291,6 +317,87 @@ export function MyCollection() {
     [groups]
   )
 
+  const normalized = useMemo(() => {
+    const nq = debouncedName.trim().toLowerCase()
+    const cq = debouncedCardNo.trim().toLowerCase()
+    const gt = gameTitle?.trim() ? gameTitle : null
+    return { nq, cq, gt }
+  }, [debouncedCardNo, debouncedName, gameTitle])
+
+  const filteredGradedGroups = useMemo(() => {
+    const { nq, cq, gt } = normalized
+    return gradedGroups.filter((g) => {
+      const b = g.base
+      if (gt && (b?.game_title ?? "") !== gt) return false
+      if (nq && !(b?.name ?? "").toLowerCase().includes(nq)) return false
+      if (cq && !(b?.card_no ?? "").toLowerCase().includes(cq)) return false
+      return true
+    })
+  }, [gradedGroups, normalized])
+
+  const filteredRawGroups = useMemo(() => {
+    const { nq, cq, gt } = normalized
+    return rawCardGroups.filter((g) => {
+      const b = g.base
+      if (gt && (b?.game_title ?? "") !== gt) return false
+      if (nq && !(b?.name ?? "").toLowerCase().includes(nq)) return false
+      if (cq && !(b?.card_no ?? "").toLowerCase().includes(cq)) return false
+      return true
+    })
+  }, [normalized, rawCardGroups])
+
+  const filteredBases = useMemo(() => {
+    const { nq, cq, gt } = normalized
+    return emptyBases.filter((b) => {
+      if (gt && (b.game_title ?? "") !== gt) return false
+      if (nq && !(b.name ?? "").toLowerCase().includes(nq)) return false
+      if (cq && !(b.card_no ?? "").toLowerCase().includes(cq)) return false
+      return true
+    })
+  }, [emptyBases, normalized])
+
+  const allGameTitles = useMemo(() => {
+    const titles = new Set<string>()
+    for (const g of groups) if (g.base?.game_title) titles.add(g.base.game_title)
+    for (const b of emptyBases) if (b.game_title) titles.add(b.game_title)
+    return Array.from(titles.values()).sort((a, b) => a.localeCompare(b))
+  }, [emptyBases, groups])
+
+  const filterBar = (
+    <section className="rounded-xl border bg-card/40 p-3">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Name" />
+        <Input value={cardNoQuery} onChange={(e) => setCardNoQuery(e.target.value)} placeholder="Card Number" />
+        <Select value={gameTitle ?? "__all__"} onValueChange={(v) => setGameTitle(v === "__all__" ? null : v)}>
+          <SelectTrigger className="w-full" size="default">
+            <SelectValue placeholder="Game title" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="__all__">All game titles</SelectItem>
+              {allGameTitles.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
+    </section>
+  )
+
+  const filterBarCollapsible = (
+    <div
+      className={[
+        "overflow-hidden transition-all duration-200",
+        filterOpen ? "max-h-48 opacity-100 translate-y-0" : "max-h-0 opacity-0 -translate-y-1 pointer-events-none",
+      ].join(" ")}
+    >
+      <div>{filterBar}</div>
+    </div>
+  )
+
   return (
     <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <div className="relative mx-auto flex h-full w-full max-w-7xl flex-col">
@@ -311,40 +418,55 @@ export function MyCollection() {
           }
           title={<h1 className="text-xl font-semibold">My Collection</h1>}
           right={
-            <>
-              <Button
-                type="button"
-                size="sm"
-                variant={groupFilter === "all" ? "default" : "outline"}
-                onClick={() => setGroupFilter("all")}
-              >
-                All
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={groupFilter === "graded" ? "default" : "outline"}
-                onClick={() => setGroupFilter("graded")}
-              >
-                Graded
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={groupFilter === "raw" ? "default" : "outline"}
-                onClick={() => setGroupFilter("raw")}
-              >
-                Raw
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={groupFilter === "base" ? "default" : "outline"}
-                onClick={() => setGroupFilter("base")}
-              >
-                Collection Base
-              </Button>
-            </>
+            <div className="w-full space-y-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={filterOpen ? "default" : "outline"}
+                  className="gap-2"
+                  onClick={() => setFilterOpen((v) => !v)}
+                  aria-pressed={filterOpen}
+                >
+                  <Filter className="size-4" aria-hidden="true" />
+                  Filter
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={groupFilter === "all" ? "default" : "outline"}
+                  onClick={() => setGroupFilter("all")}
+                >
+                  All
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={groupFilter === "graded" ? "default" : "outline"}
+                  onClick={() => setGroupFilter("graded")}
+                >
+                  Graded
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={groupFilter === "raw" ? "default" : "outline"}
+                  onClick={() => setGroupFilter("raw")}
+                >
+                  Raw
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={groupFilter === "base" ? "default" : "outline"}
+                  onClick={() => setGroupFilter("base")}
+                >
+                  Collection Base
+                </Button>
+              </div>
+
+              {filterBarCollapsible}
+            </div>
           }
         />
 
@@ -400,13 +522,13 @@ export function MyCollection() {
                 <section>
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-base font-semibold">Graded</h2>
-                    <span className="text-sm text-muted-foreground">{gradedGroups.length} groups</span>
+                    <span className="text-sm text-muted-foreground">{filteredGradedGroups.length} groups</span>
                   </div>
-                  {gradedGroups.length === 0 ? (
+                  {filteredGradedGroups.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No graded groups.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                      {gradedGroups.map((g) => (
+                      {filteredGradedGroups.map((g) => (
                         <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
                       ))}
                     </div>
@@ -418,13 +540,13 @@ export function MyCollection() {
                 <section>
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-base font-semibold">Raw</h2>
-                    <span className="text-sm text-muted-foreground">{rawCardGroups.length} groups</span>
+                    <span className="text-sm text-muted-foreground">{filteredRawGroups.length} groups</span>
                   </div>
-                  {rawCardGroups.length === 0 ? (
+                  {filteredRawGroups.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No raw card groups.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                      {rawCardGroups.map((g) => (
+                      {filteredRawGroups.map((g) => (
                         <CollectionCard key={g.key} group={g} workerOrigin={workerOrigin} />
                       ))}
                     </div>
@@ -436,7 +558,7 @@ export function MyCollection() {
                 <section>
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-base font-semibold">Collection Base</h2>
-                    <span className="text-sm text-muted-foreground">{emptyBases.length} items</span>
+                    <span className="text-sm text-muted-foreground">{filteredBases.length} items</span>
                   </div>
                   {emptyLoading ? (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -444,11 +566,11 @@ export function MyCollection() {
                         <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />
                       ))}
                     </div>
-                  ) : emptyBases.length === 0 ? (
+                  ) : filteredBases.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No collection base items.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                      {emptyBases.map((b) => (
+                      {filteredBases.map((b) => (
                         <EmptyCollectionCard key={b.id} base={b} workerOrigin={workerOrigin} />
                       ))}
                     </div>

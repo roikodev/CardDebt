@@ -23,7 +23,6 @@ import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 
 const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
-const NONE = "__none__"
 
 async function preprocessImageForUpload(input: File): Promise<File> {
   const MAX_DIM = 2048
@@ -298,16 +297,12 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
             </div>
             <div>
               <div className="mb-1 text-xs font-medium text-muted-foreground">Game Title</div>
-              <Select
-                value={gameTitle ?? NONE}
-                onValueChange={(v) => setGameTitle(v === NONE ? null : v)}
-              >
+              <Select value={gameTitle ?? ""} onValueChange={(v) => setGameTitle(v || null)}>
                 <SelectTrigger className="w-full" size="default">
                   <SelectValue placeholder="Select game title" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value={NONE}>None</SelectItem>
                     {GAME_TITLES.map((t) => (
                       <SelectItem key={t} value={t}>
                         {t}
