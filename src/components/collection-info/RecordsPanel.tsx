@@ -13,6 +13,7 @@ import type {
 type Props = {
   recordsView: RecordsView
   setRecordsView: (view: RecordsView) => void
+  hideGradingView?: boolean
   loading: boolean
   buyEntries: BuyEntry[]
   derivedLoading: boolean
@@ -28,10 +29,13 @@ type Props = {
 }
 
 export function RecordsPanel(props: Props) {
+  const gradingAllowed = !props.hideGradingView
+  const effectiveView = gradingAllowed && props.recordsView === "grading" ? "grading" : props.recordsView
+
   return (
     <section className="min-w-0 overflow-hidden rounded-2xl border bg-card/40 p-3 text-left sm:p-4">
       <RecordsPanelHeader
-        recordsView={props.recordsView}
+        recordsView={effectiveView}
         setRecordsView={props.setRecordsView}
         loading={props.loading}
         derivedLoading={props.derivedLoading}
@@ -39,9 +43,10 @@ export function RecordsPanel(props: Props) {
         derivedRecords={props.derivedRecords}
         gradingRecords={props.gradingRecords}
         overviewRows={props.overviewRows}
+        hideGradingView={props.hideGradingView}
       />
 
-      {props.recordsView === "grading" ? (
+      {gradingAllowed && effectiveView === "grading" ? (
         <GradingRecordsSection
           loading={props.loading}
           gradingRecords={props.gradingRecords}
@@ -55,6 +60,7 @@ export function RecordsPanel(props: Props) {
           loading={props.loading}
           buyEntries={props.buyEntries}
           formatMoneyHKD={props.formatMoneyHKD}
+          onUpdated={props.onRefresh}
         />
       ) : (
         <DerivedRecordsSection
@@ -63,6 +69,7 @@ export function RecordsPanel(props: Props) {
           derivedRecords={props.derivedRecords}
           derivedImageUrls={props.derivedImageUrls}
           formatMoneyHKD={props.formatMoneyHKD}
+          onUpdated={props.onRefresh}
         />
       )}
     </section>

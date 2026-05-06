@@ -197,7 +197,10 @@ export function EditGradingRecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0">
+      <DialogContent
+        className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
             <DialogTitle>Edit grading costs</DialogTitle>

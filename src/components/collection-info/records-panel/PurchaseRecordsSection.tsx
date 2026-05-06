@@ -1,13 +1,20 @@
 import { SkeletonMuted } from "@/components/collection-info/records-panel/shared"
 import type { BuyEntry } from "@/components/collection-info/types"
+import { Button } from "@/components/ui/button"
+import { CancelPurchaseRecordDialog } from "@/components/dialogs/CancelPurchaseRecordDialog"
+import { XCircle } from "lucide-react"
+import { useState } from "react"
 
 type Props = {
   loading: boolean
   buyEntries: BuyEntry[]
   formatMoneyHKD: (n: number) => string
+  onUpdated?: () => void
 }
 
-export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD }: Props) {
+export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD, onUpdated }: Props) {
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -52,7 +59,17 @@ export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD }: 
         {buyEntries.map((b) => {
           const total = (Number(b.price_hkd) || 0) * (Number(b.quantity) || 0)
           return (
-            <div key={b.id} className="rounded-xl border bg-background/40 p-2">
+            <div key={b.id} className="relative rounded-xl border bg-background/40 p-2">
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                className="absolute right-1 top-1 z-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Cancel purchase record"
+                onClick={() => setCancellingId(b.id)}
+              >
+                <XCircle className="size-4" aria-hidden="true" />
+              </Button>
               <div className="grid gap-2 lg:hidden">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="text-sm font-medium">{b.purchase_date}</p>
@@ -78,6 +95,15 @@ export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD }: 
           )
         })}
       </div>
+
+      <CancelPurchaseRecordDialog
+        open={Boolean(cancellingId)}
+        onOpenChange={(o) => {
+          if (!o) setCancellingId(null)
+        }}
+        buyEntryId={cancellingId ?? ""}
+        onCancelled={onUpdated}
+      />
     </>
   )
 }

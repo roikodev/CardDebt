@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
 import { useNavigate } from "@tanstack/react-router"
 import { Route } from "@/routes/user/my-collection/$collection_item_id"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Sparkles } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { DeriveDialog } from "@/components/dialogs/DeriveDialog"
 import { GradingCostDialog } from "../components/dialogs/GradingCostDialog"
@@ -39,6 +39,7 @@ export function CollectionInfo() {
   const [error, setError] = useState<string | null>(null)
   const [item, setItem] = useState<CollectionBase | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [sourceImagePath, setSourceImagePath] = useState<string | null>(null)
   const [buyEntries, setBuyEntries] = useState<BuyEntry[]>([])
   const [gradedLevelCounts, setGradedLevelCounts] = useState<
     Record<string, { provider: string; grade: number; count: number }>
@@ -48,6 +49,7 @@ export function CollectionInfo() {
   const [derivedError, setDerivedError] = useState<string | null>(null)
   const [derivedRecords, setDerivedRecords] = useState<DerivedRecordRow[]>([])
   const [derivedImageUrls, setDerivedImageUrls] = useState<Record<string, string>>({})
+  const [derivedImagePaths, setDerivedImagePaths] = useState<Record<string, string>>({})
   const [gradingRecords, setGradingRecords] = useState<GradingRecordRow[]>([])
   const [overviewRows, setOverviewRows] = useState<OverviewCollectionRow[]>([])
   const [deriveOpen, setDeriveOpen] = useState(false)
@@ -72,6 +74,39 @@ export function CollectionInfo() {
     ].filter((f) => f.value)
   }, [item?.card_no, item?.game_title, item?.name])
 
+  async function refreshSignedUrls(
+    pathKeys: Array<{ key: string; path: string | null | undefined }>,
+    signal?: AbortSignal
+  ) {
+    if (!workerOrigin?.trim()) return
+    if (!pathKeys.length) return
+
+    const sessionRes = await supabase.auth.getSession()
+    const token = sessionRes.data.session?.access_token ?? null
+    if (!token) return
+
+    const baseUrl = workerOrigin.replace(/\/+$/, "")
+
+    await Promise.all(
+      pathKeys.map(async ({ key, path }) => {
+        if (!path) return
+        try {
+          const res = await fetch(`${baseUrl}/signed?file=${encodeURIComponent(path)}&ttl=300`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal,
+          })
+          if (!res.ok) return
+          const data = (await res.json()) as { url?: string }
+          if (!data.url) return
+          if (key === "source") setImageUrl(data.url)
+          else setDerivedImageUrls((prev) => ({ ...prev, [key]: data.url! }))
+        } catch {
+          // ignore
+        }
+      })
+    )
+  }
+
   async function fetchAll({ soft }: { soft: boolean }) {
     const userId = user?.id
     if (!userId) return
@@ -81,6 +116,7 @@ export function CollectionInfo() {
       setError(null)
       setItem(null)
       setImageUrl(null)
+      setSourceImagePath(null)
       setBuyEntries([])
       setGradedLevelCounts({})
       setGradingCount(0)
@@ -88,6 +124,7 @@ export function CollectionInfo() {
       setDerivedError(null)
       setDerivedRecords([])
       setDerivedImageUrls({})
+      setDerivedImagePaths({})
       setGradingRecords([])
       setOverviewRows([])
       setRecordsView("purchase")
@@ -104,26 +141,24 @@ export function CollectionInfo() {
       const sessionRes = await supabase.auth.getSession()
       const token = sessionRes.data.session?.access_token ?? null
 
-      let baseItem: CollectionBase | null = item
-      // Only re-fetch base item on hard load (navigation) or if we don't have it yet.
-      if (!soft || !baseItem) {
-        const itemRes = await supabase
-          .from("collection_base")
-          .select("id, game_title, card_no, name, image_cloud_path")
-          .eq("id", collection_item_id)
-          .single()
+      // Always re-fetch base item (even on soft refresh) so edits reflect immediately.
+      const itemRes = await supabase
+        .from("collection_base")
+        .select("id, game_title, card_no, name, image_cloud_path")
+        .eq("id", collection_item_id)
+        .single()
 
-        if (signal.aborted) return
+      if (signal.aborted) return
 
-        if (itemRes.error) {
-          setError(itemRes.error.message)
-          setLoading(false)
-          return
-        }
-
-        baseItem = itemRes.data as CollectionBase
-        setItem(baseItem)
+      if (itemRes.error) {
+        setError(itemRes.error.message)
+        setLoading(false)
+        return
       }
+
+      const baseItem = itemRes.data as CollectionBase
+      setItem(baseItem)
+      setSourceImagePath(baseItem?.image_cloud_path ?? null)
 
       const ucRes = await supabase
         .from("user_collection")
@@ -298,7 +333,7 @@ export function CollectionInfo() {
       if (ids.length) {
         const buysRes = await supabase
           .from("buy_entries")
-          .select("id, purchase_date, price_hkd, quantity")
+          .select("id, purchase_date, price_hkd, quantity, graded, collection_item_id")
           .in("id", ids)
           .order("purchase_date", { ascending: false })
 
@@ -311,6 +346,8 @@ export function CollectionInfo() {
         }
 
         setBuyEntries((buysRes.data ?? []) as BuyEntry[])
+      } else {
+        setBuyEntries([])
       }
 
       // Derived records (mappings where this page's card appears as source or target)
@@ -513,6 +550,13 @@ export function CollectionInfo() {
                 }
               })
             )
+
+            // Persist paths so we can refresh later when URLs expire.
+            const nextPaths: Record<string, string> = {}
+            for (const { key, path } of pathKeys) {
+              if (path) nextPaths[key] = path
+            }
+            setDerivedImagePaths(nextPaths)
           }
         }
       }
@@ -539,6 +583,11 @@ export function CollectionInfo() {
   }
 
   useEffect(() => {
+    if (graded && recordsView === "grading") setRecordsView("purchase")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graded])
+
+  useEffect(() => {
     // Hard load: show skeletons.
     fetchAll({ soft: false })
 
@@ -554,11 +603,39 @@ export function CollectionInfo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey])
 
+  // Re-sign image URLs when switching panels that show images.
+  useEffect(() => {
+    if (recordsView !== "derived" && recordsView !== "grading") return
+    const pathKeys: Array<{ key: string; path: string | null | undefined }> = []
+    if (sourceImagePath) pathKeys.push({ key: "source", path: sourceImagePath })
+    for (const [key, path] of Object.entries(derivedImagePaths)) pathKeys.push({ key, path })
+
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+    const { signal } = abortRef.current
+    refreshSignedUrls(pathKeys, signal)
+    return () => abortRef.current?.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordsView, sourceImagePath, derivedImagePaths])
+
+  // Periodically refresh signed URLs so idle sessions keep images working.
+  useEffect(() => {
+    if (!workerOrigin?.trim()) return
+    const id = window.setInterval(() => {
+      const pathKeys: Array<{ key: string; path: string | null | undefined }> = []
+      if (sourceImagePath) pathKeys.push({ key: "source", path: sourceImagePath })
+      for (const [key, path] of Object.entries(derivedImagePaths)) pathKeys.push({ key, path })
+      refreshSignedUrls(pathKeys)
+    }, 240_000)
+    return () => window.clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workerOrigin, sourceImagePath, derivedImagePaths])
+
   return (
     <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 pb-40 sm:pb-6">
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <Button
               type="button"
               variant="ghost"
@@ -567,6 +644,23 @@ export function CollectionInfo() {
             >
               <ArrowLeft aria-hidden="true" className="size-5" />
               My Collection
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-2"
+              onClick={() =>
+                navigate({
+                  to: "/user/my-collection/$collection_item_id",
+                  params: { collection_item_id },
+                  search: { graded: !graded },
+                })
+              }
+            >
+              <Sparkles className="size-4" aria-hidden="true" />
+              {graded ? "View Raw" : "View Graded"}
             </Button>
           </div>
 
@@ -579,6 +673,7 @@ export function CollectionInfo() {
               loading={loading}
               imageUrl={imageUrl}
               title={title}
+              workerOrigin={workerOrigin}
             gradedLevelCounts={gradedLevelCounts}
             gradingCount={gradingCount}
               overviewCounts={overviewCounts}
@@ -589,6 +684,8 @@ export function CollectionInfo() {
               graded={graded}
               onOpenGrade={() => setGradeOpen(true)}
               onOpenDerive={() => setDeriveOpen(true)}
+              onDeleted={() => setReloadKey((k) => k + 1)}
+              onEdited={() => setReloadKey((k) => k + 1)}
             />
 
             <div
@@ -598,6 +695,7 @@ export function CollectionInfo() {
               <RecordsPanel
                 recordsView={recordsView}
                 setRecordsView={setRecordsView}
+                hideGradingView={graded}
                 loading={loading}
                 buyEntries={buyEntries}
                 derivedLoading={derivedLoading}

@@ -3,10 +3,11 @@ import { Minus, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
 import type { FormFieldRowProps } from "@/components/form-input/form-field-row"
-import { FormFieldRow } from "@/components/form-input/form-field-row"
+import { Field, FieldDescription, FieldError } from "@/components/ui/field"
 
 function clampInt(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.trunc(n)))
@@ -170,18 +171,18 @@ export function FormQuantityStepper({
     typeof error === "string" && error.length > 0 ? error : undefined
   const isInvalid = invalid ?? Boolean(err)
   const forId = htmlFor ?? id
+
+  // Custom layout: from sm+ we want the label and the input
+  // (the stepper) on the same row.
   return (
-    <FormFieldRow
-      label={label}
-      htmlFor={forId}
-      description={description}
-      error={error}
-      invalid={isInvalid}
-      gap={gap}
-      className={className}
-      labelProps={labelProps}
-    >
-      <div className="flex w-full justify-end">
+    <Field className={cn(gap === "3" ? "gap-3" : "gap-2", className)} data-invalid={isInvalid}>
+      <div className="flex items-center justify-between gap-3">
+        <Label
+          htmlFor={forId}
+          className={cn("min-w-0 text-sm font-medium leading-snug", labelProps?.className)}
+        >
+          {label}
+        </Label>
         <QuantityStepper
           id={id}
           value={value}
@@ -195,6 +196,8 @@ export function FormQuantityStepper({
           onBlur={onBlur}
         />
       </div>
-    </FormFieldRow>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+      {err ? <FieldError errors={[{ message: err }]} /> : null}
+    </Field>
   )
 }
