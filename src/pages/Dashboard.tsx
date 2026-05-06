@@ -14,6 +14,8 @@ import {
 import { BuyProductDialog } from "@/components/dialogs/BuyProductDialog"
 import { BuyProductByCardBaseDialog } from "@/components/dialogs/BuyProductByCardBaseDialog"
 import { CardBaseDialog } from "@/components/dialogs/CardBaseDialog"
+import { SellChooseItemDialog, type SellChoice } from "@/components/dialogs/SellChooseItemDialog"
+import { SellInfoDialog } from "@/components/dialogs/SellInfoDialog"
 import {
   Dialog,
   DialogContent,
@@ -76,6 +78,9 @@ export function Dashboard() {
   const clearAuth = useAuthStore((s) => s.clearAuth)
   const [buyChooserOpen, setBuyChooserOpen] = useState(false)
   const [buyOpen, setBuyOpen] = useState(false)
+  const [sellChooseOpen, setSellChooseOpen] = useState(false)
+  const [sellInfoOpen, setSellInfoOpen] = useState(false)
+  const [sellChoice, setSellChoice] = useState<SellChoice | null>(null)
   const [cardBaseOpen, setCardBaseOpen] = useState(false)
   const [buyByCardBaseOpen, setBuyByCardBaseOpen] = useState(false)
   const [selectedCardBaseItem, setSelectedCardBaseItem] =
@@ -165,6 +170,7 @@ export function Dashboard() {
             <Button
               type="button"
               className="shine-button-light relative col-span-6 min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
+              onClick={() => setSellChooseOpen(true)}
             >
               <HandCoins aria-hidden="true" className="absolute left-5 top-5 size-7" />
               <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
@@ -235,6 +241,26 @@ export function Dashboard() {
             open={buyByCardBaseOpen}
             onOpenChange={setBuyByCardBaseOpen}
             item={selectedCardBaseItem}
+          />
+          <SellChooseItemDialog
+            open={sellChooseOpen}
+            onOpenChange={setSellChooseOpen}
+            onSelect={(choice) => {
+              setSellChoice(choice)
+              setSellInfoOpen(true)
+            }}
+          />
+          <SellInfoDialog
+            open={sellInfoOpen}
+            onOpenChange={setSellInfoOpen}
+            choice={sellChoice}
+            onBack={() => {
+              setSellInfoOpen(false)
+              setSellChooseOpen(true)
+            }}
+            onSubmitted={() => {
+              setSellChoice(null)
+            }}
           />
 
           <GridGroup>

@@ -309,11 +309,50 @@ export function MyCollection() {
   }, [groupFilter, user?.id])
 
   const gradedGroups = useMemo(
-    () => groups.filter((g) => g.graded).sort((a, b) => b.count - a.count),
+    () =>
+      groups
+        .filter((g) => g.graded)
+        .sort((a, b) => {
+          const an = (a.base?.name ?? "").trim().toLowerCase()
+          const bn = (b.base?.name ?? "").trim().toLowerCase()
+          if (an !== bn) return an.localeCompare(bn)
+
+          const aLevels = Object.values(a.gradedLevelCounts ?? {})
+          const bLevels = Object.values(b.gradedLevelCounts ?? {})
+
+          const pickKey = (
+            lvls: Array<{ provider: string; grade: number; count: number }>
+          ) => {
+            if (!lvls.length) return { provider: "", grade: -1 }
+            // Order by provider asc, then grade desc.
+            const sorted = [...lvls].sort((x, y) => {
+              const xp = (x.provider ?? "").trim().toLowerCase()
+              const yp = (y.provider ?? "").trim().toLowerCase()
+              if (xp !== yp) return xp.localeCompare(yp)
+              return (Number(y.grade) || 0) - (Number(x.grade) || 0)
+            })
+            const top = sorted[0]
+            return { provider: (top.provider ?? "").trim().toLowerCase(), grade: Number(top.grade) || 0 }
+          }
+
+          const ak = pickKey(aLevels)
+          const bk = pickKey(bLevels)
+          if (ak.provider !== bk.provider) return ak.provider.localeCompare(bk.provider)
+          if (ak.grade !== bk.grade) return bk.grade - ak.grade
+          return b.count - a.count
+        }),
     [groups]
   )
   const rawCardGroups = useMemo(
-    () => groups.filter((g) => !g.graded).sort((a, b) => b.count - a.count),
+    () =>
+      groups
+        .filter((g) => !g.graded)
+        .sort((a, b) => {
+          const an = (a.base?.name ?? "").trim().toLowerCase()
+          const bn = (b.base?.name ?? "").trim().toLowerCase()
+          if (an !== bn) return an.localeCompare(bn)
+          return b.count - a.count
+        }),
     [groups]
   )
 
