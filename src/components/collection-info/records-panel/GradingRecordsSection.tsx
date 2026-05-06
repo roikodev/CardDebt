@@ -5,6 +5,7 @@ import { UpdateGradingExecutionDialog } from "@/components/dialogs/UpdateGrading
 import { EditGradingRecordDialog } from "@/components/dialogs/EditGradingRecordDialog"
 import { CancelGradingRecordDialog } from "@/components/dialogs/CancelGradingRecordDialog"
 import { useState } from "react"
+import { CheckCircle2, Pencil, XCircle } from "lucide-react"
 
 type Props = {
   loading: boolean
@@ -49,58 +50,76 @@ export function GradingRecordsSection({
       <div className="space-y-2">
         {gradingRecords.map((r) => (
           <div key={r.id} className="rounded-xl border bg-background/40 p-3">
-            <div className="flex items-start gap-3">
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted/30">
-              {sourceImageUrl ? (
-                <img src={sourceImageUrl} alt={sourceTitle} className="h-full w-full object-cover object-left-top" loading="lazy" />
-              ) : (
-                <div className="h-full w-full animate-pulse bg-muted/50" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{sourceTitle}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Sent at: {new Date(r.sent_at).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="ml-auto flex shrink-0 flex-col items-end gap-2 text-right">
-              <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(r.costTotal)}</p>
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="bg-white text-black hover:bg-white/90"
-                  onClick={() => setUpdating({ recordId: r.id, userCollectionId: r.user_collection_id })}
-                >
-                  Update
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEditing({ recordId: r.id, userCollectionId: r.user_collection_id })}
-                >
-                  Edit
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => setCancelling({ recordId: r.id, userCollectionId: r.user_collection_id })}
-                >
-                  Cancel
-                </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted/30">
+                  {sourceImageUrl ? (
+                    <img
+                      src={sourceImageUrl}
+                      alt={sourceTitle}
+                      className="h-full w-full object-cover object-left-top"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="h-full w-full animate-pulse bg-muted/50" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{sourceTitle}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sent at: {new Date(r.sent_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:ml-auto sm:items-end sm:text-right">
+                <div className="flex items-baseline justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2 sm:border-0 sm:bg-transparent sm:p-0">
+                  <p className="text-xs text-muted-foreground sm:hidden">Total cost</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(r.costTotal)}</p>
+                </div>
               </div>
             </div>
-          </div>
-          {r.costLines.length ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {r.costLines.map((c) => `${c.type} ${formatMoneyHKD(Number(c.price) || 0)}`).join(" · ")}
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">No cost entries.</p>
-          )}
+
+            {r.costLines.length ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {r.costLines.map((c) => `${c.type} ${formatMoneyHKD(Number(c.price) || 0)}`).join(" · ")}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">No cost entries.</p>
+            )}
+
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="w-full bg-white text-black hover:bg-white/90 sm:w-auto"
+                onClick={() => setUpdating({ recordId: r.id, userCollectionId: r.user_collection_id })}
+              >
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+                Update
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setEditing({ recordId: r.id, userCollectionId: r.user_collection_id })}
+              >
+                <Pencil className="size-4" aria-hidden="true" />
+                Edit
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                className="w-full sm:w-auto"
+                onClick={() => setCancelling({ recordId: r.id, userCollectionId: r.user_collection_id })}
+              >
+                <XCircle className="size-4" aria-hidden="true" />
+                Cancel
+              </Button>
+            </div>
           </div>
         ))}
       </div>
