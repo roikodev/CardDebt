@@ -102,9 +102,15 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   item: CollectionBaseRow | null
+  onSubmitSuccess?: (values: BuyProductByCardBaseFormValues) => void
 }
 
-export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) {
+export function BuyProductByCardBaseDialog({
+  open,
+  onOpenChange,
+  item,
+  onSubmitSuccess,
+}: Props) {
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
   const [signedImageUrl, setSignedImageUrl] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -260,6 +266,7 @@ export function BuyProductByCardBaseDialog({ open, onOpenChange, item }: Props) 
 
     onOpenChange(false)
     toast.success("Saved successfully", { duration: 5000 })
+    onSubmitSuccess?.(values)
   }
 
   const title = item?.name ?? "Selected item"
