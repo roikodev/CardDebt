@@ -947,7 +947,7 @@ export function Dashboard() {
           <GridGroup className="h-full auto-rows-fr sm:col-span-4 md:col-span-4 lg:col-span-3">
             <Button
               type="button"
-              className="shine-button-light relative col-span-6 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px sm:col-span-12"
+              className="shine-button-light relative col-span-6 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px sm:col-span-12 md:col-span-6 lg:col-span-6"
               onClick={() => setBuyChooserOpen(true)}
             >
               <ShoppingCart aria-hidden="true" className="absolute left-5 top-5 size-7" />
@@ -957,7 +957,7 @@ export function Dashboard() {
             </Button>
             <Button
               type="button"
-              className="shine-button-light relative col-span-6 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px sm:col-span-12"
+              className="shine-button-light relative col-span-6 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px sm:col-span-12 md:col-span-6 lg:col-span-6"
               onClick={() => setSellChooseOpen(true)}
             >
               <HandCoins aria-hidden="true" className="absolute left-5 top-5 size-7" />
@@ -965,9 +965,20 @@ export function Dashboard() {
                 Sell
               </span>
             </Button>
+
+            <Button
+              type="button"
+              className="shine-button relative hidden col-span-12 h-full min-h-28 w-full items-stretch border border-white/10 bg-black p-6 text-white shadow-sm hover:bg-neutral-900 active:translate-y-px md:block"
+              onClick={() => setMiscOpen(true)}
+            >
+              <CreditCard aria-hidden="true" className="absolute left-5 top-5 size-7" />
+              <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
+                Miscellaneous
+              </span>
+            </Button>
           </GridGroup>
 
-          <GridGroup className="h-full sm:col-span-4 md:col-span-4 lg:col-span-3">
+          <GridGroup className="h-full sm:col-span-4 md:hidden">
             <Button
               type="button"
               className="shine-button relative col-span-12 h-full min-h-28 w-full items-stretch border border-white/10 bg-black p-6 text-white shadow-sm hover:bg-neutral-900 active:translate-y-px"
@@ -980,7 +991,7 @@ export function Dashboard() {
             </Button>
           </GridGroup>
 
-          <section className="col-span-12 grid h-full grid-cols-12 gap-3 md:col-span-4 md:[grid-template-rows:auto_1fr] lg:col-span-6 lg:auto-rows-fr lg:[grid-template-rows:1fr]">
+          <section className="col-span-12 grid h-full grid-cols-12 gap-3 md:col-span-4 md:[grid-template-rows:auto_1fr] lg:col-span-6 lg:col-start-7 lg:row-start-1 lg:auto-rows-fr lg:[grid-template-rows:1fr]">
             <div className="col-span-12 sm:col-span-6 md:col-span-12 lg:col-span-6">
               <TotalBalanceCard
                 loading={balanceLoading}
