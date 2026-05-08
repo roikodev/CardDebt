@@ -6,8 +6,8 @@ import type { RoiRow } from "./types"
 export function RoiSection({
   roiError,
   roiLoading,
-  roiWindow,
-  setRoiWindow,
+  range,
+  onRangeChange,
   roiSort,
   setRoiSort,
   roiSortApplied,
@@ -18,8 +18,8 @@ export function RoiSection({
 }: {
   roiError: string | null
   roiLoading: boolean
-  roiWindow: "all" | "365" | "180" | "90"
-  setRoiWindow: (v: "all" | "365" | "180" | "90") => void
+  range: "all" | "365" | "180" | "90"
+  onRangeChange: (v: "all" | "365" | "180" | "90") => void
   roiSort: "roi" | "profit"
   setRoiSort: (v: "roi" | "profit") => void
   roiSortApplied: "roi" | "profit"
@@ -38,58 +38,57 @@ export function RoiSection({
           <div className="mt-2 flex w-full flex-col gap-2 sm:flex-row">
             <div className="flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60 sm:w-1/2">
               {(
-                  [
-                    ["all", "All Time"],
-                    ["365", "1y"],
-                    ["180", "6m"],
-                    ["90", "3m"],
-                  ] as const
-                ).map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setRoiWindow(k)}
-                    className={[
-                      "flex-1 cursor-pointer whitespace-nowrap px-3 py-1 text-xs font-medium transition",
-                      roiWindow === k
-                        ? "bg-foreground text-background"
-                        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-                    ].join(" ")}
-                  >
-                    {label}
-                  </button>
-                ))}
+                [
+                  ["all", "All Time"],
+                  ["365", "1y"],
+                  ["180", "6m"],
+                  ["90", "3m"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => onRangeChange(k)}
+                  className={[
+                    "flex-1 cursor-pointer whitespace-nowrap px-3 py-2 text-xs font-medium transition",
+                    range === k
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                  ].join(" ")}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-
             <div className="flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60 sm:w-1/2">
               {(
-                  [
-                    ["roi", "By Percentage"],
-                    ["profit", "By Profit"],
-                  ] as const
-                ).map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setRoiSort(k)}
-                    className={[
-                      "flex-1 cursor-pointer whitespace-nowrap px-3 py-1 text-xs font-medium transition",
-                      roiSort === k
-                        ? "bg-foreground text-background"
-                        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-                    ].join(" ")}
-                  >
-                    {label}
-                  </button>
-                ))}
-          </div>
+                [
+                  ["profit", "By Profit"],
+                  ["roi", "By Percentage"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setRoiSort(k)}
+                  className={[
+                    "flex-1 cursor-pointer whitespace-nowrap px-3 py-2 text-xs font-medium transition",
+                    roiSort === k
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                  ].join(" ")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
 
         <CardContent>
           {roiError ? <p className="text-sm text-destructive">{roiError}</p> : null}
 
-          <div className="mt-2 overflow-hidden rounded-xl border bg-card">
+          <div className="mt-2 max-h-[22rem] overflow-hidden rounded-xl border bg-card">
             <div className="grid grid-cols-[28px_52px_minmax(0,1fr)_84px] items-center gap-3 border-b bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[28px_52px_minmax(0,1fr)_96px_84px]">
               <div className="text-center">#</div>
               <div> </div>
@@ -98,10 +97,10 @@ export function RoiSection({
               <div className="text-right">{roiSortApplied === "profit" ? "Profit" : "ROI"}</div>
             </div>
 
-            <div className="divide-y">
+            <div className="divide-y overflow-y-auto">
               {(() => {
                 const items = roiLoading
-                  ? Array.from({ length: 10 }).map((_, i) => ({
+                  ? Array.from({ length: 5 }).map((_, i) => ({
                       key: `sk-${i}`,
                       loading: true,
                       rank: i + 1,
@@ -248,7 +247,7 @@ export function RoiSection({
                                 : "max-h-0 opacity-0 -translate-y-1 pointer-events-none",
                             ].join(" ")}
                           >
-                            <div className="px-3 pb-3">
+                            <div className="px-3 pt-3 pb-3">
                               <div className="rounded-lg border bg-muted/10 p-3">
                                 <div className="flex flex-col gap-2">
                                   <div className="flex items-baseline justify-between gap-3">

@@ -19,6 +19,8 @@ import { SellInfoDialog } from "@/components/dialogs/SellInfoDialog"
 import { MiscellaneousEntryDialog } from "@/components/dialogs/MiscellaneousEntryDialog"
 import { BalanceChangeCard, TotalBalanceCard } from "@/components/dashboard/BalanceCards"
 import { RoiSection } from "@/components/dashboard/RoiSection"
+import { SpendingPieSection } from "@/components/dashboard/SpendingPieSection"
+import type { DashboardTimeRange } from "@/components/dashboard/TimeRangeFilter"
 import {
   Dialog,
   DialogContent,
@@ -196,8 +198,11 @@ export function Dashboard() {
 
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [balanceError, setBalanceError] = useState<string | null>(null)
+  const [compareLoading, setCompareLoading] = useState(false)
+  const [compareError, setCompareError] = useState<string | null>(null)
   const [totalBalanceHKD, setTotalBalanceHKD] = useState<number | null>(null)
-  const [totalBalance30dAgoHKD, setTotalBalance30dAgoHKD] = useState<number | null>(
+  const [dashboardRange, setDashboardRange] = useState<DashboardTimeRange>("all")
+  const [totalBalanceAgoHKD, setTotalBalanceAgoHKD] = useState<number | null>(
     null
   )
   const [balanceReloadKey, setBalanceReloadKey] = useState(0)
@@ -226,11 +231,93 @@ export function Dashboard() {
   const [roiError, setRoiError] = useState<string | null>(null)
   const [roiRawTop, setRoiRawTop] = useState<RoiRow[]>([])
   const [roiGradedTop, setRoiGradedTop] = useState<RoiRow[]>([])
-  const [roiWindow, setRoiWindow] = useState<"all" | "365" | "180" | "90">("all")
-  const [roiSort, setRoiSort] = useState<"roi" | "profit">("roi")
-  const [roiSortApplied, setRoiSortApplied] = useState<"roi" | "profit">("roi")
+  const [roiSort, setRoiSort] = useState<"roi" | "profit">("profit")
+  const [roiSortApplied, setRoiSortApplied] = useState<"roi" | "profit">("profit")
   const roiRunRef = useRef(0)
   const [roiExpandedKey, setRoiExpandedKey] = useState<string | null>(null)
+
+  const [flowLoading, setFlowLoading] = useState(false)
+  const [flowError, setFlowError] = useState<string | null>(null)
+  const [buyFlowTotal, setBuyFlowTotal] = useState(0)
+  const [sellFlowTotal, setSellFlowTotal] = useState(0)
+  const [miscFlowTotal, setMiscFlowTotal] = useState(0)
+
+  const refreshFlow = useCallback(async () => {
+    const userId = user?.id
+    if (!userId) {
+      setBuyFlowTotal(0)
+      setSellFlowTotal(0)
+      setMiscFlowTotal(0)
+      setFlowError(null)
+      return
+    }
+
+    setFlowLoading(true)
+    setFlowError(null)
+
+    const days =
+      dashboardRange === "all"
+        ? null
+        : dashboardRange === "365"
+          ? 365
+          : dashboardRange === "180"
+            ? 180
+            : 90
+    const cutoff = days === null ? null : daysAgoISODate(days)
+
+    const [buysRes, sellsRes, miscRes] = await Promise.all([
+      supabase
+        .from("buy_entries")
+        .select("price_hkd, quantity, purchase_date")
+        .eq("user_id", userId),
+      supabase
+        .from("sell_entries")
+        .select("price_hkd, quantity, selling_date")
+        .eq("user_id", userId),
+      supabase
+        .from("miscellaneous_entries")
+        .select("price, date")
+        .eq("user_id", userId),
+    ])
+
+    const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
+    if (firstError) {
+      setFlowError(firstError.message)
+      setFlowLoading(false)
+      return
+    }
+
+    const buySum = (buysRes.data ?? []).reduce((sum, r) => {
+      const d = String((r as any).purchase_date ?? "")
+      if (cutoff && (!d || d < cutoff)) return sum
+      const price = Number((r as any).price_hkd ?? 0)
+      const qty = Number((r as any).quantity ?? 0)
+      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
+      return sum + price * qty
+    }, 0)
+
+    const sellSum = (sellsRes.data ?? []).reduce((sum, r) => {
+      const d = String((r as any).selling_date ?? "")
+      if (cutoff && (!d || d < cutoff)) return sum
+      const price = Number((r as any).price_hkd ?? 0)
+      const qty = Number((r as any).quantity ?? 0)
+      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
+      return sum + price * qty
+    }, 0)
+
+    const miscSum = (miscRes.data ?? []).reduce((sum, r) => {
+      const d = String((r as any).date ?? "")
+      if (cutoff && (!d || d < cutoff)) return sum
+      const price = Number((r as any).price ?? 0)
+      if (!Number.isFinite(price)) return sum
+      return sum + price
+    }, 0)
+
+    setBuyFlowTotal(buySum)
+    setSellFlowTotal(sellSum)
+    setMiscFlowTotal(miscSum)
+    setFlowLoading(false)
+  }, [dashboardRange, user?.id])
 
   const refreshRoi = useCallback(async () => {
     const userId = user?.id
@@ -590,7 +677,13 @@ export function Dashboard() {
     }
 
     const windowDays =
-      roiWindow === "all" ? null : roiWindow === "365" ? 365 : roiWindow === "180" ? 180 : 90
+      dashboardRange === "all"
+        ? null
+        : dashboardRange === "365"
+          ? 365
+          : dashboardRange === "180"
+            ? 180
+            : 90
     const { raw, graded: gradedRows } = computeTop(windowDays)
 
     // Fetch signed image URLs for visible rows only
@@ -632,9 +725,9 @@ export function Dashboard() {
     setRoiGradedTop(gradedRows)
     setRoiSortApplied(roiSort)
     setRoiLoading(false)
-  }, [user?.id, workerOrigin, roiWindow, roiSort])
+  }, [user?.id, workerOrigin, dashboardRange, roiSort])
 
-  const refreshBalance = useCallback(async () => {
+  const refreshTotalBalance = useCallback(async () => {
     const userId = user?.id
     if (!userId) {
       setTotalBalanceHKD(null)
@@ -663,13 +756,10 @@ export function Dashboard() {
     const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
     if (firstError) {
       setTotalBalanceHKD(null)
-      setTotalBalance30dAgoHKD(null)
       setBalanceError(firstError.message)
       setBalanceLoading(false)
       return
     }
-
-    const cutoffISO = daysAgoISODate(30)
 
     const buyTotal = (buysRes.data ?? []).reduce((sum, row) => {
       const price = Number(row.price_hkd ?? 0)
@@ -691,7 +781,56 @@ export function Dashboard() {
       return sum + price
     }, 0)
 
-    const buyTotal30dAgo = (buysRes.data ?? []).reduce((sum, row) => {
+    setTotalBalanceHKD(sellTotal - buyTotal - miscTotal)
+    setBalanceLoading(false)
+  }, [user?.id])
+
+  const refreshBalanceAgo = useCallback(async () => {
+    const userId = user?.id
+    if (!userId) {
+      setTotalBalanceAgoHKD(null)
+      setCompareError(null)
+      return
+    }
+
+    if (dashboardRange === "all") {
+      setTotalBalanceAgoHKD(null)
+      setCompareError(null)
+      setCompareLoading(false)
+      return
+    }
+
+    setCompareLoading(true)
+    setCompareError(null)
+
+    const [buysRes, sellsRes, miscRes] = await Promise.all([
+      supabase
+        .from("buy_entries")
+        .select("price_hkd, quantity, purchase_date")
+        .eq("user_id", userId),
+      supabase
+        .from("sell_entries")
+        .select("price_hkd, quantity, selling_date")
+        .eq("user_id", userId),
+      supabase
+        .from("miscellaneous_entries")
+        .select("price, date")
+        .eq("user_id", userId),
+    ])
+
+    const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
+    if (firstError) {
+      setTotalBalanceAgoHKD(null)
+      setCompareError(firstError.message)
+      setCompareLoading(false)
+      return
+    }
+
+    const compareDays =
+      dashboardRange === "90" ? 90 : dashboardRange === "180" ? 180 : 365
+    const cutoffISO = daysAgoISODate(compareDays)
+
+    const buyTotalAgo = (buysRes.data ?? []).reduce((sum, row) => {
       const d = String((row as { purchase_date?: string | null }).purchase_date ?? "")
       if (!d || d > cutoffISO) return sum
       const price = Number((row as { price_hkd?: unknown }).price_hkd ?? 0)
@@ -700,7 +839,7 @@ export function Dashboard() {
       return sum + price * qty
     }, 0)
 
-    const sellTotal30dAgo = (sellsRes.data ?? []).reduce((sum, row) => {
+    const sellTotalAgo = (sellsRes.data ?? []).reduce((sum, row) => {
       const d = String((row as { selling_date?: string | null }).selling_date ?? "")
       if (!d || d > cutoffISO) return sum
       const price = Number((row as { price_hkd?: unknown }).price_hkd ?? 0)
@@ -709,7 +848,7 @@ export function Dashboard() {
       return sum + price * qty
     }, 0)
 
-    const miscTotal30dAgo = (miscRes.data ?? []).reduce((sum, row) => {
+    const miscTotalAgo = (miscRes.data ?? []).reduce((sum, row) => {
       const d = String((row as { date?: string | null }).date ?? "")
       if (!d || d > cutoffISO) return sum
       const price = Number((row as { price?: unknown }).price ?? 0)
@@ -717,18 +856,25 @@ export function Dashboard() {
       return sum + price
     }, 0)
 
-    setTotalBalanceHKD(sellTotal - buyTotal - miscTotal)
-    setTotalBalance30dAgoHKD(sellTotal30dAgo - buyTotal30dAgo - miscTotal30dAgo)
-    setBalanceLoading(false)
-  }, [user?.id])
+    setTotalBalanceAgoHKD(sellTotalAgo - buyTotalAgo - miscTotalAgo)
+    setCompareLoading(false)
+  }, [user?.id, dashboardRange])
 
   useEffect(() => {
-    void refreshBalance()
-  }, [refreshBalance, balanceReloadKey])
+    void refreshTotalBalance()
+  }, [refreshTotalBalance, balanceReloadKey])
+
+  useEffect(() => {
+    void refreshBalanceAgo()
+  }, [refreshBalanceAgo, balanceReloadKey])
 
   useEffect(() => {
     void refreshRoi()
   }, [refreshRoi, balanceReloadKey])
+
+  useEffect(() => {
+    void refreshFlow()
+  }, [refreshFlow, balanceReloadKey])
 
   const initials = useMemo(() => {
     const email = user?.email ?? ""
@@ -785,7 +931,7 @@ export function Dashboard() {
         <Separator className="my-6" />
 
         <div className="grid grid-cols-12 gap-3">
-          <GridGroup>
+          <GridGroup className="h-full sm:col-span-4 md:col-span-4 lg:col-span-3">
             <Button
               type="button"
               className="shine-button-light relative col-span-12 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
@@ -798,10 +944,10 @@ export function Dashboard() {
             </Button>
           </GridGroup>
 
-          <GridGroup>
+          <GridGroup className="h-full auto-rows-fr sm:col-span-4 md:col-span-4 lg:col-span-3">
             <Button
               type="button"
-              className="shine-button-light relative col-span-6 min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
+              className="shine-button-light relative col-span-6 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px sm:col-span-12"
               onClick={() => setBuyChooserOpen(true)}
             >
               <ShoppingCart aria-hidden="true" className="absolute left-5 top-5 size-7" />
@@ -811,7 +957,7 @@ export function Dashboard() {
             </Button>
             <Button
               type="button"
-              className="shine-button-light relative col-span-6 min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
+              className="shine-button-light relative col-span-6 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px sm:col-span-12"
               onClick={() => setSellChooseOpen(true)}
             >
               <HandCoins aria-hidden="true" className="absolute left-5 top-5 size-7" />
@@ -819,9 +965,12 @@ export function Dashboard() {
                 Sell
               </span>
             </Button>
+          </GridGroup>
+
+          <GridGroup className="h-full sm:col-span-4 md:col-span-4 lg:col-span-3">
             <Button
               type="button"
-              className="shine-button relative col-span-12 min-h-28 w-full items-stretch border border-white/10 bg-black p-6 text-white shadow-sm hover:bg-neutral-900 active:translate-y-px"
+              className="shine-button relative col-span-12 h-full min-h-28 w-full items-stretch border border-white/10 bg-black p-6 text-white shadow-sm hover:bg-neutral-900 active:translate-y-px"
               onClick={() => setMiscOpen(true)}
             >
               <CreditCard aria-hidden="true" className="absolute left-5 top-5 size-7" />
@@ -830,6 +979,36 @@ export function Dashboard() {
               </span>
             </Button>
           </GridGroup>
+
+          <section className="col-span-12 grid h-full grid-cols-12 gap-3 md:col-span-4 md:[grid-template-rows:auto_1fr] lg:col-span-6 lg:auto-rows-fr lg:[grid-template-rows:1fr]">
+            <div className="col-span-12 sm:col-span-6 md:col-span-12 lg:col-span-6">
+              <TotalBalanceCard
+                loading={balanceLoading}
+                error={balanceError}
+                totalBalanceHKD={totalBalanceHKD}
+                animatedBalance={animatedBalance}
+              />
+            </div>
+
+            <div className="col-span-12 sm:col-span-6 md:col-span-12 lg:col-span-6">
+              <BalanceChangeCard
+                loading={compareLoading}
+                error={compareError}
+                totalBalanceHKD={totalBalanceHKD}
+                totalBalanceAgoHKD={totalBalanceAgoHKD}
+                compareLabel={
+                  dashboardRange === "365"
+                    ? "1 year"
+                    : dashboardRange === "180"
+                      ? "6 months"
+                      : "3 months"
+                }
+                notAvailable={dashboardRange === "all"}
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+              />
+            </div>
+          </section>
 
           <Dialog open={buyChooserOpen} onOpenChange={setBuyChooserOpen}>
             <DialogContent className="sm:max-w-md">
@@ -917,31 +1096,13 @@ export function Dashboard() {
             onSubmitted={() => setBalanceReloadKey((n) => n + 1)}
           />
 
-          <GridGroup>
-            <TotalBalanceCard
-              loading={balanceLoading}
-              error={balanceError}
-              totalBalanceHKD={totalBalanceHKD}
-              animatedBalance={animatedBalance}
-            />
-          </GridGroup>
-
-          <GridGroup>
-            <BalanceChangeCard
-              loading={balanceLoading}
-              error={balanceError}
-              totalBalanceHKD={totalBalanceHKD}
-              totalBalance30dAgoHKD={totalBalance30dAgoHKD}
-            />
-          </GridGroup>
-
           <RoiSection
             roiError={roiError}
             roiLoading={roiLoading}
-            roiWindow={roiWindow}
-            setRoiWindow={(v) => {
+            range={dashboardRange}
+            onRangeChange={(v) => {
               setRoiLoading(true)
-              setRoiWindow(v)
+              setDashboardRange(v)
             }}
             roiSort={roiSort}
             setRoiSort={(v) => {
@@ -953,6 +1114,16 @@ export function Dashboard() {
             roiGradedTop={roiGradedTop}
             roiExpandedKey={roiExpandedKey}
             setRoiExpandedKey={setRoiExpandedKey}
+          />
+
+          <SpendingPieSection
+            range={dashboardRange}
+            onRangeChange={(v) => setDashboardRange(v)}
+            loading={flowLoading}
+            error={flowError}
+            buyTotal={buyFlowTotal}
+            sellTotal={sellFlowTotal}
+            miscTotal={miscFlowTotal}
           />
 
           <GridGroup>
