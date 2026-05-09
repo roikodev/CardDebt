@@ -25,9 +25,16 @@ import {
 } from "@/components/dashboard/GameTitleSpendingPieSection"
 import { ActivityTrendSection } from "@/components/dashboard/ActivityTrendSection"
 import {
-  buildCumulativeActivitySeries,
-  type ActivityTrendPoint,
-} from "@/components/dashboard/activityTrend"
+  deriveActivityTrendPoints,
+  deriveCompareBalanceAgoHKD,
+  deriveFlowTotals,
+  deriveGameTitleGainingSlices,
+  deriveGameTitleSpendingSlices,
+  deriveTotalBalanceHKD,
+  type LedgerBuyRow,
+  type LedgerMiscRow,
+  type LedgerSellRow,
+} from "@/components/dashboard/ledgerDerived"
 import type { DashboardTimeRange } from "@/components/dashboard/TimeRangeFilter"
 import {
   Dialog,
@@ -187,22 +194,17 @@ export function Dashboard() {
       null
     )
 
-  const [balanceLoading, setBalanceLoading] = useState(false)
-  const [balanceError, setBalanceError] = useState<string | null>(null)
-  const [compareLoading, setCompareLoading] = useState(false)
-  const [compareError, setCompareError] = useState<string | null>(null)
-  const [totalBalanceHKD, setTotalBalanceHKD] = useState<number | null>(null)
   const [dashboardRange, setDashboardRange] = useState<DashboardTimeRange>("all")
-  const [totalBalanceAgoHKD, setTotalBalanceAgoHKD] = useState<number | null>(
-    null
-  )
   const [balanceReloadKey, setBalanceReloadKey] = useState(0)
+  const [ledger, setLedger] = useState<{
+    buys: LedgerBuyRow[]
+    sells: LedgerSellRow[]
+    misc: LedgerMiscRow[]
+  } | null>(null)
+  const [ledgerError, setLedgerError] = useState<string | null>(null)
+  const [ledgerLoading, setLedgerLoading] = useState(false)
   /** Rows shown in My Collection: non-derived, not soft-deleted. */
   const [collectionCount, setCollectionCount] = useState<number | null>(null)
-  const animatedBalance = useAnimatedBalance({
-    target: totalBalanceHKD,
-    loading: balanceLoading,
-  })
 
   type RoiRow = {
     collection_item_id: string
@@ -229,274 +231,102 @@ export function Dashboard() {
   const roiRunRef = useRef(0)
   const [roiExpandedKey, setRoiExpandedKey] = useState<string | null>(null)
 
-  const [flowLoading, setFlowLoading] = useState(false)
-  const [flowError, setFlowError] = useState<string | null>(null)
-  const [buyFlowTotal, setBuyFlowTotal] = useState(0)
-  const [sellFlowTotal, setSellFlowTotal] = useState(0)
-  const [miscFlowTotal, setMiscFlowTotal] = useState(0)
+  const totalBalanceHKD = useMemo(() => {
+    if (!ledger) return null
+    return deriveTotalBalanceHKD(ledger.buys, ledger.sells, ledger.misc)
+  }, [ledger])
 
-  const [gameTitleLoading, setGameTitleLoading] = useState(false)
-  const [gameTitleError, setGameTitleError] = useState<string | null>(null)
-  const [gameTitleSlices, setGameTitleSlices] = useState<
-    Array<{ name: string; value: number; color: string }>
-  >([])
+  const totalBalanceAgoHKD = useMemo(() => {
+    if (!ledger) return null
+    return deriveCompareBalanceAgoHKD(
+      ledger.buys,
+      ledger.sells,
+      ledger.misc,
+      dashboardRange
+    )
+  }, [ledger, dashboardRange])
 
-  const [gameTitleGainingLoading, setGameTitleGainingLoading] = useState(false)
-  const [gameTitleGainingError, setGameTitleGainingError] = useState<string | null>(null)
-  const [gameTitleGainingSlices, setGameTitleGainingSlices] = useState<
-    Array<{ name: string; value: number; color: string }>
-  >([])
+  const flowTotals = useMemo(
+    () =>
+      ledger
+        ? deriveFlowTotals(ledger.buys, ledger.sells, ledger.misc, dashboardRange)
+        : { buy: 0, sell: 0, misc: 0 },
+    [ledger, dashboardRange]
+  )
 
-  const [activityTrendLoading, setActivityTrendLoading] = useState(false)
-  const [activityTrendError, setActivityTrendError] = useState<string | null>(null)
-  const [activityTrendPoints, setActivityTrendPoints] = useState<ActivityTrendPoint[]>([])
+  const activityTrendPoints = useMemo(
+    () =>
+      ledger
+        ? deriveActivityTrendPoints(
+            dashboardRange,
+            ledger.buys,
+            ledger.sells,
+            ledger.misc
+          )
+        : [],
+    [ledger, dashboardRange]
+  )
 
-  const refreshFlow = useCallback(async () => {
+  const gameTitleSlices = useMemo(
+    () =>
+      ledger ? deriveGameTitleSpendingSlices(ledger.buys, dashboardRange) : [],
+    [ledger, dashboardRange]
+  )
+
+  const gameTitleGainingSlices = useMemo(
+    () =>
+      ledger ? deriveGameTitleGainingSlices(ledger.sells, dashboardRange) : [],
+    [ledger, dashboardRange]
+  )
+
+  const animatedBalance = useAnimatedBalance({
+    target: totalBalanceHKD,
+    loading: ledgerLoading,
+  })
+
+  const refreshLedger = useCallback(async () => {
     const userId = user?.id
     if (!userId) {
-      setBuyFlowTotal(0)
-      setSellFlowTotal(0)
-      setMiscFlowTotal(0)
-      setFlowError(null)
+      setLedger(null)
+      setLedgerError(null)
+      setLedgerLoading(false)
       return
     }
 
-    setFlowLoading(true)
-    setFlowError(null)
-
-    const days =
-      dashboardRange === "all"
-        ? null
-        : dashboardRange === "365"
-          ? 365
-          : dashboardRange === "180"
-            ? 180
-            : 90
-    const cutoff = days === null ? null : daysAgoISODate(days)
+    setLedgerLoading(true)
+    setLedgerError(null)
 
     const [buysRes, sellsRes, miscRes] = await Promise.all([
       supabase
         .from("buy_entries")
-        .select("price_hkd, quantity, purchase_date")
+        .select(
+          "price_hkd, quantity, purchase_date, collection_base:collection_item_id ( game_title )"
+        )
         .eq("user_id", userId),
       supabase
         .from("sell_entries")
-        .select("price_hkd, quantity, selling_date")
+        .select(
+          "price_hkd, quantity, selling_date, user_collection:user_collection_id ( collection_base:collection_item_id ( game_title ) )"
+        )
         .eq("user_id", userId),
-      supabase
-        .from("miscellaneous_entries")
-        .select("price, date")
-        .eq("user_id", userId),
+      supabase.from("miscellaneous_entries").select("price, date").eq("user_id", userId),
     ])
 
-    const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
-    if (firstError) {
-      setFlowError(firstError.message)
-      setFlowLoading(false)
+    const err = buysRes.error ?? sellsRes.error ?? miscRes.error
+    if (err) {
+      setLedger(null)
+      setLedgerError(err.message)
+      setLedgerLoading(false)
       return
     }
 
-    const buySum = (buysRes.data ?? []).reduce((sum, r) => {
-      const d = String((r as any).purchase_date ?? "")
-      if (cutoff && (!d || d < cutoff)) return sum
-      const price = Number((r as any).price_hkd ?? 0)
-      const qty = Number((r as any).quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const sellSum = (sellsRes.data ?? []).reduce((sum, r) => {
-      const d = String((r as any).selling_date ?? "")
-      if (cutoff && (!d || d < cutoff)) return sum
-      const price = Number((r as any).price_hkd ?? 0)
-      const qty = Number((r as any).quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const miscSum = (miscRes.data ?? []).reduce((sum, r) => {
-      const d = String((r as any).date ?? "")
-      if (cutoff && (!d || d < cutoff)) return sum
-      const price = Number((r as any).price ?? 0)
-      if (!Number.isFinite(price)) return sum
-      return sum + price
-    }, 0)
-
-    setBuyFlowTotal(buySum)
-    setSellFlowTotal(sellSum)
-    setMiscFlowTotal(miscSum)
-    setFlowLoading(false)
-  }, [dashboardRange, user?.id])
-
-  const refreshGameTitleSpending = useCallback(async () => {
-    const userId = user?.id
-    if (!userId) {
-      setGameTitleSlices([])
-      setGameTitleError(null)
-      return
-    }
-
-    setGameTitleLoading(true)
-    setGameTitleError(null)
-
-    const days =
-      dashboardRange === "all"
-        ? null
-        : dashboardRange === "365"
-          ? 365
-          : dashboardRange === "180"
-            ? 180
-            : 90
-    const cutoff = days === null ? null : daysAgoISODate(days)
-
-    const buysRes = await supabase
-      .from("buy_entries")
-      .select(
-        "price_hkd, quantity, purchase_date, collection_base:collection_item_id ( game_title )"
-      )
-      .eq("user_id", userId)
-
-    if (buysRes.error) {
-      setGameTitleSlices([])
-      setGameTitleError(buysRes.error.message)
-      setGameTitleLoading(false)
-      return
-    }
-
-    const sums = new Map<string, number>()
-    for (const r of buysRes.data as any[]) {
-      const d = String(r.purchase_date ?? "")
-      if (cutoff && (!d || d < cutoff)) continue
-      const price = Number(r.price_hkd ?? 0)
-      const qty = Number(r.quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) continue
-      const gameTitle =
-        (r.collection_base?.game_title as string | null | undefined) ?? "Unknown"
-      sums.set(gameTitle, (sums.get(gameTitle) ?? 0) + price * qty)
-    }
-
-    const sorted = Array.from(sums.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-
-    const COLORS = [
-      "#60a5fa",
-      "#34d399",
-      "#fbbf24",
-      "#fb7185",
-      "#a78bfa",
-      "#22c55e",
-      "#f97316",
-      "#06b6d4",
-      "#e879f9",
-    ]
-
-    const top = sorted.slice(0, 8)
-    const rest = sorted.slice(8)
-    const other = rest.reduce((s, x) => s + x.value, 0)
-
-    const slices: Array<{ name: string; value: number; color: string }> = top.map(
-      (x, i) => ({
-        name: x.name,
-        value: x.value,
-        color: COLORS[i % COLORS.length],
-      })
-    )
-    if (other > 0) {
-      slices.push({ name: "Other", value: other, color: "#94a3b8" })
-    }
-
-    setGameTitleSlices(slices)
-    setGameTitleLoading(false)
-  }, [dashboardRange, user?.id])
-
-  const refreshGameTitleGaining = useCallback(async () => {
-    const userId = user?.id
-    if (!userId) {
-      setGameTitleGainingSlices([])
-      setGameTitleGainingError(null)
-      return
-    }
-
-    setGameTitleGainingLoading(true)
-    setGameTitleGainingError(null)
-
-    const days =
-      dashboardRange === "all"
-        ? null
-        : dashboardRange === "365"
-          ? 365
-          : dashboardRange === "180"
-            ? 180
-            : 90
-    const cutoff = days === null ? null : daysAgoISODate(days)
-
-    const sellsRes = await supabase
-      .from("sell_entries")
-      .select(
-        "price_hkd, quantity, selling_date, user_collection:user_collection_id ( collection_base:collection_item_id ( game_title ) )"
-      )
-      .eq("user_id", userId)
-
-    if (sellsRes.error) {
-      setGameTitleGainingSlices([])
-      setGameTitleGainingError(sellsRes.error.message)
-      setGameTitleGainingLoading(false)
-      return
-    }
-
-    const sums = new Map<string, number>()
-    for (const r of sellsRes.data as any[]) {
-      const d = String(r.selling_date ?? "")
-      if (cutoff && (!d || d < cutoff)) continue
-      const price = Number(r.price_hkd ?? 0)
-      const qty = Number(r.quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) continue
-
-      const ucRaw = r.user_collection
-      const uc = Array.isArray(ucRaw) ? ucRaw[0] : ucRaw
-      const baseRaw = uc?.collection_base
-      const base = Array.isArray(baseRaw) ? baseRaw[0] : baseRaw
-      const gameTitle =
-        (base?.game_title as string | null | undefined) ?? "Unknown"
-
-      sums.set(gameTitle, (sums.get(gameTitle) ?? 0) + price * qty)
-    }
-
-    const sorted = Array.from(sums.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-
-    const COLORS = [
-      "#60a5fa",
-      "#34d399",
-      "#fbbf24",
-      "#fb7185",
-      "#a78bfa",
-      "#22c55e",
-      "#f97316",
-      "#06b6d4",
-      "#e879f9",
-    ]
-
-    const top = sorted.slice(0, 8)
-    const rest = sorted.slice(8)
-    const other = rest.reduce((s, x) => s + x.value, 0)
-
-    const slices: Array<{ name: string; value: number; color: string }> = top.map(
-      (x, i) => ({
-        name: x.name,
-        value: x.value,
-        color: COLORS[i % COLORS.length],
-      })
-    )
-    if (other > 0) {
-      slices.push({ name: "Other", value: other, color: "#94a3b8" })
-    }
-
-    setGameTitleGainingSlices(slices)
-    setGameTitleGainingLoading(false)
-  }, [dashboardRange, user?.id])
+    setLedger({
+      buys: (buysRes.data ?? []) as LedgerBuyRow[],
+      sells: (sellsRes.data ?? []) as LedgerSellRow[],
+      misc: (miscRes.data ?? []) as LedgerMiscRow[],
+    })
+    setLedgerLoading(false)
+  }, [user?.id])
 
   const refreshCollectionCount = useCallback(async () => {
     const userId = user?.id
@@ -519,48 +349,6 @@ export function Dashboard() {
 
     setCollectionCount(typeof res.count === "number" ? res.count : 0)
   }, [user?.id])
-
-  const refreshActivityTrend = useCallback(async () => {
-    const userId = user?.id
-    if (!userId) {
-      setActivityTrendPoints([])
-      setActivityTrendError(null)
-      return
-    }
-
-    setActivityTrendLoading(true)
-    setActivityTrendError(null)
-
-    const [buysRes, sellsRes, miscRes] = await Promise.all([
-      supabase
-        .from("buy_entries")
-        .select("purchase_date, price_hkd, quantity")
-        .eq("user_id", userId),
-      supabase
-        .from("sell_entries")
-        .select("selling_date, price_hkd, quantity")
-        .eq("user_id", userId),
-      supabase.from("miscellaneous_entries").select("date, price").eq("user_id", userId),
-    ])
-
-    const firstErr = buysRes.error ?? sellsRes.error ?? miscRes.error
-    if (firstErr) {
-      setActivityTrendPoints([])
-      setActivityTrendError(firstErr.message)
-      setActivityTrendLoading(false)
-      return
-    }
-
-    setActivityTrendPoints(
-      buildCumulativeActivitySeries(
-        dashboardRange,
-        buysRes.data ?? [],
-        sellsRes.data ?? [],
-        miscRes.data ?? []
-      )
-    )
-    setActivityTrendLoading(false)
-  }, [dashboardRange, user?.id])
 
   const refreshRoi = useCallback(async () => {
     const userId = user?.id
@@ -970,170 +758,17 @@ export function Dashboard() {
     setRoiLoading(false)
   }, [user?.id, workerOrigin, dashboardRange, roiSort])
 
-  const refreshTotalBalance = useCallback(async () => {
-    const userId = user?.id
-    if (!userId) {
-      setTotalBalanceHKD(null)
-      setBalanceError(null)
-      return
-    }
-
-    setBalanceLoading(true)
-    setBalanceError(null)
-
-    const [buysRes, sellsRes, miscRes] = await Promise.all([
-      supabase
-        .from("buy_entries")
-        .select("price_hkd, quantity, purchase_date")
-        .eq("user_id", userId),
-      supabase
-        .from("sell_entries")
-        .select("price_hkd, quantity, selling_date")
-        .eq("user_id", userId),
-      supabase
-        .from("miscellaneous_entries")
-        .select("price, date")
-        .eq("user_id", userId),
-    ])
-
-    const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
-    if (firstError) {
-      setTotalBalanceHKD(null)
-      setBalanceError(firstError.message)
-      setBalanceLoading(false)
-      return
-    }
-
-    const buyTotal = (buysRes.data ?? []).reduce((sum, row) => {
-      const price = Number(row.price_hkd ?? 0)
-      const qty = Number(row.quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const sellTotal = (sellsRes.data ?? []).reduce((sum, row) => {
-      const price = Number(row.price_hkd ?? 0)
-      const qty = Number(row.quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const miscTotal = (miscRes.data ?? []).reduce((sum, row) => {
-      const price = Number(row.price ?? 0)
-      if (!Number.isFinite(price)) return sum
-      return sum + price
-    }, 0)
-
-    setTotalBalanceHKD(sellTotal - buyTotal - miscTotal)
-    setBalanceLoading(false)
-  }, [user?.id])
-
-  const refreshBalanceAgo = useCallback(async () => {
-    const userId = user?.id
-    if (!userId) {
-      setTotalBalanceAgoHKD(null)
-      setCompareError(null)
-      return
-    }
-
-    if (dashboardRange === "all") {
-      setTotalBalanceAgoHKD(null)
-      setCompareError(null)
-      setCompareLoading(false)
-      return
-    }
-
-    setCompareLoading(true)
-    setCompareError(null)
-
-    const [buysRes, sellsRes, miscRes] = await Promise.all([
-      supabase
-        .from("buy_entries")
-        .select("price_hkd, quantity, purchase_date")
-        .eq("user_id", userId),
-      supabase
-        .from("sell_entries")
-        .select("price_hkd, quantity, selling_date")
-        .eq("user_id", userId),
-      supabase
-        .from("miscellaneous_entries")
-        .select("price, date")
-        .eq("user_id", userId),
-    ])
-
-    const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
-    if (firstError) {
-      setTotalBalanceAgoHKD(null)
-      setCompareError(firstError.message)
-      setCompareLoading(false)
-      return
-    }
-
-    const compareDays =
-      dashboardRange === "90" ? 90 : dashboardRange === "180" ? 180 : 365
-    const cutoffISO = daysAgoISODate(compareDays)
-
-    const buyTotalAgo = (buysRes.data ?? []).reduce((sum, row) => {
-      const d = String((row as { purchase_date?: string | null }).purchase_date ?? "")
-      if (!d || d > cutoffISO) return sum
-      const price = Number((row as { price_hkd?: unknown }).price_hkd ?? 0)
-      const qty = Number((row as { quantity?: unknown }).quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const sellTotalAgo = (sellsRes.data ?? []).reduce((sum, row) => {
-      const d = String((row as { selling_date?: string | null }).selling_date ?? "")
-      if (!d || d > cutoffISO) return sum
-      const price = Number((row as { price_hkd?: unknown }).price_hkd ?? 0)
-      const qty = Number((row as { quantity?: unknown }).quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const miscTotalAgo = (miscRes.data ?? []).reduce((sum, row) => {
-      const d = String((row as { date?: string | null }).date ?? "")
-      if (!d || d > cutoffISO) return sum
-      const price = Number((row as { price?: unknown }).price ?? 0)
-      if (!Number.isFinite(price)) return sum
-      return sum + price
-    }, 0)
-
-    setTotalBalanceAgoHKD(sellTotalAgo - buyTotalAgo - miscTotalAgo)
-    setCompareLoading(false)
-  }, [user?.id, dashboardRange])
-
   useEffect(() => {
-    void refreshTotalBalance()
-  }, [refreshTotalBalance, balanceReloadKey])
-
-  useEffect(() => {
-    void refreshBalanceAgo()
-  }, [refreshBalanceAgo, balanceReloadKey])
+    void refreshLedger()
+  }, [refreshLedger, balanceReloadKey])
 
   useEffect(() => {
     void refreshRoi()
   }, [refreshRoi, balanceReloadKey])
 
   useEffect(() => {
-    void refreshFlow()
-  }, [refreshFlow, balanceReloadKey])
-
-  useEffect(() => {
-    void refreshGameTitleSpending()
-  }, [refreshGameTitleSpending, balanceReloadKey])
-
-  useEffect(() => {
-    void refreshGameTitleGaining()
-  }, [refreshGameTitleGaining, balanceReloadKey])
-
-  useEffect(() => {
     void refreshCollectionCount()
   }, [refreshCollectionCount, balanceReloadKey])
-
-  useEffect(() => {
-    void refreshActivityTrend()
-  }, [refreshActivityTrend, balanceReloadKey])
 
   const initials = useMemo(() => {
     const email = user?.email ?? ""
@@ -1267,8 +902,8 @@ export function Dashboard() {
           <section className="col-span-12 grid h-full grid-cols-12 gap-3 md:col-span-4 md:[grid-template-rows:auto_1fr] lg:col-span-6 lg:col-start-7 lg:row-start-1 lg:auto-rows-fr lg:[grid-template-rows:1fr]">
             <div className="col-span-12 sm:col-span-6 md:col-span-12 lg:col-span-6">
               <TotalBalanceCard
-                loading={balanceLoading}
-                error={balanceError}
+                loading={ledgerLoading}
+                error={ledgerError}
                 totalBalanceHKD={totalBalanceHKD}
                 animatedBalance={animatedBalance}
               />
@@ -1276,8 +911,8 @@ export function Dashboard() {
 
             <div className="col-span-12 sm:col-span-6 md:col-span-12 lg:col-span-6">
               <BalanceChangeCard
-                loading={compareLoading}
-                error={compareError}
+                loading={ledgerLoading}
+                error={ledgerError}
                 totalBalanceHKD={totalBalanceHKD}
                 totalBalanceAgoHKD={totalBalanceAgoHKD}
                 compareLabel={
@@ -1403,34 +1038,34 @@ export function Dashboard() {
           <SpendingPieSection
             range={dashboardRange}
             onRangeChange={(v) => setDashboardRange(v)}
-            loading={flowLoading}
-            error={flowError}
-            buyTotal={buyFlowTotal}
-            sellTotal={sellFlowTotal}
-            miscTotal={miscFlowTotal}
+            loading={ledgerLoading}
+            error={ledgerError}
+            buyTotal={flowTotals.buy}
+            sellTotal={flowTotals.sell}
+            miscTotal={flowTotals.misc}
           />
 
           <ActivityTrendSection
             range={dashboardRange}
             onRangeChange={(v) => setDashboardRange(v)}
-            loading={activityTrendLoading}
-            error={activityTrendError}
+            loading={ledgerLoading}
+            error={ledgerError}
             points={activityTrendPoints}
           />
 
           <GameTitleSpendingPieSection
             range={dashboardRange}
             onRangeChange={(v) => setDashboardRange(v)}
-            loading={gameTitleLoading}
-            error={gameTitleError}
+            loading={ledgerLoading}
+            error={ledgerError}
             slices={gameTitleSlices}
           />
 
           <GameTitleGainingPieSection
             range={dashboardRange}
             onRangeChange={(v) => setDashboardRange(v)}
-            loading={gameTitleGainingLoading}
-            error={gameTitleGainingError}
+            loading={ledgerLoading}
+            error={ledgerError}
             slices={gameTitleGainingSlices}
           />
         </div>
