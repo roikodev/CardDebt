@@ -72,8 +72,8 @@ export function SpendingPieSection({
         <CardContent>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-          <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
-            <div className="flex items-center justify-center">
+          <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
+            <div className="flex justify-center md:items-center md:justify-center">
               <div className="relative size-40">
                 {total <= 0 ? (
                   <div
@@ -151,7 +151,7 @@ export function SpendingPieSection({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <LegendRow
                 label="Buy"
                 color={c1}

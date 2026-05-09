@@ -1,3 +1,5 @@
+import type { ComponentProps } from "react"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 
@@ -5,38 +7,49 @@ import { formatHKD } from "./utils"
 
 type Slice = { name: string; value: number; color: string }
 
-const COLORS = [
-  "#60a5fa", // blue-400
-  "#34d399", // emerald-400
-  "#fbbf24", // amber-400
-  "#fb7185", // rose-400
-  "#a78bfa", // violet-400
-  "#22c55e", // green-500
-  "#f97316", // orange-500
-  "#06b6d4", // cyan-500
-  "#e879f9", // fuchsia-400
-]
+type GameTitlePieVariant = "spending" | "gaining"
+
+const VARIANT_COPY: Record<
+  GameTitlePieVariant,
+  { title: string; totalLabel: string; footnote: string; empty: string }
+> = {
+  spending: {
+    title: "Spending by game title",
+    totalLabel: "Total spent",
+    footnote: "Only counts purchase records",
+    empty: "No purchase data in this range.",
+  },
+  gaining: {
+    title: "Gaining by game title",
+    totalLabel: "Total gained",
+    footnote: "Only counts selling records",
+    empty: "No selling data in this range.",
+  },
+}
 
 export function GameTitleSpendingPieSection({
+  variant = "spending",
   range,
   onRangeChange,
   loading,
   error,
   slices,
 }: {
+  variant?: GameTitlePieVariant
   range: "all" | "365" | "180" | "90"
   onRangeChange: (v: "all" | "365" | "180" | "90") => void
   loading: boolean
   error: string | null
   slices: Slice[]
 }) {
+  const copy = VARIANT_COPY[variant]
   const total = slices.reduce((sum, s) => sum + (Number(s.value) || 0), 0)
 
   return (
     <section className="col-span-12 md:col-span-6">
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-muted/20 via-background to-background shadow-sm ring-1 ring-border/60">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Spending by game title</CardTitle>
+          <CardTitle className="text-base">{copy.title}</CardTitle>
           <div className="mt-2 flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60">
             {(
               [
@@ -66,8 +79,8 @@ export function GameTitleSpendingPieSection({
         <CardContent>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-          <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
-            <div className="flex items-center justify-center">
+          <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
+            <div className="flex justify-center md:items-center md:justify-center">
               <div className="relative size-40">
                 {total <= 0 ? (
                   <div
@@ -145,12 +158,12 @@ export function GameTitleSpendingPieSection({
               </div>
             </div>
 
-            <div className="max-h-40 space-y-2 overflow-y-auto pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="max-h-40 min-w-0 space-y-2 overflow-y-auto pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {slices.map((s) => (
                 <LegendRow key={s.name} label={s.name} color={s.color} amount={s.value} total={total} />
               ))}
               {total <= 0 && !loading ? (
-                <p className="text-xs text-muted-foreground">No purchase data in this range.</p>
+                <p className="text-xs text-muted-foreground">{copy.empty}</p>
               ) : null}
             </div>
           </div>
@@ -158,14 +171,15 @@ export function GameTitleSpendingPieSection({
           <div className="mt-4 border-t pt-3">
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-medium text-muted-foreground">Total spent</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Only counts purchase records
-                </p>
+                <p className="text-xs font-medium text-muted-foreground">{copy.totalLabel}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{copy.footnote}</p>
               </div>
               <p
                 className={[
                   "shrink-0 text-base font-semibold tabular-nums",
+                  variant === "spending"
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-emerald-600",
                   loading ? "animate-pulse opacity-80" : "",
                 ].join(" ")}
               >
@@ -177,6 +191,13 @@ export function GameTitleSpendingPieSection({
       </Card>
     </section>
   )
+}
+
+/** Selling counterpart to {@link GameTitleSpendingPieSection} (same UI, copy + data source differ). */
+export function GameTitleGainingPieSection(
+  props: Omit<ComponentProps<typeof GameTitleSpendingPieSection>, "variant">
+) {
+  return <GameTitleSpendingPieSection {...props} variant="gaining" />
 }
 
 function LegendRow({
