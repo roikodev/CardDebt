@@ -2,7 +2,6 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +19,23 @@ import { MiscellaneousEntryDialog } from "@/components/dialogs/MiscellaneousEntr
 import { BalanceChangeCard, TotalBalanceCard } from "@/components/dashboard/BalanceCards"
 import { RoiSection } from "@/components/dashboard/RoiSection"
 import { SpendingPieSection } from "@/components/dashboard/SpendingPieSection"
+import {
+  GameTitleGainingPieSection,
+  GameTitleSpendingPieSection,
+} from "@/components/dashboard/GameTitleSpendingPieSection"
+import { ActivityTrendSection } from "@/components/dashboard/ActivityTrendSection"
+import { ViewportDeferred } from "@/components/dashboard/ViewportDeferred"
+import {
+  deriveActivityTrendPoints,
+  deriveCompareBalanceAgoHKD,
+  deriveFlowTotals,
+  deriveGameTitleGainingSlices,
+  deriveGameTitleSpendingSlices,
+  deriveTotalBalanceHKD,
+  type LedgerBuyRow,
+  type LedgerMiscRow,
+  type LedgerSellRow,
+} from "@/components/dashboard/ledgerDerived"
 import type { DashboardTimeRange } from "@/components/dashboard/TimeRangeFilter"
 import {
   Dialog,
@@ -41,7 +57,6 @@ import {
   PlusSquare,
   Settings,
   ShoppingCart,
-  TrendingUp,
 } from "lucide-react"
 
 function clampNumber(n: number, min: number, max: number): number {
@@ -162,22 +177,6 @@ function GridGroup({
   )
 }
 
-function GridGroupBig({
-  children,
-  className = "",
-}: {
-  children: ReactNode
-  className?: string
-}) {
-  return (
-    <section
-      className={`col-span-12 grid grid-cols-12 gap-3 md:col-span-6 ${className}`.trim()}
-    >
-      {children}
-    </section>
-  )
-}
-
 export function Dashboard() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
@@ -196,20 +195,17 @@ export function Dashboard() {
       null
     )
 
-  const [balanceLoading, setBalanceLoading] = useState(false)
-  const [balanceError, setBalanceError] = useState<string | null>(null)
-  const [compareLoading, setCompareLoading] = useState(false)
-  const [compareError, setCompareError] = useState<string | null>(null)
-  const [totalBalanceHKD, setTotalBalanceHKD] = useState<number | null>(null)
   const [dashboardRange, setDashboardRange] = useState<DashboardTimeRange>("all")
-  const [totalBalanceAgoHKD, setTotalBalanceAgoHKD] = useState<number | null>(
-    null
-  )
   const [balanceReloadKey, setBalanceReloadKey] = useState(0)
-  const animatedBalance = useAnimatedBalance({
-    target: totalBalanceHKD,
-    loading: balanceLoading,
-  })
+  const [ledger, setLedger] = useState<{
+    buys: LedgerBuyRow[]
+    sells: LedgerSellRow[]
+    misc: LedgerMiscRow[]
+  } | null>(null)
+  const [ledgerError, setLedgerError] = useState<string | null>(null)
+  const [ledgerLoading, setLedgerLoading] = useState(false)
+  /** Rows shown in My Collection: non-derived, not soft-deleted. */
+  const [collectionCount, setCollectionCount] = useState<number | null>(null)
 
   type RoiRow = {
     collection_item_id: string
@@ -236,88 +232,124 @@ export function Dashboard() {
   const roiRunRef = useRef(0)
   const [roiExpandedKey, setRoiExpandedKey] = useState<string | null>(null)
 
-  const [flowLoading, setFlowLoading] = useState(false)
-  const [flowError, setFlowError] = useState<string | null>(null)
-  const [buyFlowTotal, setBuyFlowTotal] = useState(0)
-  const [sellFlowTotal, setSellFlowTotal] = useState(0)
-  const [miscFlowTotal, setMiscFlowTotal] = useState(0)
+  const totalBalanceHKD = useMemo(() => {
+    if (!ledger) return null
+    return deriveTotalBalanceHKD(ledger.buys, ledger.sells, ledger.misc)
+  }, [ledger])
 
-  const refreshFlow = useCallback(async () => {
+  const totalBalanceAgoHKD = useMemo(() => {
+    if (!ledger) return null
+    return deriveCompareBalanceAgoHKD(
+      ledger.buys,
+      ledger.sells,
+      ledger.misc,
+      dashboardRange
+    )
+  }, [ledger, dashboardRange])
+
+  const flowTotals = useMemo(
+    () =>
+      ledger
+        ? deriveFlowTotals(ledger.buys, ledger.sells, ledger.misc, dashboardRange)
+        : { buy: 0, sell: 0, misc: 0 },
+    [ledger, dashboardRange]
+  )
+
+  const activityTrendPoints = useMemo(
+    () =>
+      ledger
+        ? deriveActivityTrendPoints(
+            dashboardRange,
+            ledger.buys,
+            ledger.sells,
+            ledger.misc
+          )
+        : [],
+    [ledger, dashboardRange]
+  )
+
+  const gameTitleSlices = useMemo(
+    () =>
+      ledger ? deriveGameTitleSpendingSlices(ledger.buys, dashboardRange) : [],
+    [ledger, dashboardRange]
+  )
+
+  const gameTitleGainingSlices = useMemo(
+    () =>
+      ledger ? deriveGameTitleGainingSlices(ledger.sells, dashboardRange) : [],
+    [ledger, dashboardRange]
+  )
+
+  const animatedBalance = useAnimatedBalance({
+    target: totalBalanceHKD,
+    loading: ledgerLoading,
+  })
+
+  const refreshLedger = useCallback(async () => {
     const userId = user?.id
     if (!userId) {
-      setBuyFlowTotal(0)
-      setSellFlowTotal(0)
-      setMiscFlowTotal(0)
-      setFlowError(null)
+      setLedger(null)
+      setLedgerError(null)
+      setLedgerLoading(false)
       return
     }
 
-    setFlowLoading(true)
-    setFlowError(null)
-
-    const days =
-      dashboardRange === "all"
-        ? null
-        : dashboardRange === "365"
-          ? 365
-          : dashboardRange === "180"
-            ? 180
-            : 90
-    const cutoff = days === null ? null : daysAgoISODate(days)
+    setLedgerLoading(true)
+    setLedgerError(null)
 
     const [buysRes, sellsRes, miscRes] = await Promise.all([
       supabase
         .from("buy_entries")
-        .select("price_hkd, quantity, purchase_date")
+        .select(
+          "price_hkd, quantity, purchase_date, collection_base:collection_item_id ( game_title )"
+        )
         .eq("user_id", userId),
       supabase
         .from("sell_entries")
-        .select("price_hkd, quantity, selling_date")
+        .select(
+          "price_hkd, quantity, selling_date, user_collection:user_collection_id ( collection_base:collection_item_id ( game_title ) )"
+        )
         .eq("user_id", userId),
-      supabase
-        .from("miscellaneous_entries")
-        .select("price, date")
-        .eq("user_id", userId),
+      supabase.from("miscellaneous_entries").select("price, date").eq("user_id", userId),
     ])
 
-    const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
-    if (firstError) {
-      setFlowError(firstError.message)
-      setFlowLoading(false)
+    const err = buysRes.error ?? sellsRes.error ?? miscRes.error
+    if (err) {
+      setLedger(null)
+      setLedgerError(err.message)
+      setLedgerLoading(false)
       return
     }
 
-    const buySum = (buysRes.data ?? []).reduce((sum, r) => {
-      const d = String((r as any).purchase_date ?? "")
-      if (cutoff && (!d || d < cutoff)) return sum
-      const price = Number((r as any).price_hkd ?? 0)
-      const qty = Number((r as any).quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
+    setLedger({
+      buys: (buysRes.data ?? []) as LedgerBuyRow[],
+      sells: (sellsRes.data ?? []) as LedgerSellRow[],
+      misc: (miscRes.data ?? []) as LedgerMiscRow[],
+    })
+    setLedgerLoading(false)
+  }, [user?.id])
 
-    const sellSum = (sellsRes.data ?? []).reduce((sum, r) => {
-      const d = String((r as any).selling_date ?? "")
-      if (cutoff && (!d || d < cutoff)) return sum
-      const price = Number((r as any).price_hkd ?? 0)
-      const qty = Number((r as any).quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
+  const refreshCollectionCount = useCallback(async () => {
+    const userId = user?.id
+    if (!userId) {
+      setCollectionCount(null)
+      return
+    }
 
-    const miscSum = (miscRes.data ?? []).reduce((sum, r) => {
-      const d = String((r as any).date ?? "")
-      if (cutoff && (!d || d < cutoff)) return sum
-      const price = Number((r as any).price ?? 0)
-      if (!Number.isFinite(price)) return sum
-      return sum + price
-    }, 0)
+    const res = await supabase
+      .from("user_collection")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("derived", false)
+      .eq("deleted", false)
 
-    setBuyFlowTotal(buySum)
-    setSellFlowTotal(sellSum)
-    setMiscFlowTotal(miscSum)
-    setFlowLoading(false)
-  }, [dashboardRange, user?.id])
+    if (res.error) {
+      setCollectionCount(null)
+      return
+    }
+
+    setCollectionCount(typeof res.count === "number" ? res.count : 0)
+  }, [user?.id])
 
   const refreshRoi = useCallback(async () => {
     const userId = user?.id
@@ -727,154 +759,17 @@ export function Dashboard() {
     setRoiLoading(false)
   }, [user?.id, workerOrigin, dashboardRange, roiSort])
 
-  const refreshTotalBalance = useCallback(async () => {
-    const userId = user?.id
-    if (!userId) {
-      setTotalBalanceHKD(null)
-      setBalanceError(null)
-      return
-    }
-
-    setBalanceLoading(true)
-    setBalanceError(null)
-
-    const [buysRes, sellsRes, miscRes] = await Promise.all([
-      supabase
-        .from("buy_entries")
-        .select("price_hkd, quantity, purchase_date")
-        .eq("user_id", userId),
-      supabase
-        .from("sell_entries")
-        .select("price_hkd, quantity, selling_date")
-        .eq("user_id", userId),
-      supabase
-        .from("miscellaneous_entries")
-        .select("price, date")
-        .eq("user_id", userId),
-    ])
-
-    const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
-    if (firstError) {
-      setTotalBalanceHKD(null)
-      setBalanceError(firstError.message)
-      setBalanceLoading(false)
-      return
-    }
-
-    const buyTotal = (buysRes.data ?? []).reduce((sum, row) => {
-      const price = Number(row.price_hkd ?? 0)
-      const qty = Number(row.quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const sellTotal = (sellsRes.data ?? []).reduce((sum, row) => {
-      const price = Number(row.price_hkd ?? 0)
-      const qty = Number(row.quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const miscTotal = (miscRes.data ?? []).reduce((sum, row) => {
-      const price = Number(row.price ?? 0)
-      if (!Number.isFinite(price)) return sum
-      return sum + price
-    }, 0)
-
-    setTotalBalanceHKD(sellTotal - buyTotal - miscTotal)
-    setBalanceLoading(false)
-  }, [user?.id])
-
-  const refreshBalanceAgo = useCallback(async () => {
-    const userId = user?.id
-    if (!userId) {
-      setTotalBalanceAgoHKD(null)
-      setCompareError(null)
-      return
-    }
-
-    if (dashboardRange === "all") {
-      setTotalBalanceAgoHKD(null)
-      setCompareError(null)
-      setCompareLoading(false)
-      return
-    }
-
-    setCompareLoading(true)
-    setCompareError(null)
-
-    const [buysRes, sellsRes, miscRes] = await Promise.all([
-      supabase
-        .from("buy_entries")
-        .select("price_hkd, quantity, purchase_date")
-        .eq("user_id", userId),
-      supabase
-        .from("sell_entries")
-        .select("price_hkd, quantity, selling_date")
-        .eq("user_id", userId),
-      supabase
-        .from("miscellaneous_entries")
-        .select("price, date")
-        .eq("user_id", userId),
-    ])
-
-    const firstError = buysRes.error ?? sellsRes.error ?? miscRes.error
-    if (firstError) {
-      setTotalBalanceAgoHKD(null)
-      setCompareError(firstError.message)
-      setCompareLoading(false)
-      return
-    }
-
-    const compareDays =
-      dashboardRange === "90" ? 90 : dashboardRange === "180" ? 180 : 365
-    const cutoffISO = daysAgoISODate(compareDays)
-
-    const buyTotalAgo = (buysRes.data ?? []).reduce((sum, row) => {
-      const d = String((row as { purchase_date?: string | null }).purchase_date ?? "")
-      if (!d || d > cutoffISO) return sum
-      const price = Number((row as { price_hkd?: unknown }).price_hkd ?? 0)
-      const qty = Number((row as { quantity?: unknown }).quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const sellTotalAgo = (sellsRes.data ?? []).reduce((sum, row) => {
-      const d = String((row as { selling_date?: string | null }).selling_date ?? "")
-      if (!d || d > cutoffISO) return sum
-      const price = Number((row as { price_hkd?: unknown }).price_hkd ?? 0)
-      const qty = Number((row as { quantity?: unknown }).quantity ?? 0)
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum
-      return sum + price * qty
-    }, 0)
-
-    const miscTotalAgo = (miscRes.data ?? []).reduce((sum, row) => {
-      const d = String((row as { date?: string | null }).date ?? "")
-      if (!d || d > cutoffISO) return sum
-      const price = Number((row as { price?: unknown }).price ?? 0)
-      if (!Number.isFinite(price)) return sum
-      return sum + price
-    }, 0)
-
-    setTotalBalanceAgoHKD(sellTotalAgo - buyTotalAgo - miscTotalAgo)
-    setCompareLoading(false)
-  }, [user?.id, dashboardRange])
-
   useEffect(() => {
-    void refreshTotalBalance()
-  }, [refreshTotalBalance, balanceReloadKey])
-
-  useEffect(() => {
-    void refreshBalanceAgo()
-  }, [refreshBalanceAgo, balanceReloadKey])
+    void refreshLedger()
+  }, [refreshLedger, balanceReloadKey])
 
   useEffect(() => {
     void refreshRoi()
   }, [refreshRoi, balanceReloadKey])
 
   useEffect(() => {
-    void refreshFlow()
-  }, [refreshFlow, balanceReloadKey])
+    void refreshCollectionCount()
+  }, [refreshCollectionCount, balanceReloadKey])
 
   const initials = useMemo(() => {
     const email = user?.email ?? ""
@@ -938,6 +833,20 @@ export function Dashboard() {
               onClick={() => navigate({ to: "/user/my-collection" })}
             >
               <Folder aria-hidden="true" className="absolute left-5 top-5 size-7" />
+              <span
+                className="absolute right-5 top-5 flex min-h-7 min-w-7 items-center justify-center rounded-full bg-neutral-900 px-2 text-xs font-semibold tabular-nums text-white shadow-sm ring-2 ring-white"
+                aria-label={
+                  collectionCount === null
+                    ? "Collection item count loading"
+                    : `${collectionCount} items in collection`
+                }
+              >
+                {collectionCount === null ? (
+                  <span className="inline-block size-3 animate-pulse rounded-full bg-white/40" />
+                ) : (
+                  collectionCount
+                )}
+              </span>
               <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
                 My Collection
               </span>
@@ -994,8 +903,8 @@ export function Dashboard() {
           <section className="col-span-12 grid h-full grid-cols-12 gap-3 md:col-span-4 md:[grid-template-rows:auto_1fr] lg:col-span-6 lg:col-start-7 lg:row-start-1 lg:auto-rows-fr lg:[grid-template-rows:1fr]">
             <div className="col-span-12 sm:col-span-6 md:col-span-12 lg:col-span-6">
               <TotalBalanceCard
-                loading={balanceLoading}
-                error={balanceError}
+                loading={ledgerLoading}
+                error={ledgerError}
                 totalBalanceHKD={totalBalanceHKD}
                 animatedBalance={animatedBalance}
               />
@@ -1003,8 +912,8 @@ export function Dashboard() {
 
             <div className="col-span-12 sm:col-span-6 md:col-span-12 lg:col-span-6">
               <BalanceChangeCard
-                loading={compareLoading}
-                error={compareError}
+                loading={ledgerLoading}
+                error={ledgerError}
                 totalBalanceHKD={totalBalanceHKD}
                 totalBalanceAgoHKD={totalBalanceAgoHKD}
                 compareLabel={
@@ -1107,97 +1016,95 @@ export function Dashboard() {
             onSubmitted={() => setBalanceReloadKey((n) => n + 1)}
           />
 
-          <RoiSection
-            roiError={roiError}
-            roiLoading={roiLoading}
-            range={dashboardRange}
-            onRangeChange={(v) => {
-              setRoiLoading(true)
-              setDashboardRange(v)
-            }}
-            roiSort={roiSort}
-            setRoiSort={(v) => {
-              setRoiLoading(true)
-              setRoiSort(v)
-            }}
-            roiSortApplied={roiSortApplied}
-            roiRawTop={roiRawTop}
-            roiGradedTop={roiGradedTop}
-            roiExpandedKey={roiExpandedKey}
-            setRoiExpandedKey={setRoiExpandedKey}
-          />
+          <ViewportDeferred
+            className="col-span-12"
+            fallback={
+              <div
+                className="min-h-[min(420px,70dvh)] rounded-xl bg-muted/20 ring-1 ring-border/50 animate-pulse"
+                aria-hidden
+              />
+            }
+          >
+            <div className="grid grid-cols-12 gap-3">
+              <RoiSection
+                roiError={roiError}
+                roiLoading={roiLoading}
+                range={dashboardRange}
+                onRangeChange={(v) => {
+                  setRoiLoading(true)
+                  setDashboardRange(v)
+                }}
+                roiSort={roiSort}
+                setRoiSort={(v) => {
+                  setRoiLoading(true)
+                  setRoiSort(v)
+                }}
+                roiSortApplied={roiSortApplied}
+                roiRawTop={roiRawTop}
+                roiGradedTop={roiGradedTop}
+                roiExpandedKey={roiExpandedKey}
+                setRoiExpandedKey={setRoiExpandedKey}
+              />
+            </div>
+          </ViewportDeferred>
 
-          <SpendingPieSection
-            range={dashboardRange}
-            onRangeChange={(v) => setDashboardRange(v)}
-            loading={flowLoading}
-            error={flowError}
-            buyTotal={buyFlowTotal}
-            sellTotal={sellFlowTotal}
-            miscTotal={miscFlowTotal}
-          />
+          <ViewportDeferred
+            className="col-span-12"
+            fallback={
+              <div
+                className="min-h-[300px] rounded-xl bg-muted/20 ring-1 ring-border/50 animate-pulse"
+                aria-hidden
+              />
+            }
+          >
+            <div className="grid grid-cols-12 gap-3">
+              <SpendingPieSection
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+                loading={ledgerLoading}
+                error={ledgerError}
+                buyTotal={flowTotals.buy}
+                sellTotal={flowTotals.sell}
+                miscTotal={flowTotals.misc}
+              />
 
-          <GridGroup>
-            <Card className="col-span-12">
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">This month paid</CardTitle>
-              </CardHeader>
-              <CardContent className="text-left">
-                <p className="text-2xl font-semibold tracking-tight">$560.00</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  <TrendingUp data-icon="inline-start" aria-hidden="true" />
-                  On track
-                </p>
-              </CardContent>
-            </Card>
-          </GridGroup>
+              <ActivityTrendSection
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+                loading={ledgerLoading}
+                error={ledgerError}
+                points={activityTrendPoints}
+              />
+            </div>
+          </ViewportDeferred>
 
-          <GridGroup>
-            <Card className="col-span-12">
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Next due</CardTitle>
-              </CardHeader>
-              <CardContent className="text-left">
-                <p className="text-2xl font-semibold tracking-tight">May 3</p>
-                <p className="mt-1 text-sm text-muted-foreground">$120 minimum payment</p>
-              </CardContent>
-            </Card>
-          </GridGroup>
+          <ViewportDeferred
+            className="col-span-12"
+            fallback={
+              <div
+                className="min-h-[320px] rounded-xl bg-muted/20 ring-1 ring-border/50 animate-pulse"
+                aria-hidden
+              />
+            }
+          >
+            <div className="grid grid-cols-12 gap-3">
+              <GameTitleSpendingPieSection
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+                loading={ledgerLoading}
+                error={ledgerError}
+                slices={gameTitleSlices}
+              />
 
-          <GridGroupBig className="md:col-span-6">
-            <Card className="col-span-12">
-              <CardHeader>
-                <CardTitle className="text-base">Quick actions</CardTitle>
-              </CardHeader>
-              <CardContent className="text-left">
-                <div className="flex flex-col gap-2">
-                  <Button type="button" className="justify-start">
-                    Add a transaction
-                  </Button>
-                  <Button type="button" variant="outline" className="justify-start">
-                    Add a card
-                  </Button>
-                  <Button type="button" variant="outline" className="justify-start">
-                    Set monthly goal
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </GridGroupBig>
-
-          <GridGroupBig className="md:col-span-6">
-            <Card className="col-span-12">
-              <CardHeader>
-                <CardTitle className="text-base">Status</CardTitle>
-              </CardHeader>
-              <CardContent className="text-left">
-                <p className="text-sm text-muted-foreground">
-                  You’re signed in and ready. Next step: connect your real data model and render
-                  live numbers here.
-                </p>
-              </CardContent>
-            </Card>
-          </GridGroupBig>
+              <GameTitleGainingPieSection
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+                loading={ledgerLoading}
+                error={ledgerError}
+                slices={gameTitleGainingSlices}
+              />
+            </div>
+          </ViewportDeferred>
         </div>
       </div>
     </main>

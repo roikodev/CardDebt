@@ -88,16 +88,17 @@ export function RoiSection({
         <CardContent>
           {roiError ? <p className="text-sm text-destructive">{roiError}</p> : null}
 
-          <div className="mt-2 max-h-[22rem] overflow-hidden rounded-xl border bg-card">
-            <div className="grid grid-cols-[28px_52px_minmax(0,1fr)_84px] items-center gap-3 border-b bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[28px_52px_minmax(0,1fr)_96px_84px]">
+          <div className="mt-2 overflow-hidden rounded-xl border bg-card">
+            <div className="max-h-[22rem] overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="sticky top-0 z-10 grid grid-cols-[28px_52px_minmax(0,1fr)_84px] items-center gap-3 rounded-t-xl border-b bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/30 sm:grid-cols-[28px_52px_minmax(0,1fr)_96px_84px]">
               <div className="text-center">#</div>
               <div> </div>
               <div>Item</div>
               <div className="hidden sm:block">Type</div>
               <div className="text-right">{roiSortApplied === "profit" ? "Profit" : "ROI"}</div>
-            </div>
+              </div>
 
-            <div className="divide-y overflow-y-auto">
+              <div className="divide-y">
               {(() => {
                 const items = roiLoading
                   ? Array.from({ length: 5 }).map((_, i) => ({
@@ -334,6 +335,7 @@ export function RoiSection({
                   No ROI data in the selected range.
                 </div>
               ) : null}
+              </div>
             </div>
           </div>
         </CardContent>

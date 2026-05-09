@@ -1,48 +1,55 @@
+import type { ComponentProps } from "react"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 
 import { formatHKD } from "./utils"
 
-export function SpendingPieSection({
+type Slice = { name: string; value: number; color: string }
+
+type GameTitlePieVariant = "spending" | "gaining"
+
+const VARIANT_COPY: Record<
+  GameTitlePieVariant,
+  { title: string; totalLabel: string; footnote: string; empty: string }
+> = {
+  spending: {
+    title: "Spending by game title",
+    totalLabel: "Total spent",
+    footnote: "Only counts purchase records",
+    empty: "No purchase data in this range.",
+  },
+  gaining: {
+    title: "Gaining by game title",
+    totalLabel: "Total gained",
+    footnote: "Only counts selling records",
+    empty: "No selling data in this range.",
+  },
+}
+
+export function GameTitleSpendingPieSection({
+  variant = "spending",
   range,
   onRangeChange,
   loading,
   error,
-  buyTotal,
-  sellTotal,
-  miscTotal,
+  slices,
 }: {
+  variant?: GameTitlePieVariant
   range: "all" | "365" | "180" | "90"
   onRangeChange: (v: "all" | "365" | "180" | "90") => void
   loading: boolean
   error: string | null
-  buyTotal: number
-  sellTotal: number
-  miscTotal: number
+  slices: Slice[]
 }) {
-  const buy = Math.max(0, Number(buyTotal) || 0)
-  const sell = Math.max(0, Number(sellTotal) || 0)
-  const misc = Math.max(0, Number(miscTotal) || 0)
-  const total = buy + sell + misc
-
-  const buyPct = total > 0 ? (buy / total) * 100 : 0
-  const sellPct = total > 0 ? (sell / total) * 100 : 0
-  const miscPct = total > 0 ? (misc / total) * 100 : 0
-
-  const c1 = "#fb7185" // rose-400 (Buy)
-  const c2 = "#34d399" // emerald-400 (Sell)
-  const c3 = "#fbbf24" // amber-400 (Misc)
-  const pieData = [
-    { name: "Buy", value: buy, color: c1, pct: buyPct },
-    { name: "Sell", value: sell, color: c2, pct: sellPct },
-    { name: "Misc", value: misc, color: c3, pct: miscPct },
-  ].filter((d) => d.value > 0)
+  const copy = VARIANT_COPY[variant]
+  const total = slices.reduce((sum, s) => sum + (Number(s.value) || 0), 0)
 
   return (
     <section className="col-span-12 md:col-span-6">
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-muted/20 via-background to-background shadow-sm ring-1 ring-border/60">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Spending / Gaining breakdown</CardTitle>
+          <CardTitle className="text-base">{copy.title}</CardTitle>
           <div className="mt-2 flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60">
             {(
               [
@@ -130,7 +137,7 @@ export function SpendingPieSection({
                           }}
                         />
                         <Pie
-                          data={pieData}
+                          data={slices}
                           dataKey="value"
                           nameKey="name"
                           cx="50%"
@@ -140,7 +147,7 @@ export function SpendingPieSection({
                           strokeWidth={2}
                           isAnimationActive={!loading}
                         >
-                          {pieData.map((entry) => (
+                          {slices.map((entry) => (
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
@@ -151,28 +158,33 @@ export function SpendingPieSection({
               </div>
             </div>
 
-            <div className="min-w-0 space-y-2">
-              <LegendRow
-                label="Buy"
-                color={c1}
-                amount={buy}
-                pct={buyPct}
-              />
-              <LegendRow
-                label="Sell"
-                color={c2}
-                amount={sell}
-                pct={sellPct}
-              />
-              <LegendRow
-                label="Misc"
-                color={c3}
-                amount={misc}
-                pct={miscPct}
-              />
+            <div className="max-h-40 min-w-0 space-y-2 overflow-y-auto pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {slices.map((s) => (
+                <LegendRow key={s.name} label={s.name} color={s.color} amount={s.value} total={total} />
+              ))}
               {total <= 0 && !loading ? (
-                <p className="text-xs text-muted-foreground">No data in this range.</p>
+                <p className="text-xs text-muted-foreground">{copy.empty}</p>
               ) : null}
+            </div>
+          </div>
+
+          <div className="mt-4 border-t pt-3">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">{copy.totalLabel}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{copy.footnote}</p>
+              </div>
+              <p
+                className={[
+                  "shrink-0 text-base font-semibold tabular-nums",
+                  variant === "spending"
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-emerald-600",
+                  loading ? "animate-pulse opacity-80" : "",
+                ].join(" ")}
+              >
+                {formatHKD(total)}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -181,17 +193,25 @@ export function SpendingPieSection({
   )
 }
 
+/** Selling counterpart to {@link GameTitleSpendingPieSection} (same UI, copy + data source differ). */
+export function GameTitleGainingPieSection(
+  props: Omit<ComponentProps<typeof GameTitleSpendingPieSection>, "variant">
+) {
+  return <GameTitleSpendingPieSection {...props} variant="gaining" />
+}
+
 function LegendRow({
   label,
   color,
   amount,
-  pct,
+  total,
 }: {
   label: string
   color: string
   amount: number
-  pct: number
+  total: number
 }) {
+  const pct = total > 0 ? (amount / total) * 100 : 0
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <div className="flex min-w-0 items-center gap-2">
