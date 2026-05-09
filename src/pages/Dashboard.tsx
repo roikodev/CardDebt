@@ -24,6 +24,7 @@ import {
   GameTitleSpendingPieSection,
 } from "@/components/dashboard/GameTitleSpendingPieSection"
 import { ActivityTrendSection } from "@/components/dashboard/ActivityTrendSection"
+import { ViewportDeferred } from "@/components/dashboard/ViewportDeferred"
 import {
   deriveActivityTrendPoints,
   deriveCompareBalanceAgoHKD,
@@ -1015,59 +1016,95 @@ export function Dashboard() {
             onSubmitted={() => setBalanceReloadKey((n) => n + 1)}
           />
 
-          <RoiSection
-            roiError={roiError}
-            roiLoading={roiLoading}
-            range={dashboardRange}
-            onRangeChange={(v) => {
-              setRoiLoading(true)
-              setDashboardRange(v)
-            }}
-            roiSort={roiSort}
-            setRoiSort={(v) => {
-              setRoiLoading(true)
-              setRoiSort(v)
-            }}
-            roiSortApplied={roiSortApplied}
-            roiRawTop={roiRawTop}
-            roiGradedTop={roiGradedTop}
-            roiExpandedKey={roiExpandedKey}
-            setRoiExpandedKey={setRoiExpandedKey}
-          />
+          <ViewportDeferred
+            className="col-span-12"
+            fallback={
+              <div
+                className="min-h-[min(420px,70dvh)] rounded-xl bg-muted/20 ring-1 ring-border/50 animate-pulse"
+                aria-hidden
+              />
+            }
+          >
+            <div className="grid grid-cols-12 gap-3">
+              <RoiSection
+                roiError={roiError}
+                roiLoading={roiLoading}
+                range={dashboardRange}
+                onRangeChange={(v) => {
+                  setRoiLoading(true)
+                  setDashboardRange(v)
+                }}
+                roiSort={roiSort}
+                setRoiSort={(v) => {
+                  setRoiLoading(true)
+                  setRoiSort(v)
+                }}
+                roiSortApplied={roiSortApplied}
+                roiRawTop={roiRawTop}
+                roiGradedTop={roiGradedTop}
+                roiExpandedKey={roiExpandedKey}
+                setRoiExpandedKey={setRoiExpandedKey}
+              />
+            </div>
+          </ViewportDeferred>
 
-          <SpendingPieSection
-            range={dashboardRange}
-            onRangeChange={(v) => setDashboardRange(v)}
-            loading={ledgerLoading}
-            error={ledgerError}
-            buyTotal={flowTotals.buy}
-            sellTotal={flowTotals.sell}
-            miscTotal={flowTotals.misc}
-          />
+          <ViewportDeferred
+            className="col-span-12"
+            fallback={
+              <div
+                className="min-h-[300px] rounded-xl bg-muted/20 ring-1 ring-border/50 animate-pulse"
+                aria-hidden
+              />
+            }
+          >
+            <div className="grid grid-cols-12 gap-3">
+              <SpendingPieSection
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+                loading={ledgerLoading}
+                error={ledgerError}
+                buyTotal={flowTotals.buy}
+                sellTotal={flowTotals.sell}
+                miscTotal={flowTotals.misc}
+              />
 
-          <ActivityTrendSection
-            range={dashboardRange}
-            onRangeChange={(v) => setDashboardRange(v)}
-            loading={ledgerLoading}
-            error={ledgerError}
-            points={activityTrendPoints}
-          />
+              <ActivityTrendSection
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+                loading={ledgerLoading}
+                error={ledgerError}
+                points={activityTrendPoints}
+              />
+            </div>
+          </ViewportDeferred>
 
-          <GameTitleSpendingPieSection
-            range={dashboardRange}
-            onRangeChange={(v) => setDashboardRange(v)}
-            loading={ledgerLoading}
-            error={ledgerError}
-            slices={gameTitleSlices}
-          />
+          <ViewportDeferred
+            className="col-span-12"
+            fallback={
+              <div
+                className="min-h-[320px] rounded-xl bg-muted/20 ring-1 ring-border/50 animate-pulse"
+                aria-hidden
+              />
+            }
+          >
+            <div className="grid grid-cols-12 gap-3">
+              <GameTitleSpendingPieSection
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+                loading={ledgerLoading}
+                error={ledgerError}
+                slices={gameTitleSlices}
+              />
 
-          <GameTitleGainingPieSection
-            range={dashboardRange}
-            onRangeChange={(v) => setDashboardRange(v)}
-            loading={ledgerLoading}
-            error={ledgerError}
-            slices={gameTitleGainingSlices}
-          />
+              <GameTitleGainingPieSection
+                range={dashboardRange}
+                onRangeChange={(v) => setDashboardRange(v)}
+                loading={ledgerLoading}
+                error={ledgerError}
+                slices={gameTitleGainingSlices}
+              />
+            </div>
+          </ViewportDeferred>
         </div>
       </div>
     </main>
