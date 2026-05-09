@@ -20,6 +20,7 @@ import { MiscellaneousEntryDialog } from "@/components/dialogs/MiscellaneousEntr
 import { BalanceChangeCard, TotalBalanceCard } from "@/components/dashboard/BalanceCards"
 import { RoiSection } from "@/components/dashboard/RoiSection"
 import { SpendingPieSection } from "@/components/dashboard/SpendingPieSection"
+import { GameTitleSpendingPieSection } from "@/components/dashboard/GameTitleSpendingPieSection"
 import type { DashboardTimeRange } from "@/components/dashboard/TimeRangeFilter"
 import {
   Dialog,
@@ -242,6 +243,12 @@ export function Dashboard() {
   const [sellFlowTotal, setSellFlowTotal] = useState(0)
   const [miscFlowTotal, setMiscFlowTotal] = useState(0)
 
+  const [gameTitleLoading, setGameTitleLoading] = useState(false)
+  const [gameTitleError, setGameTitleError] = useState<string | null>(null)
+  const [gameTitleSlices, setGameTitleSlices] = useState<
+    Array<{ name: string; value: number; color: string }>
+  >([])
+
   const refreshFlow = useCallback(async () => {
     const userId = user?.id
     if (!userId) {
@@ -317,6 +324,88 @@ export function Dashboard() {
     setSellFlowTotal(sellSum)
     setMiscFlowTotal(miscSum)
     setFlowLoading(false)
+  }, [dashboardRange, user?.id])
+
+  const refreshGameTitleSpending = useCallback(async () => {
+    const userId = user?.id
+    if (!userId) {
+      setGameTitleSlices([])
+      setGameTitleError(null)
+      return
+    }
+
+    setGameTitleLoading(true)
+    setGameTitleError(null)
+
+    const days =
+      dashboardRange === "all"
+        ? null
+        : dashboardRange === "365"
+          ? 365
+          : dashboardRange === "180"
+            ? 180
+            : 90
+    const cutoff = days === null ? null : daysAgoISODate(days)
+
+    const buysRes = await supabase
+      .from("buy_entries")
+      .select(
+        "price_hkd, quantity, purchase_date, collection_base:collection_item_id ( game_title )"
+      )
+      .eq("user_id", userId)
+
+    if (buysRes.error) {
+      setGameTitleSlices([])
+      setGameTitleError(buysRes.error.message)
+      setGameTitleLoading(false)
+      return
+    }
+
+    const sums = new Map<string, number>()
+    for (const r of buysRes.data as any[]) {
+      const d = String(r.purchase_date ?? "")
+      if (cutoff && (!d || d < cutoff)) continue
+      const price = Number(r.price_hkd ?? 0)
+      const qty = Number(r.quantity ?? 0)
+      if (!Number.isFinite(price) || !Number.isFinite(qty)) continue
+      const gameTitle =
+        (r.collection_base?.game_title as string | null | undefined) ?? "Unknown"
+      sums.set(gameTitle, (sums.get(gameTitle) ?? 0) + price * qty)
+    }
+
+    const sorted = Array.from(sums.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+
+    const COLORS = [
+      "#60a5fa",
+      "#34d399",
+      "#fbbf24",
+      "#fb7185",
+      "#a78bfa",
+      "#22c55e",
+      "#f97316",
+      "#06b6d4",
+      "#e879f9",
+    ]
+
+    const top = sorted.slice(0, 8)
+    const rest = sorted.slice(8)
+    const other = rest.reduce((s, x) => s + x.value, 0)
+
+    const slices: Array<{ name: string; value: number; color: string }> = top.map(
+      (x, i) => ({
+        name: x.name,
+        value: x.value,
+        color: COLORS[i % COLORS.length],
+      })
+    )
+    if (other > 0) {
+      slices.push({ name: "Other", value: other, color: "#94a3b8" })
+    }
+
+    setGameTitleSlices(slices)
+    setGameTitleLoading(false)
   }, [dashboardRange, user?.id])
 
   const refreshRoi = useCallback(async () => {
@@ -876,6 +965,10 @@ export function Dashboard() {
     void refreshFlow()
   }, [refreshFlow, balanceReloadKey])
 
+  useEffect(() => {
+    void refreshGameTitleSpending()
+  }, [refreshGameTitleSpending, balanceReloadKey])
+
   const initials = useMemo(() => {
     const email = user?.email ?? ""
     const trimmed = email.trim()
@@ -1135,6 +1228,14 @@ export function Dashboard() {
             buyTotal={buyFlowTotal}
             sellTotal={sellFlowTotal}
             miscTotal={miscFlowTotal}
+          />
+
+          <GameTitleSpendingPieSection
+            range={dashboardRange}
+            onRangeChange={(v) => setDashboardRange(v)}
+            loading={gameTitleLoading}
+            error={gameTitleError}
+            slices={gameTitleSlices}
           />
 
           <GridGroup>
