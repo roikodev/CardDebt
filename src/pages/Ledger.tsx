@@ -66,6 +66,7 @@ export function Ledger() {
   const [error, setError] = useState<string | null>(null)
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const [rowsAnimKey, setRowsAnimKey] = useState(0)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const { containerRef, headerRef, headerHeight, onScroll, animatedStyle } = useCollapsibleHeader()
@@ -434,6 +435,7 @@ export function Ledger() {
         return ac < bc ? 1 : -1
       })
       setRows(out)
+      setRowsAnimKey((n) => n + 1)
       setLoading(false)
     })()
   }, [user?.id])
@@ -515,8 +517,11 @@ export function Ledger() {
                     ) : rows.length === 0 ? (
                       <div className="p-6 text-sm text-muted-foreground">No records yet.</div>
                     ) : (
-                      <div className="divide-y">
-                        {rows.map((r) => {
+                      <div
+                        key={rowsAnimKey}
+                        className="divide-y motion-reduce:animate-none animate-in fade-in-0 duration-300"
+                      >
+                        {rows.map((r, idx) => {
                           const k = `${r.kind}:${r.id}`
                           const open = expandedKey === k
                           const amountClass =
@@ -545,7 +550,10 @@ export function Ledger() {
                           return (
                             <div
                               key={k}
-                              className="w-full"
+                              className="w-full motion-reduce:animate-none animate-in fade-in-0 duration-300"
+                              style={{
+                                animationDelay: `${Math.min(idx, 18) * 18}ms`,
+                              }}
                             >
                               <button
                                 type="button"
