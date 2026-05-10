@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { formatHKD } from "./utils"
@@ -6,6 +8,8 @@ import type { RoiRow } from "./types"
 export function RoiSection({
   roiError,
   roiLoading,
+  /** Parent bumps when ROI data is committed (same idea as My Balance `rowsAnimKey`). */
+  rowsAnimKey,
   range,
   onRangeChange,
   roiSort,
@@ -18,6 +22,7 @@ export function RoiSection({
 }: {
   roiError: string | null
   roiLoading: boolean
+  rowsAnimKey: number
   range: "all" | "365" | "180" | "90"
   onRangeChange: (v: "all" | "365" | "180" | "90") => void
   roiSort: "roi" | "profit"
@@ -28,6 +33,36 @@ export function RoiSection({
   roiExpandedKey: string | null
   setRoiExpandedKey: (v: string | null | ((cur: string | null) => string | null)) => void
 }) {
+  const rowsWrapRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    // Deterministic fade-in on commit (matches My Balance pattern),
+    // without depending on Tailwind keyframes / mount timing.
+    if (roiLoading) return
+    const el = rowsWrapRef.current
+    if (!el) return
+
+    const reduce =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (reduce) return
+
+    el.style.transition = "none"
+    el.style.opacity = "0"
+    el.style.transform = "translateY(-4px)"
+    // Force a layout so the browser commits the initial style.
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    el.getBoundingClientRect()
+
+    const id = requestAnimationFrame(() => {
+      el.style.transition = "opacity 260ms ease, transform 260ms ease"
+      el.style.opacity = "1"
+      el.style.transform = "translateY(0)"
+    })
+    return () => cancelAnimationFrame(id)
+  }, [rowsAnimKey])
+
   return (
     <section className="col-span-12">
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-muted/20 via-background to-background shadow-sm ring-1 ring-border/60">
@@ -98,7 +133,7 @@ export function RoiSection({
               <div className="text-right">{roiSortApplied === "profit" ? "Profit" : "ROI"}</div>
               </div>
 
-              <div className="divide-y">
+              <div ref={rowsWrapRef} className="divide-y will-change-[opacity,transform]">
               {(() => {
                 const items = roiLoading
                   ? Array.from({ length: 5 }).map((_, i) => ({

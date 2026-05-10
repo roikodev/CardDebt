@@ -229,6 +229,8 @@ export function Dashboard() {
   const [roiGradedTop, setRoiGradedTop] = useState<RoiRow[]>([])
   const [roiSort, setRoiSort] = useState<"roi" | "profit">("profit")
   const [roiSortApplied, setRoiSortApplied] = useState<"roi" | "profit">("profit")
+  /** Bumps when ROI rows are committed — same pattern as My Balance `rowsAnimKey` after fetch. */
+  const [roiRowsAnimKey, setRoiRowsAnimKey] = useState(0)
   const roiRunRef = useRef(0)
   const [roiExpandedKey, setRoiExpandedKey] = useState<string | null>(null)
 
@@ -380,6 +382,7 @@ export function Dashboard() {
       setRoiRawTop([])
       setRoiGradedTop([])
       setRoiError(firstError.message)
+      setRoiRowsAnimKey((n) => n + 1)
       setRoiLoading(false)
       return
     }
@@ -418,6 +421,7 @@ export function Dashboard() {
       setRoiRawTop([])
       setRoiGradedTop([])
       setRoiError(soldUcRes.error.message)
+      setRoiRowsAnimKey((n) => n + 1)
       setRoiLoading(false)
       return
     }
@@ -454,6 +458,7 @@ export function Dashboard() {
       setRoiRawTop([])
       setRoiGradedTop([])
       setRoiError(baseRes.error.message)
+      setRoiRowsAnimKey((n) => n + 1)
       setRoiLoading(false)
       return
     }
@@ -501,6 +506,7 @@ export function Dashboard() {
         setRoiRawTop([])
         setRoiGradedTop([])
         setRoiError(allUcRes.error.message)
+        setRoiRowsAnimKey((n) => n + 1)
         setRoiLoading(false)
         return
       }
@@ -537,6 +543,7 @@ export function Dashboard() {
         setRoiRawTop([])
         setRoiGradedTop([])
         setRoiError((ucmRes.error ?? derivedMapRes.error).message)
+        setRoiRowsAnimKey((n) => n + 1)
         setRoiLoading(false)
         return
       }
@@ -564,6 +571,7 @@ export function Dashboard() {
         setRoiRawTop([])
         setRoiGradedTop([])
         setRoiError(derivedMiscRes.error.message)
+        setRoiRowsAnimKey((n) => n + 1)
         setRoiLoading(false)
         return
       }
@@ -603,6 +611,7 @@ export function Dashboard() {
         setRoiRawTop([])
         setRoiGradedTop([])
         setRoiError(miscRes.error.message)
+        setRoiRowsAnimKey((n) => n + 1)
         setRoiLoading(false)
         return
       }
@@ -756,6 +765,7 @@ export function Dashboard() {
     setRoiRawTop(raw)
     setRoiGradedTop(gradedRows)
     setRoiSortApplied(roiSort)
+    setRoiRowsAnimKey((n) => n + 1)
     setRoiLoading(false)
   }, [user?.id, workerOrigin, dashboardRange, roiSort])
 
@@ -1030,6 +1040,7 @@ export function Dashboard() {
               <RoiSection
                 roiError={roiError}
                 roiLoading={roiLoading}
+                rowsAnimKey={roiRowsAnimKey}
                 range={dashboardRange}
                 onRangeChange={(v) => {
                   setRoiLoading(true)
