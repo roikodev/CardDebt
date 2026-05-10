@@ -499,7 +499,7 @@ export function Ledger() {
 
                   <div className="mt-2 overflow-hidden rounded-xl border bg-card">
                     <div className="max-h-[70dvh] overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      <div className="sticky top-0 z-10 grid grid-cols-[88px_minmax(0,1fr)_96px] items-center gap-3 rounded-t-xl border-b bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[88px_86px_minmax(0,1fr)_52px_84px_96px]">
+                      <div className="sticky top-0 z-10 grid grid-cols-[88px_minmax(0,1fr)_96px] items-center gap-3 rounded-t-xl border-b bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/30 sm:grid-cols-[88px_86px_minmax(0,1fr)_52px_84px_96px]">
                         <div>Date</div>
                         <div className="hidden sm:block">Type</div>
                         <div>Item / Notes</div>
@@ -744,7 +744,7 @@ export function Ledger() {
                       </div>
                     )}
 
-                    <div className="sticky bottom-0 z-10 rounded-b-xl border-t bg-muted/20 px-3 py-2">
+                    <div className="sticky bottom-0 z-10 rounded-b-xl border-t bg-muted/20 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-muted/30">
                       <div className="flex items-baseline justify-between gap-3">
                         <p className="text-xs font-medium text-muted-foreground">Total balance</p>
                         {loading ? (
