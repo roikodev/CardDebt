@@ -13,6 +13,7 @@ import { Route as UserRouteImport } from './routes/user'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UserMyCollectionRouteImport } from './routes/user/my-collection'
+import { Route as UserLedgerRouteImport } from './routes/user/ledger'
 import { Route as UserDashboardRouteImport } from './routes/user/dashboard'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
@@ -39,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
 const UserMyCollectionRoute = UserMyCollectionRouteImport.update({
   id: '/my-collection',
   path: '/my-collection',
+  getParentRoute: () => UserRoute,
+} as any)
+const UserLedgerRoute = UserLedgerRouteImport.update({
+  id: '/ledger',
+  path: '/ledger',
   getParentRoute: () => UserRoute,
 } as any)
 const UserDashboardRoute = UserDashboardRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
+  '/user/ledger': typeof UserLedgerRoute
   '/user/my-collection': typeof UserMyCollectionRouteWithChildren
   '/user/my-collection/$collection_item_id': typeof UserMyCollectionCollection_item_idRoute
   '/user/my-collection/': typeof UserMyCollectionIndexRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
+  '/user/ledger': typeof UserLedgerRoute
   '/user/my-collection/$collection_item_id': typeof UserMyCollectionCollection_item_idRoute
   '/user/my-collection': typeof UserMyCollectionIndexRoute
 }
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/auth/otp': typeof AuthOtpRoute
   '/auth/signup': typeof AuthSignupRoute
   '/user/dashboard': typeof UserDashboardRoute
+  '/user/ledger': typeof UserLedgerRoute
   '/user/my-collection': typeof UserMyCollectionRouteWithChildren
   '/user/my-collection/$collection_item_id': typeof UserMyCollectionCollection_item_idRoute
   '/user/my-collection/': typeof UserMyCollectionIndexRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/auth/otp'
     | '/auth/signup'
     | '/user/dashboard'
+    | '/user/ledger'
     | '/user/my-collection'
     | '/user/my-collection/$collection_item_id'
     | '/user/my-collection/'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/auth/otp'
     | '/auth/signup'
     | '/user/dashboard'
+    | '/user/ledger'
     | '/user/my-collection/$collection_item_id'
     | '/user/my-collection'
   id:
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/auth/otp'
     | '/auth/signup'
     | '/user/dashboard'
+    | '/user/ledger'
     | '/user/my-collection'
     | '/user/my-collection/$collection_item_id'
     | '/user/my-collection/'
@@ -192,6 +204,13 @@ declare module '@tanstack/react-router' {
       path: '/my-collection'
       fullPath: '/user/my-collection'
       preLoaderRoute: typeof UserMyCollectionRouteImport
+      parentRoute: typeof UserRoute
+    }
+    '/user/ledger': {
+      id: '/user/ledger'
+      path: '/ledger'
+      fullPath: '/user/ledger'
+      preLoaderRoute: typeof UserLedgerRouteImport
       parentRoute: typeof UserRoute
     }
     '/user/dashboard': {
@@ -278,11 +297,13 @@ const UserMyCollectionRouteWithChildren =
 
 interface UserRouteChildren {
   UserDashboardRoute: typeof UserDashboardRoute
+  UserLedgerRoute: typeof UserLedgerRoute
   UserMyCollectionRoute: typeof UserMyCollectionRouteWithChildren
 }
 
 const UserRouteChildren: UserRouteChildren = {
   UserDashboardRoute: UserDashboardRoute,
+  UserLedgerRoute: UserLedgerRoute,
   UserMyCollectionRoute: UserMyCollectionRouteWithChildren,
 }
 

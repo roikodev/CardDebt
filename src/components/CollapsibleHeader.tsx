@@ -11,18 +11,25 @@ export type UseCollapsibleHeaderArgs = {
    * Default: headerHeight
    */
   collapseDistancePx?: number
+  /**
+   * Animation mode.
+   * - "dom": updates CSS variables on the header container (no React re-render on scroll)
+   * - "react": uses React state for animatedStyle (simpler, but re-renders on scroll)
+   */
+  mode?: "dom" | "react"
 }
 
 export function useCollapsibleHeader(args: UseCollapsibleHeaderArgs = {}) {
-  const { heightPx, collapseDistancePx } = args
+  const { heightPx, collapseDistancePx, mode = "dom" } = args
 
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const headerRef = useRef<HTMLElement | null>(null)
   const rafRef = useRef<number | null>(null)
   const lastYRef = useRef(0)
   const offsetRef = useRef(0)
 
   const [headerHeight, setHeaderHeight] = useState(heightPx ?? 0)
-  const [offset, setOffset] = useState(0)
+  const [offset, setOffset] = useState(0) // only used in "react" mode
 
   useEffect(() => {
     if (typeof heightPx === "number") {
@@ -41,6 +48,15 @@ export function useCollapsibleHeader(args: UseCollapsibleHeaderArgs = {}) {
     return () => ro.disconnect()
   }, [heightPx])
 
+  // Ensure initial style is applied in DOM mode.
+  useEffect(() => {
+    if (mode !== "dom") return
+    const el = containerRef.current
+    if (!el) return
+    el.style.setProperty("--ch-y", "0px")
+    el.style.setProperty("--ch-o", "1")
+  }, [mode])
+
   const onScroll = (scrollTop: number) => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
@@ -55,7 +71,19 @@ export function useCollapsibleHeader(args: UseCollapsibleHeaderArgs = {}) {
       const next = offsetRef.current + dy
       const clamped = Math.min(Math.max(next, 0), max)
       offsetRef.current = clamped
-      setOffset(clamped)
+
+      if (mode === "react") {
+        setOffset(clamped)
+        return
+      }
+
+      const el = containerRef.current
+      if (!el) return
+
+      const denom = Math.max(1, max || 1)
+      const p = Math.min(1, Math.max(0, clamped / denom))
+      el.style.setProperty("--ch-y", `${-clamped}px`)
+      el.style.setProperty("--ch-o", String(1 - p))
     })
   }
 
@@ -69,24 +97,27 @@ export function useCollapsibleHeader(args: UseCollapsibleHeaderArgs = {}) {
   }, [collapseDistancePx, headerHeight, offset])
 
   return {
+    containerRef,
     headerRef,
     headerHeight,
     onScroll,
-    animatedStyle,
-    headerOffset: offset,
+    animatedStyle: mode === "react" ? animatedStyle : null,
+    headerOffset: mode === "react" ? offset : offsetRef.current,
   }
 }
 
 type Props = {
+  containerRef?: React.RefObject<HTMLDivElement | null>
   headerRef?: React.RefObject<HTMLElement | null>
   height: number
-  animatedStyle: { transform: string; opacity: number }
+  animatedStyle?: { transform: string; opacity: number } | null
   left?: React.ReactNode
   title?: React.ReactNode
   right?: React.ReactNode
 }
 
 export function CollapsibleHeader({
+  containerRef,
   headerRef,
   height,
   animatedStyle,
@@ -96,11 +127,12 @@ export function CollapsibleHeader({
 }: Props) {
   return (
     <div
+      ref={containerRef}
       className="pointer-events-none absolute left-0 right-0 top-0 z-20 border-b bg-background/80 backdrop-blur"
       style={{
         height,
-        transform: animatedStyle.transform,
-        opacity: animatedStyle.opacity,
+        transform: animatedStyle?.transform ?? "translateY(var(--ch-y, 0px))",
+        opacity: (animatedStyle?.opacity ?? "var(--ch-o, 1)") as any,
       }}
     >
       <header ref={headerRef} className="pointer-events-auto px-4 py-6">

@@ -221,7 +221,7 @@ export function MyCollection() {
   const [debouncedCardNo, setDebouncedCardNo] = useState("")
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const { headerRef, headerHeight, onScroll, animatedStyle } = useCollapsibleHeader()
+  const { containerRef, headerRef, headerHeight, onScroll, animatedStyle } = useCollapsibleHeader()
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedName(nameQuery), 250)
@@ -441,6 +441,7 @@ export function MyCollection() {
     <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <div className="relative mx-auto flex h-full w-full max-w-7xl flex-col">
         <CollapsibleHeader
+          containerRef={containerRef}
           headerRef={headerRef}
           height={headerHeight}
           animatedStyle={animatedStyle}

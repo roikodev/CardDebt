@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { ArrowUpRight, TrendingDown, TrendingUp } from "lucide-react"
 
 import { formatHKD } from "./utils"
 import { SkeletonMuted } from "@/components/collection-info/records-panel/shared"
@@ -9,20 +9,42 @@ export function TotalBalanceCard({
   error,
   totalBalanceHKD,
   animatedBalance,
+  onOpenLedger,
 }: {
   loading: boolean
   error: string | null
   totalBalanceHKD: number | null
   animatedBalance: number
+  onOpenLedger?: () => void
 }) {
   return (
-    <Card className="h-full w-full overflow-hidden border-0 bg-gradient-to-br from-muted/30 via-background to-background shadow-sm ring-1 ring-border/60">
+    <Card
+      className={[
+        "relative h-full w-full overflow-hidden border-0 bg-gradient-to-br from-muted/30 via-background to-background shadow-sm ring-1 ring-border/60",
+        onOpenLedger
+          ? "cursor-pointer transition hover:bg-muted/20 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      role={onOpenLedger ? "button" : undefined}
+      tabIndex={onOpenLedger ? 0 : undefined}
+      onClick={onOpenLedger}
+      onKeyDown={
+        onOpenLedger
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onOpenLedger()
+              }
+            }
+          : undefined
+      }
+      aria-label={onOpenLedger ? "Open My Balance" : undefined}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-sm font-medium">Total balance</CardTitle>
-          <div className="rounded-md bg-background/70 p-2 ring-1 ring-border/60">
-            <Wallet className="size-4 text-muted-foreground" aria-hidden="true" />
-          </div>
         </div>
       </CardHeader>
       <CardContent className="text-left">
@@ -42,6 +64,12 @@ export function TotalBalanceCard({
           {error ? "—" : formatHKD(animatedBalance)}
         </p>
       </CardContent>
+
+      {onOpenLedger ? (
+        <div className="pointer-events-none absolute bottom-4 right-4">
+          <ArrowUpRight className="size-5 text-neutral-500/70" aria-hidden="true" />
+        </div>
+      ) : null}
     </Card>
   )
 }
