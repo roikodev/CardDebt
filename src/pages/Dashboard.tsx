@@ -907,6 +907,7 @@ export function Dashboard() {
                 error={ledgerError}
                 totalBalanceHKD={totalBalanceHKD}
                 animatedBalance={animatedBalance}
+                onOpenLedger={() => navigate({ to: "/user/ledger" as any })}
               />
             </div>
 

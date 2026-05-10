@@ -9,20 +9,33 @@ export function TotalBalanceCard({
   error,
   totalBalanceHKD,
   animatedBalance,
+  onOpenLedger,
 }: {
   loading: boolean
   error: string | null
   totalBalanceHKD: number | null
   animatedBalance: number
+  onOpenLedger?: () => void
 }) {
   return (
     <Card className="h-full w-full overflow-hidden border-0 bg-gradient-to-br from-muted/30 via-background to-background shadow-sm ring-1 ring-border/60">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-sm font-medium">Total balance</CardTitle>
-          <div className="rounded-md bg-background/70 p-2 ring-1 ring-border/60">
-            <Wallet className="size-4 text-muted-foreground" aria-hidden="true" />
-          </div>
+          {onOpenLedger ? (
+            <button
+              type="button"
+              onClick={onOpenLedger}
+              className="rounded-md bg-background/70 p-2 ring-1 ring-border/60 transition hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Open ledger"
+            >
+              <Wallet className="size-4 text-muted-foreground" aria-hidden="true" />
+            </button>
+          ) : (
+            <div className="rounded-md bg-background/70 p-2 ring-1 ring-border/60">
+              <Wallet className="size-4 text-muted-foreground" aria-hidden="true" />
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="text-left">
