@@ -207,6 +207,213 @@ body {
   pointer-events: none;
 }
 
+/* Dashboard — Ask AI: Siri-like colorful orb + glass capsule */
+@keyframes ask-ai-siri-drift-a {
+  0%,
+  100% {
+    transform: translate(-5%, -8%) scale(1);
+  }
+  50% {
+    transform: translate(18%, 12%) scale(1.12);
+  }
+}
+
+@keyframes ask-ai-siri-drift-b {
+  0%,
+  100% {
+    transform: translate(10%, 25%) scale(1.05);
+  }
+  50% {
+    transform: translate(-12%, -5%) scale(1.18);
+  }
+}
+
+@keyframes ask-ai-siri-drift-c {
+  0%,
+  100% {
+    transform: translate(35%, 55%) scale(1.08);
+  }
+  50% {
+    transform: translate(8%, 35%) scale(1.22);
+  }
+}
+
+@keyframes ask-ai-siri-shimmer {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateX(-40%) skewX(-12deg);
+  }
+  50% {
+    opacity: 0.65;
+    transform: translateX(40%) skewX(-12deg);
+  }
+}
+
+.ask-ai-siri-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  /* Balanced blue (indigo + sky), red, green halos */
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.14) inset,
+    0 10px 42px rgba(99, 102, 241, 0.24),
+    0 8px 36px rgba(56, 189, 248, 0.2),
+    0 6px 30px rgba(239, 68, 68, 0.2),
+    0 4px 26px rgba(34, 197, 94, 0.2);
+}
+
+.ask-ai-siri-button:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22) inset,
+    0 12px 46px rgba(99, 102, 241, 0.28),
+    0 10px 40px rgba(56, 189, 248, 0.24),
+    0 8px 34px rgba(239, 68, 68, 0.22),
+    0 6px 30px rgba(34, 197, 94, 0.22);
+}
+
+.ask-ai-siri-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.ask-ai-siri-orb {
+  position: absolute;
+  width: 135%;
+  height: 135%;
+  border-radius: 50%;
+  filter: blur(42px);
+  opacity: 0.88;
+  will-change: transform;
+}
+
+.ask-ai-siri-orb-a {
+  left: -35%;
+  top: -45%;
+  /* Blue/violet core (original Siri) + warm red in the outer wash */
+  background: radial-gradient(
+    circle at 34% 34%,
+    rgba(196, 181, 253, 0.95) 0%,
+    rgba(167, 139, 250, 0.88) 16%,
+    rgba(129, 140, 248, 0.72) 34%,
+    rgba(99, 102, 241, 0.55) 48%,
+    rgba(248, 113, 113, 0.42) 64%,
+    rgba(239, 68, 68, 0.22) 76%,
+    transparent 82%
+  );
+  animation: ask-ai-siri-drift-a 9s ease-in-out infinite;
+}
+
+.ask-ai-siri-orb-b {
+  left: -10%;
+  top: -20%;
+  /* Cyan/sky (blue family) + emerald green */
+  background: radial-gradient(
+    circle at 48% 48%,
+    rgba(125, 211, 252, 0.88) 0%,
+    rgba(56, 189, 248, 0.78) 20%,
+    rgba(34, 211, 238, 0.58) 38%,
+    rgba(52, 211, 153, 0.52) 56%,
+    rgba(34, 197, 94, 0.36) 72%,
+    transparent 84%
+  );
+  animation: ask-ai-siri-drift-b 11s ease-in-out infinite;
+}
+
+.ask-ai-siri-orb-c {
+  left: 5%;
+  top: 10%;
+  /* Triad: sky/indigo, green, coral — tied with soft violet */
+  background:
+    radial-gradient(
+      ellipse 78% 68% at 68% 36%,
+      rgba(56, 189, 248, 0.48) 0%,
+      rgba(99, 102, 241, 0.32) 42%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 72% 62% at 32% 58%,
+      rgba(74, 222, 128, 0.5) 0%,
+      rgba(34, 197, 94, 0.28) 46%,
+      transparent 66%
+    ),
+    radial-gradient(
+      ellipse 70% 58% at 52% 72%,
+      rgba(254, 202, 202, 0.52) 0%,
+      rgba(248, 113, 113, 0.32) 44%,
+      rgba(244, 114, 182, 0.22) 58%,
+      transparent 70%
+    ),
+    radial-gradient(
+      circle at 48% 44%,
+      rgba(167, 139, 250, 0.28) 0%,
+      transparent 52%
+    );
+  animation: ask-ai-siri-drift-c 13s ease-in-out infinite;
+}
+
+.ask-ai-siri-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.06) 38%,
+    rgba(15, 23, 42, 0.35) 100%
+  );
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  pointer-events: none;
+}
+
+.ask-ai-siri-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    rgba(99, 102, 241, 0.07) 0%,
+    rgba(34, 197, 94, 0.06) 20%,
+    transparent 34%,
+    rgba(255, 255, 255, 0.13) 50%,
+    transparent 64%,
+    rgba(239, 68, 68, 0.065) 82%,
+    rgba(56, 189, 248, 0.065) 100%
+  );
+  animation: ask-ai-siri-shimmer 5.5s ease-in-out infinite;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ask-ai-siri-glass {
+    background: linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.04) 40%,
+      rgba(2, 6, 23, 0.55) 100%
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-ai-siri-orb-a,
+  .ask-ai-siri-orb-b,
+  .ask-ai-siri-orb-c {
+    animation: none !important;
+  }
+
+  .ask-ai-siri-glass::after {
+    animation: none !important;
+    opacity: 0.25;
+  }
+}
+
 .shine-chip {
   position: relative;
   overflow: hidden;

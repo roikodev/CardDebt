@@ -39,24 +39,29 @@ import {
 import type { DashboardTimeRange } from "@/components/dashboard/TimeRangeFilter"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { supabase } from "@/lib/supabase"
+import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
 import { useNavigate } from "@tanstack/react-router"
 import {
   CreditCard,
-  LayoutGrid,
   Folder,
   HandCoins,
+  LayoutGrid,
   LogOut,
   PlusSquare,
   Settings,
   ShoppingCart,
+  Sparkles,
 } from "lucide-react"
 
 function clampNumber(n: number, min: number, max: number): number {
@@ -188,6 +193,11 @@ export function Dashboard() {
   const [sellInfoOpen, setSellInfoOpen] = useState(false)
   const [sellChoice, setSellChoice] = useState<SellChoice | null>(null)
   const [miscOpen, setMiscOpen] = useState(false)
+  const [askAiOpen, setAskAiOpen] = useState(false)
+  const [askAiPrompt, setAskAiPrompt] = useState("")
+  const [askAiResponse, setAskAiResponse] = useState<string | null>(null)
+  const [askAiError, setAskAiError] = useState<string | null>(null)
+  const [askAiLoading, setAskAiLoading] = useState(false)
   const [cardBaseOpen, setCardBaseOpen] = useState(false)
   const [buyByCardBaseOpen, setBuyByCardBaseOpen] = useState(false)
   const [selectedCardBaseItem, setSelectedCardBaseItem] =
@@ -788,6 +798,37 @@ export function Dashboard() {
     return trimmed.slice(0, 2).toUpperCase()
   }, [user?.email])
 
+  const handleAskAiSubmit = useCallback(async () => {
+    const trimmed = askAiPrompt.trim()
+    if (!trimmed) {
+      setAskAiError("Enter a prompt.")
+      return
+    }
+    setAskAiLoading(true)
+    setAskAiError(null)
+    setAskAiResponse(null)
+    try {
+      const { data, error } = await supabase.functions.invoke("ask-ai", {
+        body: { prompt: trimmed },
+      })
+      if (error) {
+        setAskAiError(error.message || String(error))
+        return
+      }
+      if (data === null || data === undefined) {
+        setAskAiResponse("(empty response)")
+        return
+      }
+      setAskAiResponse(
+        typeof data === "string" ? data : JSON.stringify(data, null, 2)
+      )
+    } catch (e) {
+      setAskAiError(e instanceof Error ? e.message : "Request failed.")
+    } finally {
+      setAskAiLoading(false)
+    }
+  }, [askAiPrompt])
+
   async function handleSignOut() {
     await supabase.auth.signOut()
     clearAuth()
@@ -837,30 +878,52 @@ export function Dashboard() {
 
         <div className="grid grid-cols-12 gap-3">
           <GridGroup className="h-full sm:col-span-4 md:col-span-4 lg:col-span-3">
-            <Button
-              type="button"
-              className="shine-button-light relative col-span-12 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
-              onClick={() => navigate({ to: "/user/my-collection" })}
-            >
-              <Folder aria-hidden="true" className="absolute left-5 top-5 size-7" />
-              <span
-                className="absolute right-5 top-5 flex min-h-7 min-w-7 items-center justify-center rounded-full bg-neutral-900 px-2 text-xs font-semibold tabular-nums text-white shadow-sm ring-2 ring-white"
-                aria-label={
-                  collectionCount === null
-                    ? "Collection item count loading"
-                    : `${collectionCount} items in collection`
-                }
+            <div className="col-span-12 grid grid-cols-2 gap-3 sm:grid-cols-1">
+              <Button
+                type="button"
+                variant="ghost"
+                className="ask-ai-siri-button relative col-span-1 !h-full min-h-28 w-full justify-stretch rounded-2xl border-0 bg-transparent p-6 text-white shadow-none hover:bg-transparent dark:hover:bg-transparent active:translate-y-px focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                onClick={() => setAskAiOpen(true)}
               >
-                {collectionCount === null ? (
-                  <span className="inline-block size-3 animate-pulse rounded-full bg-white/40" />
-                ) : (
-                  collectionCount
-                )}
-              </span>
-              <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
-                My Collection
-              </span>
-            </Button>
+                <span className="ask-ai-siri-aurora" aria-hidden>
+                  <span className="ask-ai-siri-orb ask-ai-siri-orb-a" />
+                  <span className="ask-ai-siri-orb ask-ai-siri-orb-b" />
+                  <span className="ask-ai-siri-orb ask-ai-siri-orb-c" />
+                </span>
+                <span className="ask-ai-siri-glass" aria-hidden />
+                <Sparkles
+                  aria-hidden="true"
+                  className="absolute left-5 top-5 z-10 size-7 text-white drop-shadow-[0_0_14px_rgba(255,255,255,0.45)]"
+                />
+                <span className="absolute bottom-5 right-5 z-10 text-right text-2xl font-semibold leading-none tracking-tight text-white drop-shadow-sm lg:text-xl">
+                  Ask AI
+                </span>
+              </Button>
+              <Button
+                type="button"
+                className="shine-button-light relative col-span-1 h-full min-h-28 w-full items-stretch border border-border/80 bg-white p-6 text-black shadow-sm hover:bg-neutral-100 active:translate-y-px"
+                onClick={() => navigate({ to: "/user/my-collection" })}
+              >
+                <Folder aria-hidden="true" className="absolute left-5 top-5 size-7" />
+                <span
+                  className="absolute right-5 top-5 flex min-h-7 min-w-7 items-center justify-center rounded-full bg-neutral-900 px-2 text-xs font-semibold tabular-nums text-white shadow-sm ring-2 ring-white"
+                  aria-label={
+                    collectionCount === null
+                      ? "Collection item count loading"
+                      : `${collectionCount} items in collection`
+                  }
+                >
+                  {collectionCount === null ? (
+                    <span className="inline-block size-3 animate-pulse rounded-full bg-white/40" />
+                  ) : (
+                    collectionCount
+                  )}
+                </span>
+                <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
+                  My Collection
+                </span>
+              </Button>
+            </div>
           </GridGroup>
 
           <GridGroup className="h-full auto-rows-fr sm:col-span-4 md:col-span-4 lg:col-span-3">
@@ -1026,6 +1089,80 @@ export function Dashboard() {
             onOpenChange={setMiscOpen}
             onSubmitted={() => setBalanceReloadKey((n) => n + 1)}
           />
+
+          <Dialog
+            open={askAiOpen}
+            onOpenChange={(open) => {
+              setAskAiOpen(open)
+              if (!open) {
+                setAskAiLoading(false)
+                setAskAiError(null)
+                setAskAiResponse(null)
+                setAskAiPrompt("")
+              }
+            }}
+          >
+            <DialogContent className="flex max-h-[min(90dvh,85vh)] min-h-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-lg">
+              <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
+                <DialogTitle>Ask AI</DialogTitle>
+                <DialogDescription>
+                  Test the <code className="rounded bg-muted px-1 py-0.5 text-xs">ask-ai</code> Edge
+                  Function. Sends <code className="rounded bg-muted px-1 py-0.5 text-xs">{"{ prompt }"}</code>{" "}
+                  in the body.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogBody className="flex min-h-0 flex-col gap-4 px-4 sm:px-6">
+                <div className="space-y-2">
+                  <Label htmlFor="ask-ai-prompt">Prompt</Label>
+                  <textarea
+                    id="ask-ai-prompt"
+                    value={askAiPrompt}
+                    onChange={(e) => setAskAiPrompt(e.target.value)}
+                    rows={4}
+                    placeholder="Describe what you want the model to do…"
+                    disabled={askAiLoading}
+                    className={cn(
+                      "w-full min-h-[100px] resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow]",
+                      "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                      "disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                    )}
+                  />
+                </div>
+                <div className="flex min-h-[12rem] flex-1 flex-col gap-2">
+                  <Label htmlFor="ask-ai-response">Response</Label>
+                  <div
+                    id="ask-ai-response"
+                    className="min-h-[12rem] flex-1 overflow-auto rounded-lg border border-border bg-muted/25 p-3 font-mono text-xs whitespace-pre-wrap sm:text-sm"
+                  >
+                    {askAiLoading ? (
+                      <p className="text-muted-foreground">Calling ask-ai…</p>
+                    ) : askAiError ? (
+                      <p className="text-destructive">{askAiError}</p>
+                    ) : askAiResponse !== null ? (
+                      askAiResponse
+                    ) : (
+                      <p className="text-muted-foreground">
+                        Response from the function will appear here.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </DialogBody>
+              <DialogFooter className="shrink-0 border-t px-4 py-3 sm:px-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAskAiOpen(false)}
+                  disabled={askAiLoading}
+                >
+                  Close
+                </Button>
+                <Button type="button" onClick={() => void handleAskAiSubmit()} disabled={askAiLoading}>
+                  {askAiLoading ? "Sending…" : "Send"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <ViewportDeferred
             className="col-span-12"
