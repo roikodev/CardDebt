@@ -1,4 +1,12 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  type ChangeEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -49,13 +57,13 @@ import {
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { supabase } from "@/lib/supabase"
-import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
 import { useNavigate } from "@tanstack/react-router"
 import {
   CreditCard,
   Folder,
   HandCoins,
+  ImagePlus,
   LayoutGrid,
   LogOut,
   PlusSquare,
@@ -67,6 +75,65 @@ import {
 function clampNumber(n: number, min: number, max: number): number {
   if (!Number.isFinite(n)) return min
   return Math.min(max, Math.max(min, n))
+}
+
+/** Re-encode any supported `data:image/...` as JPEG for APIs that expect JPEG data URLs. */
+async function dataUrlToJpegDataUrl(
+  dataUrl: string,
+  maxDim: number,
+  quality: number
+): Promise<string> {
+  const img = new Image()
+  img.decoding = "async"
+  img.loading = "eager"
+  img.src = dataUrl
+  await img.decode()
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height || 1))
+  const w = Math.max(1, Math.round(img.width * scale))
+  const h = Math.max(1, Math.round(img.height * scale))
+  const canvas = document.createElement("canvas")
+  canvas.width = w
+  canvas.height = h
+  const g = canvas.getContext("2d")
+  if (!g) throw new Error("No 2d context")
+  g.drawImage(img, 0, 0, w, h)
+  const jpeg = canvas.toDataURL("image/jpeg", quality)
+  if (!jpeg.startsWith("data:image/jpeg")) throw new Error("JPEG encode failed")
+  return jpeg
+}
+
+/** Strip `data:*;base64,` — Edge Function expects raw payload in `imageBase64`. */
+function dataUrlToRawBase64(dataUrl: string): string | null {
+  const comma = dataUrl.indexOf(",")
+  if (comma !== -1 && /;base64$/i.test(dataUrl.slice(0, comma))) {
+    return dataUrl.slice(comma + 1)
+  }
+  const trimmed = dataUrl.trim()
+  if (trimmed.length >= 100 && /^[A-Za-z0-9+/=\s]+$/.test(trimmed)) {
+    return trimmed.replace(/\s/g, "")
+  }
+  return null
+}
+
+function formatSupabaseFunctionError(error: unknown): string {
+  const anyErr = error as {
+    message?: string
+    name?: string
+    context?: { status?: number; statusText?: string; body?: unknown }
+  }
+  const status = anyErr?.context?.status
+  const statusText = anyErr?.context?.statusText
+  const body = anyErr?.context?.body
+  return [
+    status ? `HTTP ${status}${statusText ? ` ${statusText}` : ""}` : null,
+    anyErr?.name ? `${anyErr.name}` : null,
+    anyErr?.message ? `${anyErr.message}` : String(error),
+    body
+      ? `Response body: ${typeof body === "string" ? body : JSON.stringify(body)}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n")
 }
 
 function daysAgoISODate(days: number): string {
@@ -194,10 +261,28 @@ export function Dashboard() {
   const [sellChoice, setSellChoice] = useState<SellChoice | null>(null)
   const [miscOpen, setMiscOpen] = useState(false)
   const [askAiOpen, setAskAiOpen] = useState(false)
-  const [askAiPrompt, setAskAiPrompt] = useState("")
-  const [askAiResponse, setAskAiResponse] = useState<string | null>(null)
+  /** Original data URL from the selected file (highest fidelity). */
+  const [askAiImageOriginalDataUrl, setAskAiImageOriginalDataUrl] = useState<
+    string | null
+  >(null)
+  /** Compressed JPEG data URL; raw base64 is derived for `research-card-price`. */
+  const [askAiImageSendDataUrl, setAskAiImageSendDataUrl] = useState<string | null>(
+    null
+  )
+  /** Optional compressed preview (may match send payload). */
+  const [askAiImagePreviewDataUrl, setAskAiImagePreviewDataUrl] = useState<string | null>(
+    null
+  )
+  /** Pretty JSON / text from `research-card-price` (`answer`). */
+  const [askAiResearchAnswer, setAskAiResearchAnswer] = useState<string | null>(
+    null
+  )
+  const [askAiResearchResponseId, setAskAiResearchResponseId] = useState<
+    string | null
+  >(null)
   const [askAiError, setAskAiError] = useState<string | null>(null)
   const [askAiLoading, setAskAiLoading] = useState(false)
+  const askAiFileInputRef = useRef<HTMLInputElement | null>(null)
   const [cardBaseOpen, setCardBaseOpen] = useState(false)
   const [buyByCardBaseOpen, setBuyByCardBaseOpen] = useState(false)
   const [selectedCardBaseItem, setSelectedCardBaseItem] =
@@ -798,28 +883,130 @@ export function Dashboard() {
     return trimmed.slice(0, 2).toUpperCase()
   }, [user?.email])
 
+  const handleAskAiImagePick = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      if (!file.type.startsWith("image/")) {
+        setAskAiError("Please choose an image file (JPEG, PNG, WebP, etc.).")
+        setAskAiImageOriginalDataUrl(null)
+        setAskAiImageSendDataUrl(null)
+        setAskAiImagePreviewDataUrl(null)
+        return
+      }
+      const maxBytes = 8 * 1024 * 1024
+      if (file.size > maxBytes) {
+        setAskAiError("Image must be 8 MB or smaller.")
+        setAskAiImageOriginalDataUrl(null)
+        setAskAiImageSendDataUrl(null)
+        setAskAiImagePreviewDataUrl(null)
+        return
+      }
+      setAskAiError(null)
+      setAskAiImageSendDataUrl(null)
+      setAskAiImagePreviewDataUrl(null)
+      const reader = new FileReader()
+      reader.onload = async () => {
+        const result = reader.result
+        if (typeof result !== "string" || !result.startsWith("data:image/")) {
+          setAskAiError("Could not read image as a data URL.")
+          setAskAiImageOriginalDataUrl(null)
+          setAskAiImageSendDataUrl(null)
+          setAskAiImagePreviewDataUrl(null)
+          return
+        }
+
+        // 1) Store the original immediately.
+        setAskAiImageOriginalDataUrl(result)
+
+        // 2) Compress to JPEG (server wraps bytes as data:image/jpeg;base64,...).
+        try {
+          const jpeg = await dataUrlToJpegDataUrl(result, 1600, 0.92)
+          setAskAiImageSendDataUrl(jpeg)
+          setAskAiImagePreviewDataUrl(jpeg)
+        } catch {
+          // Fall back to original; submit will try JPEG re-encode before research.
+          setAskAiImageSendDataUrl(result)
+          setAskAiImagePreviewDataUrl(result)
+        }
+      }
+      reader.onerror = () => {
+        setAskAiError("Failed to read the file.")
+        setAskAiImageOriginalDataUrl(null)
+        setAskAiImageSendDataUrl(null)
+        setAskAiImagePreviewDataUrl(null)
+      }
+      reader.readAsDataURL(file)
+    },
+    []
+  )
+
   const handleAskAiSubmit = useCallback(async () => {
-    const trimmed = askAiPrompt.trim()
-    if (!trimmed) {
-      setAskAiError("Enter a prompt.")
+    const raw = askAiImageSendDataUrl ?? askAiImageOriginalDataUrl
+    if (!raw || !raw.startsWith("data:image/")) {
+      setAskAiError("Choose a card image first.")
       return
     }
     setAskAiLoading(true)
     setAskAiError(null)
-    setAskAiResponse(null)
+    setAskAiResearchAnswer(null)
+    setAskAiResearchResponseId(null)
     try {
-      const { data, error } = await supabase.functions.invoke("ask-ai", {
-        body: { prompt: trimmed },
-      })
+      let jpegDataUrl = raw
+      if (!jpegDataUrl.startsWith("data:image/jpeg")) {
+        try {
+          jpegDataUrl = await dataUrlToJpegDataUrl(raw, 1600, 0.92)
+        } catch {
+          setAskAiError(
+            "Could not convert the image to JPEG for research-card-price."
+          )
+          return
+        }
+      }
+
+      const imageBase64 = dataUrlToRawBase64(jpegDataUrl)
+      if (!imageBase64 || imageBase64.length < 100) {
+        setAskAiError(
+          "Could not derive JPEG base64 from the image (payload too small or invalid)."
+        )
+        return
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        "research-card-price",
+        { body: { imageBase64 } }
+      )
       if (error) {
-        setAskAiError(error.message || String(error))
+        setAskAiError(formatSupabaseFunctionError(error))
         return
       }
       if (data === null || data === undefined) {
-        setAskAiResponse("(empty response)")
+        setAskAiError("research-card-price returned an empty response.")
         return
       }
-      setAskAiResponse(
+      if (typeof data === "object" && data !== null && "error" in data) {
+        const msg = (data as { error?: string }).error
+        if (msg) {
+          setAskAiError(String(msg))
+          return
+        }
+      }
+      if (typeof data === "object" && data !== null) {
+        const rid = (data as { response_id?: unknown }).response_id
+        if (typeof rid === "string" && rid) setAskAiResearchResponseId(rid)
+        if ("answer" in data) {
+          const answer = (data as { answer?: unknown }).answer
+          if (typeof answer === "string") {
+            setAskAiResearchAnswer(answer)
+            return
+          }
+          if (answer !== null && typeof answer === "object") {
+            setAskAiResearchAnswer(JSON.stringify(answer, null, 2))
+            return
+          }
+        }
+      }
+      setAskAiResearchAnswer(
         typeof data === "string" ? data : JSON.stringify(data, null, 2)
       )
     } catch (e) {
@@ -827,7 +1014,7 @@ export function Dashboard() {
     } finally {
       setAskAiLoading(false)
     }
-  }, [askAiPrompt])
+  }, [askAiImageOriginalDataUrl, askAiImageSendDataUrl])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -1097,52 +1284,121 @@ export function Dashboard() {
               if (!open) {
                 setAskAiLoading(false)
                 setAskAiError(null)
-                setAskAiResponse(null)
-                setAskAiPrompt("")
+                setAskAiResearchAnswer(null)
+                setAskAiResearchResponseId(null)
+                setAskAiImageOriginalDataUrl(null)
+                setAskAiImageSendDataUrl(null)
+                setAskAiImagePreviewDataUrl(null)
+                if (askAiFileInputRef.current) askAiFileInputRef.current.value = ""
               }
             }}
           >
-            <DialogContent className="flex max-h-[min(90dvh,85vh)] min-h-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-lg">
+            <DialogContent className="flex max-h-[min(90dvh,85vh)] min-h-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-xl">
               <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
                 <DialogTitle>Ask AI</DialogTitle>
                 <DialogDescription>
-                  Test the <code className="rounded bg-muted px-1 py-0.5 text-xs">ask-ai</code> Edge
-                  Function. Sends <code className="rounded bg-muted px-1 py-0.5 text-xs">{"{ prompt }"}</code>{" "}
-                  in the body.
+                  Calls{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                    research-card-price
+                  </code>{" "}
+                  with JPEG <code className="text-[0.65rem]">imageBase64</code> (raw base64, no{" "}
+                  <code className="text-[0.65rem]">data:</code> prefix). Response includes{" "}
+                  <code className="text-[0.65rem]">answer</code>.
                 </DialogDescription>
               </DialogHeader>
               <DialogBody className="flex min-h-0 flex-col gap-4 px-4 sm:px-6">
                 <div className="space-y-2">
-                  <Label htmlFor="ask-ai-prompt">Prompt</Label>
-                  <textarea
-                    id="ask-ai-prompt"
-                    value={askAiPrompt}
-                    onChange={(e) => setAskAiPrompt(e.target.value)}
-                    rows={4}
-                    placeholder="Describe what you want the model to do…"
+                  <Label htmlFor="ask-ai-image">Card image</Label>
+                  <input
+                    ref={askAiFileInputRef}
+                    id="ask-ai-image"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/*"
+                    className="sr-only"
                     disabled={askAiLoading}
-                    className={cn(
-                      "w-full min-h-[100px] resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-                      "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                      "disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-                    )}
+                    onChange={handleAskAiImagePick}
                   />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      disabled={askAiLoading}
+                      onClick={() => askAiFileInputRef.current?.click()}
+                    >
+                      <ImagePlus className="size-4" aria-hidden />
+                      Choose image
+                    </Button>
+                    {askAiImageOriginalDataUrl ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={askAiLoading}
+                        onClick={() => {
+                          setAskAiImageOriginalDataUrl(null)
+                          setAskAiImageSendDataUrl(null)
+                          setAskAiImagePreviewDataUrl(null)
+                          setAskAiResearchAnswer(null)
+                          setAskAiResearchResponseId(null)
+                          setAskAiError(null)
+                          if (askAiFileInputRef.current) askAiFileInputRef.current.value = ""
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    ) : null}
+                  </div>
+                  {askAiImageOriginalDataUrl ? (
+                    <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
+                      <img
+                        src={askAiImagePreviewDataUrl ?? askAiImageSendDataUrl ?? askAiImageOriginalDataUrl}
+                        alt="Selected card preview"
+                        className="mx-auto max-h-48 w-full max-w-md object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      JPEG or PNG recommended. Max 8 MB. Compressed to JPEG in-browser before
+                      sending.
+                    </p>
+                  )}
                 </div>
+                {askAiError ? (
+                  <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive sm:text-sm">
+                    {askAiError}
+                  </p>
+                ) : null}
                 <div className="flex min-h-[12rem] flex-1 flex-col gap-2">
-                  <Label htmlFor="ask-ai-response">Response</Label>
+                  <Label htmlFor="ask-ai-response">
+                    Result{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (<code className="text-[0.65rem]">research-card-price</code> →{" "}
+                      <code className="text-[0.65rem]">answer</code>)
+                    </span>
+                  </Label>
                   <div
                     id="ask-ai-response"
                     className="min-h-[12rem] flex-1 overflow-auto rounded-lg border border-border bg-muted/25 p-3 font-mono text-xs whitespace-pre-wrap sm:text-sm"
                   >
                     {askAiLoading ? (
-                      <p className="text-muted-foreground">Calling ask-ai…</p>
-                    ) : askAiError ? (
-                      <p className="text-destructive">{askAiError}</p>
-                    ) : askAiResponse !== null ? (
-                      askAiResponse
+                      <p className="text-muted-foreground">
+                        Analyzing photo & searching live prices…
+                      </p>
+                    ) : askAiResearchAnswer !== null ? (
+                      <>
+                        {askAiResearchAnswer}
+                        {askAiResearchResponseId ? (
+                          <p className="mt-3 border-t border-border pt-2 text-[0.65rem] text-muted-foreground">
+                            response_id: {askAiResearchResponseId}
+                          </p>
+                        ) : null}
+                      </>
                     ) : (
                       <p className="text-muted-foreground">
-                        Response from the function will appear here.
+                        JSON (game_title, estimated_price, reasoning, …) appears here after you run
+                        research.
                       </p>
                     )}
                   </div>
@@ -1157,8 +1413,12 @@ export function Dashboard() {
                 >
                   Close
                 </Button>
-                <Button type="button" onClick={() => void handleAskAiSubmit()} disabled={askAiLoading}>
-                  {askAiLoading ? "Sending…" : "Send"}
+                <Button
+                  type="button"
+                  onClick={() => void handleAskAiSubmit()}
+                  disabled={askAiLoading || !(askAiImageSendDataUrl ?? askAiImageOriginalDataUrl)}
+                >
+                  {askAiLoading ? "Working…" : "Research price"}
                 </Button>
               </DialogFooter>
             </DialogContent>
