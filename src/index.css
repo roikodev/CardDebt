@@ -764,6 +764,20 @@ code {
     flex-direction: column;
     box-sizing: border-box;
   }
+
+  /* Dashboard route: hide viewport scrollbar; wheel/touch/keyboard scroll unchanged */
+  html.carddebt-dashboard-hide-scrollbar,
+  body.carddebt-dashboard-hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html.carddebt-dashboard-hide-scrollbar::-webkit-scrollbar,
+  body.carddebt-dashboard-hide-scrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
 }
 
 @layer components {

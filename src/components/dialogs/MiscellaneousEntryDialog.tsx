@@ -102,17 +102,17 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,34rem)] overflow-x-hidden p-0 sm:max-w-md">
-        <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
-          <DialogHeader className="px-0">
+      <DialogContent className="max-h-[min(90dvh,34rem)] min-w-0 overflow-x-hidden p-0 sm:max-w-md">
+        <DialogBody className="min-w-0 px-4 pt-4 sm:px-6 sm:pt-6">
+          <DialogHeader className="min-w-0 px-0">
             <DialogTitle>Miscellaneous</DialogTitle>
             <DialogDescription>Add a single miscellaneous record.</DialogDescription>
           </DialogHeader>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
-          <div className="mt-4 rounded-xl border bg-card p-3">
-            <FieldGroup>
+          <div className="mt-4 min-w-0 max-w-full overflow-hidden rounded-xl border bg-card p-3 sm:p-4">
+            <FieldGroup className="min-w-0">
               <FormTextInput
                 label="Date"
                 id="misc-date"
@@ -120,6 +120,7 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 disabled={saving}
+                inputClassName="min-w-0 max-w-full"
               />
 
               <FormSelectField label="Type" htmlFor="misc-type">
@@ -144,10 +145,12 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   disabled={saving}
+                  inputClassName="min-w-0 max-w-full"
                 />
               ) : null}
 
               <FormMoneyInput
+                className="min-w-0"
                 label="Cost"
                 htmlFor="misc-cost"
                 inputProps={{
@@ -155,6 +158,7 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
                   type: "number",
                   inputMode: "decimal",
                   min: 0,
+                  className: "min-w-0",
                   value: costHKD,
                   onChange: (e) => setCostHKD(e.currentTarget.value),
                   disabled: saving,
@@ -164,15 +168,19 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
           </div>
         </DialogBody>
 
-        <DialogFooter className="px-0">
-          <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Back
-            </Button>
-            <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
-              Save
-            </Button>
-          </div>
+        <DialogFooter className="border-t border-border/50 bg-muted/30 px-4 py-3 sm:px-6 sm:py-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Back
+          </Button>
+          <Button type="button" className="w-full sm:w-auto" onClick={handleSubmit} disabled={!canSubmit}>
+            Save
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

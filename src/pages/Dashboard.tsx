@@ -876,6 +876,16 @@ export function Dashboard() {
     void refreshCollectionCount()
   }, [refreshCollectionCount, balanceReloadKey])
 
+  useEffect(() => {
+    const cls = "carddebt-dashboard-hide-scrollbar"
+    document.documentElement.classList.add(cls)
+    document.body.classList.add(cls)
+    return () => {
+      document.documentElement.classList.remove(cls)
+      document.body.classList.remove(cls)
+    }
+  }, [])
+
   const initials = useMemo(() => {
     const email = user?.email ?? ""
     const trimmed = email.trim()
@@ -1065,7 +1075,7 @@ export function Dashboard() {
 
         <div className="grid grid-cols-12 gap-3">
           <GridGroup className="h-full sm:col-span-4 md:col-span-4 lg:col-span-3">
-            <div className="col-span-12 grid grid-cols-2 gap-3 sm:grid-cols-1">
+            <div className="col-span-12 grid grid-cols-1 gap-3">
               <Button
                 type="button"
                 variant="ghost"
@@ -1192,7 +1202,7 @@ export function Dashboard() {
           </section>
 
           <Dialog open={buyChooserOpen} onOpenChange={setBuyChooserOpen}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="min-w-0 sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Buy</DialogTitle>
                 <DialogDescription>Choose how you want to add this purchase.</DialogDescription>
@@ -1293,7 +1303,7 @@ export function Dashboard() {
               }
             }}
           >
-            <DialogContent className="flex max-h-[min(90dvh,85vh)] min-h-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-xl">
+            <DialogContent className="flex max-h-[min(90dvh,85vh)] min-h-0 min-w-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-xl">
               <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
                 <DialogTitle>Ask AI</DialogTitle>
                 <DialogDescription>
