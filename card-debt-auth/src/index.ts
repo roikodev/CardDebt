@@ -1,7 +1,9 @@
 // 1. Allowed origins for your CardDebt project
-// - Prod: GitHub Pages origin
+// - Prod: custom domain (GitHub Pages) + legacy github.io origin
 // - Dev: Vite dev server + common LAN origins (for testing on phones)
 const ALLOWED_ORIGINS = [
+  "https://www.tcgcarddebt.com",
+  "https://tcgcarddebt.com",
   "https://roikodev.github.io",
   "http://localhost:5173",
   "http://127.0.0.1:5173",

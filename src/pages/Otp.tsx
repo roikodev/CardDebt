@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -48,21 +47,15 @@ export function Otp() {
   })
 
   return (
-    <main className="bg-background text-foreground">
+    <main className="text-foreground">
       <div className="mx-auto w-full max-w-md px-6 pb-14">
         <header className="text-center">
           <h1 className="mt-5 text-2xl font-semibold tracking-tight">Verify OTP</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Enter the 6-digit code sent to your email.
-          </p>
         </header>
 
         <Card className="mx-auto mt-8 w-full max-w-sm">
           <CardHeader className="text-left">
             <CardTitle>Confirmation code</CardTitle>
-            <CardDescription>
-              {email ? `We sent a code to ${email}.` : "We sent a code to your email."}
-            </CardDescription>
           </CardHeader>
 
           <form
@@ -109,7 +102,16 @@ export function Otp() {
           >
             <CardContent className="mb-4">
               <div className="grid gap-2">
-                <Label htmlFor="token">OTP</Label>
+                <Label htmlFor="token" className="text-pretty">
+                  {email ? (
+                    <>
+                      Enter the code we sent to{" "}
+                      <span className="font-medium break-all">{email}</span>
+                    </>
+                  ) : (
+                    "Enter the 6-digit code from your email."
+                  )}
+                </Label>
                 <Controller
                   control={control}
                   name="token"
@@ -144,14 +146,14 @@ export function Otp() {
               ) : null}
             </CardContent>
 
-            <CardFooter className="flex-col gap-3">
+            <CardFooter className="flex flex-col items-stretch gap-3">
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? "Verifying..." : "Verify"}
               </Button>
               <Button
                 type="button"
                 variant="ghost"
-                className="w-full"
+                className="self-center w-fit"
                 onClick={() => navigate({ to: "/auth/login" })}
               >
                 Back to login

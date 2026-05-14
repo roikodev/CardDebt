@@ -19,6 +19,7 @@ import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthHomeRouteImport } from './routes/auth/home'
+import { Route as AuthForgetPasswordRouteImport } from './routes/auth/forget-password'
 import { Route as UserMyCollectionIndexRouteImport } from './routes/user/my-collection/index'
 import { Route as UserMyCollectionCollection_item_idRouteImport } from './routes/user/my-collection/$collection_item_id'
 
@@ -72,6 +73,11 @@ const AuthHomeRoute = AuthHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthForgetPasswordRoute = AuthForgetPasswordRouteImport.update({
+  id: '/forget-password',
+  path: '/forget-password',
+  getParentRoute: () => AuthRoute,
+} as any)
 const UserMyCollectionIndexRoute = UserMyCollectionIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/home': typeof AuthHomeRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/otp': typeof AuthOtpRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/home': typeof AuthHomeRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/otp': typeof AuthOtpRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/home': typeof AuthHomeRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/otp': typeof AuthOtpRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/user'
+    | '/auth/forget-password'
     | '/auth/home'
     | '/auth/login'
     | '/auth/otp'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/user'
+    | '/auth/forget-password'
     | '/auth/home'
     | '/auth/login'
     | '/auth/otp'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/user'
+    | '/auth/forget-password'
     | '/auth/home'
     | '/auth/login'
     | '/auth/otp'
@@ -248,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthHomeRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/auth/forget-password': {
+      id: '/auth/forget-password'
+      path: '/forget-password'
+      fullPath: '/auth/forget-password'
+      preLoaderRoute: typeof AuthForgetPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/user/my-collection/': {
       id: '/user/my-collection/'
       path: '/'
@@ -266,6 +285,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteChildren {
+  AuthForgetPasswordRoute: typeof AuthForgetPasswordRoute
   AuthHomeRoute: typeof AuthHomeRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthOtpRoute: typeof AuthOtpRoute
@@ -273,6 +293,7 @@ interface AuthRouteChildren {
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthForgetPasswordRoute: AuthForgetPasswordRoute,
   AuthHomeRoute: AuthHomeRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthOtpRoute: AuthOtpRoute,
