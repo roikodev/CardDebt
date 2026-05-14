@@ -1,61 +1,62 @@
-import { useMemo } from "react"
-
 import { Button } from "@/components/ui/button"
 import { Link } from "@tanstack/react-router"
+import { LayoutGrid, PieChart, Wallet } from "lucide-react"
+
+const highlights = [
+  { icon: LayoutGrid, label: "Collection" },
+  { icon: Wallet, label: "Spend & balance" },
+  { icon: PieChart, label: "Insights" },
+] as const
 
 export function Home() {
-  const isStandalone = useMemo(() => {
-    if (typeof window === "undefined") return false
-    return (
-      window.matchMedia?.("(display-mode: standalone)").matches ||
-      Boolean((navigator as unknown as { standalone?: boolean }).standalone)
-    )
-  }, [])
-
   return (
-    <main className="relative overflow-hidden bg-background text-foreground">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(1200px_circle_at_50%_-10%,hsl(var(--primary)/0.28),transparent_55%),radial-gradient(900px_circle_at_10%_20%,hsl(var(--ring)/0.16),transparent_45%),radial-gradient(900px_circle_at_90%_20%,hsl(var(--ring)/0.12),transparent_45%)]"
-      />
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-10 sm:py-14">
+      <div className="relative mx-auto w-full max-w-md text-center">
+        <div
+          className="pointer-events-none absolute -top-6 left-1/2 h-44 w-[min(100%,20rem)] -translate-x-1/2 rounded-full bg-primary/[0.07] blur-3xl dark:bg-primary/[0.12]"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-10 left-1/2 h-32 w-48 -translate-x-1/2 rounded-full bg-ring/[0.06] blur-3xl"
+          aria-hidden
+        />
 
-      <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center px-6 pb-14">
-        <div className="flex w-full flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border bg-card/60 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
-            <span className="h-2 w-2 rounded-full bg-emerald-400/70" />
-            {isStandalone ? "Running as PWA" : "Web"}
-          </div>
+        <p className="relative text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Card Debt
+        </p>
+        <h2 className="relative mt-3 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
+          Track cards,{" "}
+          <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            spending
+          </span>
+          , and value
+        </h2>
+        <p className="relative mx-auto mt-3 max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground">
+          Sign in so your hobby stays organized—wherever you open the app.
+        </p>
 
-          <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-            Welcome to <span className="text-primary">Card Debt</span>
-          </h1>
-          <p className="mt-3 max-w-2xl text-pretty text-sm text-muted-foreground sm:text-base">
-            Track your collection and your spending with a simple, focused workflow.
-          </p>
+        <div
+          className="relative mx-auto mt-6 h-px w-24 max-w-[min(12rem,60%)] bg-gradient-to-r from-transparent via-border to-transparent"
+          aria-hidden
+        />
 
-          <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <Button asChild size="lg" className="h-10 px-8">
-              <Link to="/auth/login">Login</Link>
-            </Button>
-            <Button type="button" variant="outline" size="lg" className="h-10 px-8">
-              Continue as guest
-            </Button>
-          </div>
+        <ul className="relative mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          {highlights.map(({ icon: Icon, label }) => (
+            <li key={label}>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/50 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm dark:bg-background/30">
+                <Icon className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                {label}
+              </span>
+            </li>
+          ))}
+        </ul>
 
-          <p className="mt-4 text-xs text-muted-foreground">
-            Mobile users: install as PWA for the best experience.
-          </p>
-        </div>
-
-        <div className="mt-10 w-full max-w-3xl rounded-xl border bg-card/60 p-5 text-left shadow-sm backdrop-blur">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Next step</p>
-            <p className="text-sm text-muted-foreground">
-              Tell me what you want after login (Supabase auth, email/password, OAuth, etc.).
-            </p>
-          </div>
+        <div className="relative mt-9 flex justify-center">
+          <Button asChild size="default" className="min-w-[7.5rem] shadow-md">
+            <Link to="/auth/login">Login</Link>
+          </Button>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

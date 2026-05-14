@@ -2,7 +2,7 @@
   "name": "carddebt",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://roikodev.github.io/carddebt/",
+  "homepage": "https://www.tcgcarddebt.com/",
   "type": "module",
   "scripts": {
     "dev": "vite",

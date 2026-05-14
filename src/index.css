@@ -761,4 +761,207 @@ code {
     width: 0;
     height: 0;
   }
+
+  /* Home landing — animated ambient background */
+  @keyframes home-hero-orb-a {
+    0%,
+    100% {
+      transform: translate(-18%, -12%) scale(1);
+    }
+    50% {
+      transform: translate(22%, 18%) scale(1.14);
+    }
+  }
+
+  @keyframes home-hero-orb-b {
+    0%,
+    100% {
+      transform: translate(12%, 28%) scale(1.06);
+    }
+    50% {
+      transform: translate(-28%, -8%) scale(1);
+    }
+  }
+
+  @keyframes home-hero-orb-c {
+    0%,
+    100% {
+      transform: translate(-8%, 22%) scale(0.92);
+      opacity: 0.28;
+    }
+    50% {
+      transform: translate(18%, -18%) scale(1.08);
+      opacity: 0.48;
+    }
+  }
+
+  @keyframes home-hero-shimmer {
+    0% {
+      transform: translateX(-40%) skewX(-12deg);
+      opacity: 0;
+    }
+    15% {
+      opacity: 0.35;
+    }
+    55% {
+      opacity: 0.45;
+    }
+    100% {
+      transform: translateX(140%) skewX(-12deg);
+      opacity: 0;
+    }
+  }
+
+  @keyframes home-hero-grid-pulse {
+    0%,
+    100% {
+      opacity: 0.04;
+    }
+    50% {
+      opacity: 0.09;
+    }
+  }
+
+  @keyframes home-hero-vignette {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  .home-hero-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .home-hero-bg__grid {
+    position: absolute;
+    inset: -1px;
+    background-image:
+      linear-gradient(
+        color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 72%);
+    animation: home-hero-grid-pulse 14s ease-in-out infinite;
+  }
+
+  .home-hero-bg__vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 85% 75% at 50% 45%,
+      transparent 0%,
+      color-mix(in oklch, var(--background) 22%, transparent) 55%,
+      color-mix(in oklch, var(--background) 92%, transparent) 100%
+    );
+    animation: home-hero-vignette 18s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .home-hero-bg__orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(72px);
+    will-change: transform;
+    pointer-events: none;
+  }
+
+  .home-hero-bg__orb--a {
+    top: -18%;
+    left: -12%;
+    width: min(92vw, 520px);
+    height: min(92vw, 520px);
+    background: radial-gradient(
+      circle at 35% 35%,
+      color-mix(in oklch, var(--primary) 38%, transparent),
+      color-mix(in oklch, var(--ring) 22%, transparent) 45%,
+      transparent 70%
+    );
+    animation: home-hero-orb-a 24s ease-in-out infinite;
+  }
+
+  .home-hero-bg__orb--b {
+    bottom: -22%;
+    right: -14%;
+    width: min(100vw, 580px);
+    height: min(100vw, 580px);
+    background: radial-gradient(
+      circle at 60% 40%,
+      color-mix(in oklch, var(--ring) 35%, transparent),
+      color-mix(in oklch, var(--primary) 18%, transparent) 50%,
+      transparent 68%
+    );
+    animation: home-hero-orb-b 28s ease-in-out infinite;
+    animation-delay: -6s;
+  }
+
+  .home-hero-bg__orb--c {
+    top: 38%;
+    left: 50%;
+    width: min(85vw, 420px);
+    height: min(85vw, 420px);
+    margin-left: calc(min(85vw, 420px) / -2);
+    background: radial-gradient(
+      circle at 50% 50%,
+      color-mix(in oklch, var(--primary) 20%, transparent),
+      transparent 62%
+    );
+    animation: home-hero-orb-c 20s ease-in-out infinite;
+    animation-delay: -3s;
+  }
+
+  .home-hero-bg__shimmer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .home-hero-bg__shimmer-inner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 45%;
+    max-width: 28rem;
+    background: linear-gradient(
+      105deg,
+      transparent 0%,
+      color-mix(in oklch, var(--foreground) 6%, transparent) 42%,
+      color-mix(in oklch, var(--primary) 14%, transparent) 50%,
+      color-mix(in oklch, var(--foreground) 6%, transparent) 58%,
+      transparent 100%
+    );
+    animation: home-hero-shimmer 11s ease-in-out infinite;
+    animation-delay: 1.5s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-hero-bg__grid,
+    .home-hero-bg__vignette,
+    .home-hero-bg__orb,
+    .home-hero-bg__shimmer-inner {
+      animation: none !important;
+    }
+
+    .home-hero-bg__orb--c {
+      opacity: 0.35;
+    }
+
+    .home-hero-bg__grid {
+      opacity: 0.06;
+    }
+  }
 }

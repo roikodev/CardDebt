@@ -33,8 +33,18 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_CF_WORKER_ORIGIN: ${{ secrets.VITE_CF_WORKER_ORIGIN }}
 
+      # Custom domain is served from site root; stale /CardDebt/ paths in index.html load no JS (blank page).
+      - name: Verify index.html uses root asset paths
+        run: |
+          if grep -qF '/CardDebt/' dist/index.html; then
+            echo "::error::dist/index.html still references /CardDebt/. For www.tcgcarddebt.com use vite base: '/' (see vite.config.ts)."
+            exit 1
+          fi
+
       - name: Deploy to github pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
+          cname: www.tcgcarddebt.com
+          force_orphan: true

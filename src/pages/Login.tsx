@@ -5,7 +5,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -44,21 +43,15 @@ export function Login() {
   })
 
   return (
-    <main className="bg-background text-foreground">
+    <main className="text-foreground">
       <div className="mx-auto w-full max-w-md px-6 pb-14">
         <header className="text-center">
           <h1 className="mt-5 text-2xl font-semibold tracking-tight">Login</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to sync your data across devices.
-          </p>
         </header>
 
         <Card className="mx-auto mt-8 w-full max-w-sm">
           <CardHeader className="text-left">
             <CardTitle>Login to your account</CardTitle>
-            <CardDescription>
-              Enter your email below to login to your account
-            </CardDescription>
             <CardAction>
               <Button asChild type="button">
                 <Link to="/auth/signup">Sign Up</Link>
@@ -125,12 +118,12 @@ export function Login() {
                 <div className="grid gap-2">
                   <div className="flex items-center">
                     <Label htmlFor="password">Password</Label>
-                    <a
-                      href="#"
-                      className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    <Link
+                      to="/auth/forget-password"
+                      className="ml-auto text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
                       Forgot your password?
-                    </a>
+                    </Link>
                   </div>
                   <Input
                     id="password"
@@ -173,7 +166,7 @@ export function Login() {
           </form>
         </Card>
 
-        <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-full max-w-sm">
+        <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-fit">
           <Link to="/auth/home">Back</Link>
         </Button>
       </div>

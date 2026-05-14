@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -12,6 +11,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { supabase } from "@/lib/supabase"
+import { passwordFieldSchema } from "@/lib/passwordPolicy"
+import { PasswordPolicyHint } from "@/components/auth/PasswordPolicyHint"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useRegistrationStore } from "@/stores/registration"
@@ -22,7 +23,7 @@ import { z } from "zod"
 
 const signupSchema = z.object({
   email: z.string().email("Enter a valid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: passwordFieldSchema,
 })
 
 type SignupFormValues = z.infer<typeof signupSchema>
@@ -45,19 +46,15 @@ export function Signup() {
   })
 
   return (
-    <main className="bg-background text-foreground">
+    <main className="text-foreground">
       <div className="mx-auto w-full max-w-md px-6 pb-14">
         <header className="text-center">
           <h1 className="mt-5 text-2xl font-semibold tracking-tight">Sign up</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Create an account to sync your data across devices.
-          </p>
         </header>
 
         <Card className="mx-auto mt-8 w-full max-w-sm">
           <CardHeader className="text-left">
             <CardTitle>Create your account</CardTitle>
-            <CardDescription>Enter your email and password to sign up</CardDescription>
           </CardHeader>
 
           <form
@@ -127,12 +124,14 @@ export function Signup() {
                 </div>
 
                 <div className="grid gap-2">
+                  <PasswordPolicyHint id="signup-password-policy" />
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
                     type="password"
                     autoComplete="new-password"
                     aria-invalid={errors.password ? "true" : "false"}
+                    aria-describedby="signup-password-policy"
                     className={cn(errors.password && "border-destructive")}
                     {...register("password")}
                   />
@@ -158,7 +157,7 @@ export function Signup() {
           </form>
         </Card>
 
-        <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-full max-w-sm">
+        <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-fit">
           <Link to="/auth/login">Back</Link>
         </Button>
       </div>

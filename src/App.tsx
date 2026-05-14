@@ -6,7 +6,6 @@ import { Toaster } from "sonner"
 
 const router = createRouter({
   routeTree,
-  basepath: "/CardDebt",
 })
 
 declare module "@tanstack/react-router" {
