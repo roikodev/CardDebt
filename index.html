@@ -14,6 +14,15 @@
 </head>
 
 <body>
+  <!-- Paints before React hydrates; auth layout uses transparent main so this shows through. -->
+  <div id="static-home-hero-bg" class="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
+    <div class="home-hero-bg">
+      <div class="home-hero-bg__base"></div>
+      <div class="home-hero-bg__aurora home-hero-bg__aurora--mono" aria-hidden="true"></div>
+      <div class="home-hero-bg__aurora home-hero-bg__aurora--color" aria-hidden="true"></div>
+      <div class="home-hero-bg__grid"></div>
+    </div>
+  </div>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
