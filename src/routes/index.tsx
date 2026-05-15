@@ -59,7 +59,7 @@ function IndexSplash() {
   }, [leaving, navigate, reduceMotion, target])
 
   return (
-    <div className="fixed inset-0 isolate flex items-center justify-center overflow-hidden bg-background text-foreground carddebt-splash-root data-[leaving=true]:carddebt-splash-leave"
+    <div className="fixed inset-0 isolate flex min-h-dvh w-full items-center justify-center overflow-hidden bg-[#09090b] text-foreground carddebt-splash-root data-[leaving=true]:carddebt-splash-leave"
       data-leaving={leaving}
     >
       <div className="pointer-events-none absolute inset-0 opacity-80 carddebt-splash-bg" />

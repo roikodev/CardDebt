@@ -20,7 +20,28 @@ import {
 } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
-import { Camera, Image as ImageIcon } from "lucide-react"
+
+/** Card + magnifier motif for “Identify Card” (not from Lucide). */
+function IdentifyCardIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <rect x="3" y="5" width="11" height="15" rx="1.75" />
+      <path d="M6 9h5M6 12h3.5" />
+      <circle cx="16.75" cy="8.75" r="3.25" />
+      <path d="M19 11 21.5 13.5" />
+    </svg>
+  )
+}
 
 async function dataUrlToJpegDataUrl(
   dataUrl: string,
@@ -92,6 +113,125 @@ function logAskAiDevDetail(context: string, detail: unknown) {
   }
 }
 
+/** Shape returned by `research-card-price` when the model follows the contract. */
+export type ResearchCardFields = {
+  game_title?: string
+  name?: string
+  set_number?: string
+  card_number?: string
+  rarity?: string
+  formatted_result?: string
+  introduction?: string
+  estimated_price?: string
+  reasoning?: string
+}
+
+function formatHkdDisplay(value: string | undefined): string {
+  if (value === undefined || !String(value).trim()) return "—"
+  const s = String(value).trim()
+  const n = Number(s.replace(/,/g, "").replace(/[^0-9.-]/g, ""))
+  if (Number.isFinite(n) && /[0-9]/.test(s)) {
+    try {
+      return new Intl.NumberFormat("en-HK", {
+        style: "currency",
+        currency: "HKD",
+        maximumFractionDigits: 0,
+      }).format(n)
+    } catch {
+      return `HK$${n.toLocaleString("en-HK")}`
+    }
+  }
+  return s
+}
+
+function stringifyDataFallback(data: unknown): string | null {
+  if (typeof data === "string") return data
+  if (data !== null && typeof data === "object") return JSON.stringify(data, null, 2)
+  return null
+}
+
+/**
+ * Accepts top-level JSON, `{ answer: string | object }`, or a stringified JSON in `answer`.
+ */
+function extractResearchFromInvokeData(data: unknown): {
+  cardResult: ResearchCardFields | null
+  rawFallback: string | null
+} {
+  if (data === null || data === undefined) {
+    return { cardResult: null, rawFallback: null }
+  }
+
+  let candidate: Record<string, unknown> | null = null
+
+  if (typeof data === "object" && data !== null) {
+    const top = data as Record<string, unknown>
+    if (typeof top.answer === "string") {
+      try {
+        const parsed = JSON.parse(top.answer) as unknown
+        if (parsed !== null && typeof parsed === "object") {
+          candidate = parsed as Record<string, unknown>
+        } else {
+          return { cardResult: null, rawFallback: top.answer }
+        }
+      } catch {
+        return { cardResult: null, rawFallback: top.answer }
+      }
+    } else if (top.answer !== null && typeof top.answer === "object") {
+      candidate = top.answer as Record<string, unknown>
+    } else {
+      candidate = top
+    }
+  } else if (typeof data === "string") {
+    try {
+      const parsed = JSON.parse(data) as unknown
+      if (parsed !== null && typeof parsed === "object") {
+        candidate = parsed as Record<string, unknown>
+      } else {
+        return { cardResult: null, rawFallback: data }
+      }
+    } catch {
+      return { cardResult: null, rawFallback: data }
+    }
+  }
+
+  if (!candidate) {
+    return { cardResult: null, rawFallback: stringifyDataFallback(data) }
+  }
+
+  const pickStr = (k: string) => {
+    const v = candidate![k]
+    return typeof v === "string" ? v.trim() : undefined
+  }
+  const pickStrOrNum = (k: string) => {
+    const v = candidate![k]
+    if (typeof v === "string") return v.trim()
+    if (typeof v === "number" && Number.isFinite(v)) return String(v)
+    return undefined
+  }
+
+  const cardResult: ResearchCardFields = {
+    game_title: pickStr("game_title"),
+    name: pickStr("name"),
+    set_number: pickStr("set_number"),
+    card_number: pickStr("card_number"),
+    rarity: pickStr("rarity"),
+    formatted_result: pickStr("formatted_result"),
+    estimated_price: pickStrOrNum("estimated_price"),
+    introduction: pickStr("introduction"),
+    reasoning: pickStr("reasoning"),
+  }
+
+  const hasStructured =
+    Boolean(cardResult.introduction) ||
+    Boolean(cardResult.game_title) ||
+    Boolean(cardResult.formatted_result) ||
+    Boolean(cardResult.estimated_price) ||
+    Boolean(cardResult.reasoning)
+
+  if (hasStructured) return { cardResult, rawFallback: null }
+  return { cardResult: null, rawFallback: stringifyDataFallback(candidate) }
+}
+
 const LOADING_MESSAGES = [
   "Sharpening card edges in the image…",
   "Matching print patterns to known sets…",
@@ -121,7 +261,7 @@ function progressFromElapsedSeconds(elapsedSec: number): number {
 const RING_R = 52
 const RING_C = 2 * Math.PI * RING_R
 
-type Stage = "pick" | "camera" | "loading" | "done"
+type Stage = "pick" | "loading" | "done"
 
 type Props = {
   open: boolean
@@ -223,11 +363,12 @@ function AskAiCircularProgress({
 export function AskAiResearchDialog({ open, onOpenChange }: Props) {
   const loadingTitleId = useId()
   const [stage, setStage] = useState<Stage>("pick")
-  const [showCameraOption, setShowCameraOption] = useState(false)
   const [loadingMsg, setLoadingMsg] = useState(() => pickLoadingMessage())
   const [fakeProgress, setFakeProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [answer, setAnswer] = useState<string | null>(null)
+  const [cardResult, setCardResult] = useState<ResearchCardFields | null>(null)
+  const [resultRawFallback, setResultRawFallback] = useState<string | null>(null)
+  const [loadingFadeOut, setLoadingFadeOut] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const albumInputRef = useRef<HTMLInputElement | null>(null)
@@ -235,14 +376,12 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
   const albumPickerReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   )
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
   const msgTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const researchLoadingStartedAtRef = useRef(0)
 
   const loadingOverlayOpen = open && stage === "loading"
-  const showChooser = open && (stage === "pick" || stage === "camera")
+  const showChooser = open && stage === "pick"
   const showResult = open && stage === "done"
 
   const stopLoadingMotion = useCallback(() => {
@@ -256,15 +395,6 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
     }
   }, [])
 
-  const stopCamera = useCallback(() => {
-    const s = streamRef.current
-    if (s) {
-      for (const t of s.getTracks()) t.stop()
-      streamRef.current = null
-    }
-    if (videoRef.current) videoRef.current.srcObject = null
-  }, [])
-
   const releaseAlbumPickerGuard = useCallback(() => {
     albumPickerGuardRef.current = false
     if (albumPickerReleaseTimerRef.current) {
@@ -275,38 +405,21 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
 
   const resetAll = useCallback(() => {
     releaseAlbumPickerGuard()
-    stopCamera()
     setStage("pick")
     setError(null)
-    setAnswer(null)
+    setCardResult(null)
+    setResultRawFallback(null)
+    setLoadingFadeOut(false)
     setPreviewUrl(null)
     setFakeProgress(0)
     setLoadingMsg(pickLoadingMessage())
     if (albumInputRef.current) albumInputRef.current.value = ""
     stopLoadingMotion()
-  }, [releaseAlbumPickerGuard, stopCamera, stopLoadingMotion])
+  }, [releaseAlbumPickerGuard, stopLoadingMotion])
 
   useEffect(() => {
     if (!open) {
       resetAll()
-      return
-    }
-    function syncCameraOption() {
-      const wideFineDesktop =
-        window.matchMedia("(min-width: 1024px)").matches &&
-        window.matchMedia("(pointer: fine)").matches
-      setShowCameraOption(
-        !wideFineDesktop && Boolean(navigator.mediaDevices?.getUserMedia)
-      )
-    }
-    syncCameraOption()
-    const mq1 = window.matchMedia("(min-width: 1024px)")
-    const mq2 = window.matchMedia("(pointer: fine)")
-    mq1.addEventListener("change", syncCameraOption)
-    mq2.addEventListener("change", syncCameraOption)
-    return () => {
-      mq1.removeEventListener("change", syncCameraOption)
-      mq2.removeEventListener("change", syncCameraOption)
     }
   }, [open, resetAll])
 
@@ -324,13 +437,16 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
       researchLoadingStartedAtRef.current = Date.now()
       setStage("loading")
       setError(null)
-      setAnswer(null)
+      setCardResult(null)
+      setResultRawFallback(null)
+      setLoadingFadeOut(false)
       setFakeProgress(2)
       setLoadingMsg(pickLoadingMessage())
 
       const revealOutcome = async (payload: {
-        answer: string | null
         error: string | null
+        cardResult?: ResearchCardFields | null
+        resultRawFallback?: string | null
         settlingMs?: number
       }) => {
         stopLoadingMotion()
@@ -342,8 +458,14 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
         )
         const waitMs = payload.settlingMs ?? 2_600
         await new Promise<void>((resolve) => setTimeout(resolve, waitMs))
+        setLoadingFadeOut(true)
+        await new Promise<void>((resolve) => setTimeout(resolve, 420))
+        setLoadingFadeOut(false)
         setError(payload.error)
-        setAnswer(payload.answer)
+        setCardResult(payload.error ? null : (payload.cardResult ?? null))
+        setResultRawFallback(
+          payload.error ? null : (payload.resultRawFallback ?? null)
+        )
         setStage("done")
       }
 
@@ -354,7 +476,6 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
             jpegDataUrl = await dataUrlToJpegDataUrl(rawDataUrl, 1600, 0.92)
           } catch {
             await revealOutcome({
-              answer: null,
               error: "We couldn't process that image. Try another photo.",
               settlingMs: 1_450,
             })
@@ -367,7 +488,6 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
         const imageBase64 = dataUrlToRawBase64(jpegDataUrl)
         if (!imageBase64 || imageBase64.length < 100) {
           await revealOutcome({
-            answer: null,
             error: "That photo couldn't be used. Try a clearer image.",
             settlingMs: 1_450,
           })
@@ -382,7 +502,6 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
         if (fnError) {
           logAskAiDevDetail("research-card-price invoke", fnError)
           await revealOutcome({
-            answer: null,
             error:
               "We couldn't complete the request. Check your connection and try again.",
           })
@@ -390,7 +509,6 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
         }
         if (data === null || data === undefined) {
           await revealOutcome({
-            answer: null,
             error: "No result came back. Please try again.",
           })
           return
@@ -400,34 +518,22 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
           if (msg) {
             logAskAiDevDetail("research-card-price response error field", msg)
             await revealOutcome({
-              answer: null,
               error: "We couldn't finish this lookup. Please try again.",
             })
             return
           }
         }
 
-        let resolvedAnswer: string | null = null
-        if (typeof data === "object" && data !== null) {
-          if ("answer" in data) {
-            const ans = (data as { answer?: unknown }).answer
-            if (typeof ans === "string") {
-              resolvedAnswer = ans
-            } else if (ans !== null && typeof ans === "object") {
-              resolvedAnswer = JSON.stringify(ans, null, 2)
-            }
-          }
-        }
-        if (resolvedAnswer === null) {
-          resolvedAnswer =
-            typeof data === "string" ? data : JSON.stringify(data, null, 2)
-        }
-
-        await revealOutcome({ answer: resolvedAnswer, error: null })
+        const { cardResult: parsedCard, rawFallback } =
+          extractResearchFromInvokeData(data)
+        await revealOutcome({
+          error: null,
+          cardResult: parsedCard,
+          resultRawFallback: rawFallback,
+        })
       } catch (e) {
         logAskAiDevDetail("research-card-price unexpected", e)
         await revealOutcome({
-          answer: null,
           error: "Something went wrong. Please try again.",
         })
       }
@@ -508,59 +614,22 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
     [releaseAlbumPickerGuard, runResearch]
   )
 
-  const openCamera = useCallback(async () => {
-    setError(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
-      })
-      streamRef.current = stream
-      setStage("camera")
-    } catch {
-      setError("Could not access the camera. Check permissions or try Album.")
-      setStage("pick")
+  const openIdentifyCardPicker = useCallback(() => {
+    albumPickerGuardRef.current = true
+    if (albumPickerReleaseTimerRef.current) {
+      clearTimeout(albumPickerReleaseTimerRef.current)
     }
+    albumPickerReleaseTimerRef.current = window.setTimeout(() => {
+      albumPickerGuardRef.current = false
+      albumPickerReleaseTimerRef.current = null
+    }, 120_000)
+    albumInputRef.current?.click()
   }, [])
 
-  useEffect(() => {
-    if (stage !== "camera") return
-    const v = videoRef.current
-    const s = streamRef.current
-    if (!v || !s) return
-    v.srcObject = s
-    void v.play().catch(() => {})
-    return () => {
-      v.srcObject = null
-    }
-  }, [stage])
-
-  const captureFromCamera = useCallback(async () => {
-    const video = videoRef.current
-    if (!video || video.videoWidth < 2 || video.videoHeight < 2) {
-      setError("Camera is not ready yet. Wait a moment and try again.")
-      return
-    }
-    stopCamera()
-    const canvas = document.createElement("canvas")
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const g = canvas.getContext("2d")
-    if (!g) {
-      setError("Could not read camera frame.")
-      setStage("pick")
-      return
-    }
-    g.drawImage(video, 0, 0)
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92)
-    void runResearch(dataUrl)
-  }, [runResearch, stopCamera])
-
   const closeEntireFlow = useCallback(() => {
-    stopCamera()
     resetAll()
     onOpenChange(false)
-  }, [onOpenChange, resetAll, stopCamera])
+  }, [onOpenChange, resetAll])
 
   useEffect(() => {
     if (!loadingOverlayOpen) return
@@ -576,7 +645,6 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
 
   const onChooserOpenChange = (next: boolean) => {
     if (!next) {
-      stopCamera()
       resetAll()
       onOpenChange(false)
     }
@@ -584,7 +652,6 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
 
   const onResultOpenChange = (next: boolean) => {
     if (!next) {
-      stopCamera()
       resetAll()
       onOpenChange(false)
     }
@@ -592,7 +659,9 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
 
   const askAgainFromResult = () => {
     setError(null)
-    setAnswer(null)
+    setCardResult(null)
+    setResultRawFallback(null)
+    setLoadingFadeOut(false)
     setPreviewUrl(null)
     setFakeProgress(0)
     setLoadingMsg(pickLoadingMessage())
@@ -602,23 +671,45 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
   const optionBtnClass =
     "h-28 flex-col items-center justify-center gap-2 text-center whitespace-normal"
 
+  const resultPreviewImage = previewUrl ? (
+    <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
+      <img
+        src={previewUrl}
+        alt="Photo used for this estimate"
+        className="mx-auto max-h-48 w-full max-w-md object-contain"
+      />
+    </div>
+  ) : null
+
   const loadingModal =
     loadingOverlayOpen &&
     typeof document !== "undefined" &&
     createPortal(
       <div
-        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-6 backdrop-blur-md supports-backdrop-filter:bg-black/35 motion-reduce:backdrop-blur-sm"
+        className={cn(
+          "fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-6 backdrop-blur-md supports-backdrop-filter:bg-black/35 motion-reduce:backdrop-blur-sm",
+          "transition-opacity duration-300 ease-out motion-reduce:transition-none",
+          loadingFadeOut ? "opacity-0" : "opacity-100"
+        )}
         role="dialog"
         aria-modal="true"
         aria-labelledby={loadingTitleId}
       >
-        <div className="relative flex max-w-md flex-col items-center gap-8 rounded-2xl border border-foreground/10 bg-popover/95 px-10 py-12 text-center shadow-2xl ring-1 ring-foreground/5 supports-backdrop-filter:bg-popover/80">
+        <div
+          className={cn(
+            "relative flex max-w-md flex-col items-center gap-8 rounded-2xl border border-foreground/10 bg-popover/95 px-10 py-12 text-center shadow-2xl ring-1 ring-foreground/5 supports-backdrop-filter:bg-popover/80",
+            "transition duration-300 ease-out motion-reduce:transition-none",
+            loadingFadeOut
+              ? "translate-y-2 scale-[0.97] opacity-0"
+              : "translate-y-0 scale-100 opacity-100"
+          )}
+        >
           <div className="space-y-2">
             <h2
               id={loadingTitleId}
               className="font-heading text-lg font-medium text-foreground"
             >
-              Researching price
+              Identifying the Card...
             </h2>
             <p className="text-sm text-muted-foreground">
               Estimating from your card photo — this can take up to a minute.
@@ -648,8 +739,7 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
         />
       ) : null}
 
-      {showChooser ? (
-        <Dialog open onOpenChange={onChooserOpenChange}>
+      <Dialog open={showChooser} onOpenChange={onChooserOpenChange}>
         <DialogContent
           className="flex max-h-[min(90dvh,85vh)] min-h-0 min-w-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-xl"
           onPointerDownOutside={(ev) => {
@@ -659,122 +749,44 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
             if (albumPickerGuardRef.current) ev.preventDefault()
           }}
         >
-          {stage === "pick" ? (
-            <>
-              <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
-                <DialogTitle>Ask AI</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Choose camera or photo library to add a card picture.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="px-4 pb-4 sm:px-6 sm:pb-6">
-                <div
-                  className={cn(
-                    "mt-2 grid gap-3",
-                    showCameraOption ? "grid-cols-2" : "grid-cols-1"
-                  )}
-                >
-                  {showCameraOption ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={optionBtnClass}
-                      onClick={() => void openCamera()}
-                    >
-                      <Camera aria-hidden className="size-9" />
-                      <span className="break-words text-sm font-medium leading-tight">
-                        Camera
-                      </span>
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={optionBtnClass}
-                    onClick={() => {
-                      albumPickerGuardRef.current = true
-                      if (albumPickerReleaseTimerRef.current) {
-                        clearTimeout(albumPickerReleaseTimerRef.current)
-                      }
-                      albumPickerReleaseTimerRef.current = window.setTimeout(
-                        () => {
-                          albumPickerGuardRef.current = false
-                          albumPickerReleaseTimerRef.current = null
-                        },
-                        120_000
-                      )
-                      albumInputRef.current?.click()
-                    }}
-                  >
-                    <ImageIcon aria-hidden className="size-9" />
-                    <span className="break-words text-sm font-medium leading-tight">
-                      Album
-                    </span>
-                  </Button>
-                </div>
-                {error ? (
-                  <p className="mt-3 text-center text-sm text-destructive">
-                    {error}
-                  </p>
-                ) : null}
-                {!showCameraOption ? (
-                  <p className="mt-3 text-center text-xs text-muted-foreground">
-                    Use Album to choose a photo from your device.
-                  </p>
-                ) : null}
-              </div>
-            </>
-          ) : null}
-
-          {stage === "camera" ? (
-            <>
-              <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
-                <DialogTitle>Capture card</DialogTitle>
-                <DialogDescription>
-                  Frame the card in good light, then tap Capture.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogBody className="flex min-h-0 flex-col gap-4 px-4 sm:px-6">
-                <div className="relative overflow-hidden rounded-xl border border-border bg-black/90">
-                  <video
-                    ref={videoRef}
-                    className="aspect-[4/3] w-full object-cover"
-                    playsInline
-                    muted
-                    autoPlay
-                  />
-                </div>
-                {error ? (
-                  <p className="text-sm text-destructive">{error}</p>
-                ) : null}
-              </DialogBody>
-              <DialogFooter className="shrink-0 border-t px-4 py-3 sm:px-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    stopCamera()
-                    setError(null)
-                    setStage("pick")
-                  }}
-                >
-                  Back
-                </Button>
-                <Button type="button" onClick={() => void captureFromCamera()}>
-                  Capture
-                </Button>
-              </DialogFooter>
-            </>
-          ) : null}
+          <>
+            <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
+              <DialogTitle>Ask AI</DialogTitle>
+              <DialogDescription className="sr-only">
+                Choose a card photo from your device to identify it.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="px-4 pb-4 sm:px-6 sm:pb-6">
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(optionBtnClass, "mt-2 w-full")}
+                onClick={openIdentifyCardPicker}
+              >
+                <IdentifyCardIcon className="size-9 shrink-0" />
+                <span className="break-words text-sm font-medium leading-tight">
+                  Identify Card
+                </span>
+              </Button>
+              {error ? (
+                <p className="mt-3 text-center text-sm text-destructive">
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </>
         </DialogContent>
       </Dialog>
-      ) : null}
 
       {loadingModal}
 
-      {showResult ? (
-        <Dialog open onOpenChange={onResultOpenChange}>
-        <DialogContent className="flex max-h-[min(90dvh,85vh)] min-h-0 min-w-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-xl">
+      <Dialog open={showResult} onOpenChange={onResultOpenChange}>
+        <DialogContent
+          className={cn(
+            "flex max-h-[min(90dvh,85vh)] min-h-0 min-w-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-xl",
+            "duration-500"
+          )}
+        >
           <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
             <DialogTitle>Result</DialogTitle>
             <DialogDescription className="sr-only">
@@ -782,33 +794,109 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="flex min-h-0 flex-col gap-4 px-4 sm:px-6">
-            {previewUrl ? (
-              <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
-                <img
-                  src={previewUrl}
-                  alt="Card used for research"
-                  className="mx-auto max-h-40 w-full max-w-md object-contain"
-                />
+            {error ? (
+              <div className="flex flex-col gap-4">
+                {resultPreviewImage}
+                <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive sm:text-sm">
+                  {error}
+                </p>
               </div>
             ) : null}
 
-            {error ? (
-              <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive sm:text-sm">
-                {error}
-              </p>
+            {!error && cardResult ? (
+              <div className="flex flex-col gap-5">
+                {resultPreviewImage}
+
+                {cardResult.introduction ? (
+                  <div className="rounded-lg border border-border bg-muted/15 px-3 py-3 sm:px-4">
+                    <div className="space-y-1.5">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Introduction
+                      </p>
+                      <p className="text-sm leading-relaxed text-foreground">
+                        {cardResult.introduction}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {cardResult.game_title ? (
+                  <div className="space-y-1">
+                    <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Game
+                    </p>
+                    <p className="font-heading text-base font-medium leading-snug">
+                      {cardResult.game_title}
+                    </p>
+                  </div>
+                ) : null}
+
+                {(() => {
+                  const line =
+                    cardResult.formatted_result?.trim() ||
+                    [
+                      [cardResult.set_number, cardResult.card_number]
+                        .filter(Boolean)
+                        .join(" "),
+                      cardResult.name,
+                      cardResult.rarity,
+                    ]
+                      .filter((x) => x && String(x).trim())
+                      .join(" · ") ||
+                    cardResult.name?.trim()
+                  if (!line) return null
+                  return (
+                    <div className="space-y-1">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Card
+                      </p>
+                      <p className="font-heading text-lg font-semibold leading-snug">
+                        {line}
+                      </p>
+                    </div>
+                  )
+                })()}
+
+                {cardResult.estimated_price !== undefined &&
+                String(cardResult.estimated_price).trim() ? (
+                  <div className="rounded-xl border border-border bg-gradient-to-br from-violet-500/8 via-transparent to-cyan-500/8 px-4 py-4">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Estimated market price (HKD)
+                    </p>
+                    <p className="mt-1.5 font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                      {formatHkdDisplay(cardResult.estimated_price)}
+                    </p>
+                  </div>
+                ) : null}
+
+                {cardResult.reasoning ? (
+                  <details className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">
+                    <summary className="cursor-pointer font-medium text-foreground outline-none">
+                      Why this estimate
+                    </summary>
+                    <p className="mt-2 text-muted-foreground leading-relaxed">
+                      {cardResult.reasoning}
+                    </p>
+                  </details>
+                ) : null}
+              </div>
             ) : null}
 
-            {answer !== null && !error ? (
-              <div className="flex min-h-[10rem] flex-col gap-2">
-                <div
-                  className="max-h-[min(50dvh,22rem)] flex-1 overflow-auto rounded-lg border border-border bg-muted/25 p-3 font-mono text-xs whitespace-pre-wrap sm:text-sm"
-                >
-                  {answer}
+            {!error && resultRawFallback ? (
+              <div className="flex min-h-[10rem] flex-col gap-4">
+                {resultPreviewImage}
+                <p className="text-xs text-muted-foreground">
+                  Result was not in the expected format; showing raw response.
+                </p>
+                <div className="max-h-[min(50dvh,22rem)] flex-1 overflow-auto rounded-lg border border-border bg-muted/25 p-3 font-mono text-xs whitespace-pre-wrap sm:text-sm">
+                  {resultRawFallback}
                 </div>
               </div>
             ) : null}
 
-            {!answer && !error ? (
+            {!error &&
+            !cardResult &&
+            !resultRawFallback ? (
               <p className="text-sm text-muted-foreground">
                 No estimate was returned. Try another photo.
               </p>
@@ -824,7 +912,6 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      ) : null}
     </>
   )
 }

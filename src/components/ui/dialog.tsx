@@ -5,6 +5,13 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
+/**
+ * Enter/exit motion uses `data-open:` / `data-closed:` utilities from the registry.
+ * In shadcn Tailwind (`shadcn/tailwind.css`), those custom variants match Radix
+ * `[data-state="open"]` / `[data-state="closed"]` — use `data-open:` here, not only
+ * `data-[state=open]:`, so animations stay aligned with the CLI defaults.
+ */
+
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {

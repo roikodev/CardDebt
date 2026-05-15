@@ -7,9 +7,11 @@ export function NoAuthLayout({ children }: { children?: ReactNode }) {
   const pathname = useLocation({ select: (l) => l.pathname })
 
   return (
-    <main className="home-hero relative flex min-h-[100dvh] flex-col overflow-hidden bg-transparent text-foreground">
+    <main
+      className="home-hero relative flex min-h-dvh w-full flex-col overflow-hidden bg-transparent text-foreground pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]"
+    >
       <div className="relative z-10 isolate flex min-h-0 w-full flex-1 flex-col">
-        <div className="flex shrink-0 justify-center px-4 pb-2 pt-8 sm:pt-10">
+        <div className="flex shrink-0 justify-center pb-2 pt-[calc(2rem+env(safe-area-inset-top,0px))] sm:pt-[calc(2.5rem+env(safe-area-inset-top,0px))]">
           <div className="relative">
             <div
               className="absolute -inset-3 rounded-[1.35rem] bg-primary/20 blur-xl dark:bg-primary/25"
