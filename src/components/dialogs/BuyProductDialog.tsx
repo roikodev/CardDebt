@@ -34,10 +34,22 @@ import {
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { supabase } from "@/lib/supabase"
+import {
+  GAME_TITLE_OPTIONS,
+  GAME_TITLE_VALUES,
+  type GameTitleValue,
+} from "@/lib/gameTitles"
 import { toast } from "sonner"
 
 const PROVIDERS = ["PSA"] as const
-const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
+
+export {
+  GAME_TITLE_OPTIONS,
+  GAME_TITLE_VALUES,
+  GAME_TITLES,
+  type GameTitleValue,
+  gameTitleDisplayText,
+} from "@/lib/gameTitles"
 
 function todayISODate(): string {
   const d = new Date()
@@ -110,7 +122,7 @@ const buyProductFormSchema = z
         { message: "Source Image is required" }
       )
     ),
-    gameTitle: z.enum(GAME_TITLES).nullable().optional(),
+    gameTitle: z.enum(GAME_TITLE_VALUES).nullable().optional(),
     category: z.enum(["Card", "Product"]),
     cardNo: z.string(),
     name: z.string().min(1, "Name is required"),
@@ -167,7 +179,7 @@ const buyProductFormSchema = z
 
 export type BuyProductFormValues = {
   sourceImage: File | null
-  gameTitle: (typeof GAME_TITLES)[number] | null
+  gameTitle: GameTitleValue | null
   category: "Card" | "Product"
   cardNo: string
   name: string
@@ -197,12 +209,15 @@ type BuyProductDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmitSuccess?: (values: BuyProductFormValues) => void
+  /** Merged into defaults when `open` becomes true; clear from parent when dialog closes. */
+  prefill?: Partial<BuyProductFormValues> | null
 }
 
 export function BuyProductDialog({
   open,
   onOpenChange,
   onSubmitSuccess,
+  prefill = null,
 }: BuyProductDialogProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null)
@@ -224,13 +239,31 @@ export function BuyProductDialog({
   const graded = useWatch({ control, name: "graded" })
 
   useEffect(() => {
-    if (open) {
-      reset({
-        ...defaultFormValues,
-        purchaseDate: todayISODate(),
-      })
+    if (!open) return
+
+    setSourceImageUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+
+    const base: BuyProductFormValues = {
+      ...defaultFormValues,
+      purchaseDate: todayISODate(),
     }
-  }, [open, reset])
+    const merged: BuyProductFormValues = {
+      ...base,
+      ...(prefill ?? {}),
+      sourceImage: prefill?.sourceImage ?? null,
+      purchaseDate: prefill?.purchaseDate?.trim()
+        ? prefill.purchaseDate
+        : base.purchaseDate,
+    }
+    reset(merged)
+
+    if (prefill?.sourceImage) {
+      setSourceImageUrl(URL.createObjectURL(prefill.sourceImage))
+    }
+  }, [open, prefill, reset])
 
   useEffect(() => {
     return () => {
@@ -546,7 +579,7 @@ export function BuyProductDialog({
                     <Select
                       value={field.value ?? undefined}
                       onValueChange={(v) =>
-                        field.onChange((v as BuyProductFormValues["gameTitle"]) ?? null)
+                        field.onChange((v as GameTitleValue) ?? null)
                       }
                     >
                       <SelectTrigger id="buy-game-title" className="w-full" size="default">
@@ -554,9 +587,9 @@ export function BuyProductDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          {GAME_TITLES.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
+                          {GAME_TITLE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
                             </SelectItem>
                           ))}
                         </SelectGroup>

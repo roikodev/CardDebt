@@ -19,10 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { GAME_TITLE_OPTIONS } from "@/lib/gameTitles"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
-
-const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
 
 async function preprocessImageForUpload(input: File): Promise<File> {
   const MAX_DIM = 2048
@@ -303,9 +302,9 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {GAME_TITLES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
+                    {GAME_TITLE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
                       </SelectItem>
                     ))}
                   </SelectGroup>

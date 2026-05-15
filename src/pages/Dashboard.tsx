@@ -17,13 +17,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { BuyProductDialog } from "@/components/dialogs/BuyProductDialog"
+import {
+  BuyProductDialog,
+  type BuyProductFormValues,
+} from "@/components/dialogs/BuyProductDialog"
 import { BuyProductByCardBaseDialog } from "@/components/dialogs/BuyProductByCardBaseDialog"
 import { CardBaseDialog } from "@/components/dialogs/CardBaseDialog"
 import { SellChooseItemDialog, type SellChoice } from "@/components/dialogs/SellChooseItemDialog"
 import { SellInfoDialog } from "@/components/dialogs/SellInfoDialog"
 import { MiscellaneousEntryDialog } from "@/components/dialogs/MiscellaneousEntryDialog"
-import { AskAiResearchDialog } from "@/components/dialogs/AskAiResearchDialog"
+import {
+  AskAiResearchDialog,
+  type AskAiPurchaseIntentPayload,
+  type ResearchCardFields,
+  sanitizeModelGameTitle,
+} from "@/components/dialogs/AskAiResearchDialog"
 import { BalanceChangeCard, TotalBalanceCard } from "@/components/dashboard/BalanceCards"
 import { RoiSection } from "@/components/dashboard/RoiSection"
 import { SpendingPieSection } from "@/components/dashboard/SpendingPieSection"
@@ -53,9 +61,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
+import { GAME_TITLES } from "@/lib/gameTitles"
 import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
 import { useNavigate } from "@tanstack/react-router"
+import { toast } from "sonner"
 import {
   CreditCard,
   Folder,
@@ -81,6 +91,102 @@ function daysAgoISODate(days: number): string {
   const mm = String(d.getMonth() + 1).padStart(2, "0")
   const dd = String(d.getDate()).padStart(2, "0")
   return `${yyyy}-${mm}-${dd}`
+}
+
+function matchGameTitleForBuy(
+  ai: string | null | undefined
+): BuyProductFormValues["gameTitle"] {
+  const cleaned = sanitizeModelGameTitle(
+    typeof ai === "string" ? ai : undefined
+  )
+  if (!cleaned?.trim()) return null
+  const t = cleaned.trim()
+  if ((GAME_TITLES as readonly string[]).includes(t)) {
+    return t as BuyProductFormValues["gameTitle"]
+  }
+  const lower = t.toLowerCase()
+  const exactCi = GAME_TITLES.find((x) => x.toLowerCase() === lower)
+  if (exactCi) return exactCi
+
+  const legacy: Record<string, BuyProductFormValues["gameTitle"]> = {
+    "pokemon jp": "Pokémon TCG JP",
+    "ygo ocg": "Yu-Gi-Oh! JP OCG",
+    bs: "Battle Spirits",
+  }
+  return legacy[lower] ?? null
+}
+
+function cardDisplayLineFromResearch(c: ResearchCardFields | null): string {
+  if (!c) return ""
+  return (
+    c.formatted_result?.trim() ||
+    [
+      [c.set_number, c.card_number].filter(Boolean).join(" "),
+      c.name,
+      c.rarity,
+    ]
+      .filter((x) => x && String(x).trim())
+      .join(" · ") ||
+    c.name?.trim() ||
+    ""
+  )
+}
+
+function parseAiEstimatedPriceHkd(v: string | undefined): number {
+  if (!v?.trim()) return 0
+  const n = Number(String(v).replace(/,/g, "").replace(/[^0-9.-]/g, ""))
+  return Number.isFinite(n) ? Math.round(n) : 0
+}
+
+/** Map AI grading_level text to a numeric grade string for the buy form. */
+function parseAiGradingLevelToFormGrade(level: string | undefined): string {
+  if (!level?.trim()) return ""
+  const t = level.trim()
+  const direct = parseFloat(t)
+  if (Number.isFinite(direct) && direct > 0) return String(direct)
+  const m = t.match(/(\d+(?:\.\d+)?)/)
+  if (m) {
+    const n = parseFloat(m[1])
+    if (Number.isFinite(n) && n > 0) return String(n)
+  }
+  return ""
+}
+
+async function fileFromImageDataUrl(dataUrl: string): Promise<File> {
+  const res = await fetch(dataUrl)
+  const blob = await res.blob()
+  return new File([blob], "ask-ai-card.jpg", {
+    type: blob.type && blob.type.startsWith("image/") ? blob.type : "image/jpeg",
+  })
+}
+
+async function buyPrefillFromAskAi(
+  payload: AskAiPurchaseIntentPayload
+): Promise<Partial<BuyProductFormValues>> {
+  const { previewDataUrl, cardResult } = payload
+  if (!previewDataUrl) throw new Error("No preview image")
+  const file = await fileFromImageDataUrl(previewDataUrl)
+  const cr = cardResult
+  const line = cardDisplayLineFromResearch(cr)
+  const name = (cr?.name?.trim() || line || "Purchased card").slice(0, 500)
+  const cardNo = [cr?.set_number, cr?.card_number].filter(Boolean).join(" ").trim()
+  const gi = cr?.grading_info
+  const gradeStr = parseAiGradingLevelToFormGrade(gi?.grading_level)
+  const graded = Boolean(gradeStr && Number(gradeStr) > 0)
+  const provider = (gi?.provider?.trim() || "PSA").slice(0, 80)
+
+  return {
+    sourceImage: file,
+    gameTitle: matchGameTitleForBuy(cr?.game_title),
+    category: "Card",
+    cardNo,
+    name,
+    graded,
+    price: parseAiEstimatedPriceHkd(cr?.estimated_price),
+    quantity: 1,
+    provider: graded ? provider : "PSA",
+    grade: graded ? gradeStr : "",
+  }
 }
 
 function useAnimatedBalance({
@@ -198,6 +304,9 @@ export function Dashboard() {
   const [sellChoice, setSellChoice] = useState<SellChoice | null>(null)
   const [miscOpen, setMiscOpen] = useState(false)
   const [askAiOpen, setAskAiOpen] = useState(false)
+  const [buyPrefill, setBuyPrefill] = useState<Partial<BuyProductFormValues> | null>(
+    null
+  )
   const [cardBaseOpen, setCardBaseOpen] = useState(false)
   const [buyByCardBaseOpen, setBuyByCardBaseOpen] = useState(false)
   const [selectedCardBaseItem, setSelectedCardBaseItem] =
@@ -243,6 +352,24 @@ export function Dashboard() {
   const [roiRowsAnimKey, setRoiRowsAnimKey] = useState(0)
   const roiRunRef = useRef(0)
   const [roiExpandedKey, setRoiExpandedKey] = useState<string | null>(null)
+
+  const onAskAiPurchaseIntent = useCallback(
+    async (payload: AskAiPurchaseIntentPayload) => {
+      if (!payload.previewDataUrl) {
+        toast.error("No photo is available to attach to this purchase.")
+        return
+      }
+      try {
+        const partial = await buyPrefillFromAskAi(payload)
+        setBuyPrefill(partial)
+        setAskAiOpen(false)
+        setBuyOpen(true)
+      } catch {
+        toast.error("Could not prepare the purchase form. Try again.")
+      }
+    },
+    []
+  )
 
   const totalBalanceHKD = useMemo(() => {
     if (!ledger) return null
@@ -1025,7 +1152,11 @@ export function Dashboard() {
 
           <BuyProductDialog
             open={buyOpen}
-            onOpenChange={setBuyOpen}
+            onOpenChange={(next) => {
+              setBuyOpen(next)
+              if (!next) setBuyPrefill(null)
+            }}
+            prefill={buyPrefill}
             onSubmitSuccess={() => setBalanceReloadKey((n) => n + 1)}
           />
           <CardBaseDialog
@@ -1069,7 +1200,11 @@ export function Dashboard() {
             onSubmitted={() => setBalanceReloadKey((n) => n + 1)}
           />
 
-          <AskAiResearchDialog open={askAiOpen} onOpenChange={setAskAiOpen} />
+          <AskAiResearchDialog
+            open={askAiOpen}
+            onOpenChange={setAskAiOpen}
+            onPurchaseIntent={onAskAiPurchaseIntent}
+          />
 
           <ViewportDeferred
             className="col-span-12"

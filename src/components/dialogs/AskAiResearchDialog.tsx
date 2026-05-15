@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
+import { gameTitleDisplayText } from "@/lib/gameTitles"
 import { cn } from "@/lib/utils"
 
 /** Card + magnifier motif for “Identify Card” (not from Lucide). */
@@ -113,6 +114,12 @@ function logAskAiDevDetail(context: string, detail: unknown) {
   }
 }
 
+/** Optional slab / raw grade hints from `research-card-price`. */
+export type ResearchGradingInfo = {
+  grading_level?: string
+  provider?: string
+}
+
 /** Shape returned by `research-card-price` when the model follows the contract. */
 export type ResearchCardFields = {
   game_title?: string
@@ -120,6 +127,7 @@ export type ResearchCardFields = {
   set_number?: string
   card_number?: string
   rarity?: string
+  grading_info?: ResearchGradingInfo | null
   formatted_result?: string
   introduction?: string
   estimated_price?: string
@@ -148,6 +156,34 @@ function stringifyDataFallback(data: unknown): string | null {
   if (typeof data === "string") return data
   if (data !== null && typeof data === "object") return JSON.stringify(data, null, 2)
   return null
+}
+
+/** Strip schema-instruction junk if the model echoes the prompt into `game_title`. */
+export function sanitizeModelGameTitle(raw: string | undefined): string | undefined {
+  if (!raw?.trim()) return undefined
+  let s = raw.trim()
+  const cut = s.indexOf(" (Only return")
+  if (cut !== -1) s = s.slice(0, cut).trim()
+  return s || undefined
+}
+
+function pickGradingInfo(
+  candidate: Record<string, unknown>
+): ResearchGradingInfo | null | undefined {
+  const raw = candidate.grading_info
+  if (raw === undefined) return undefined
+  if (raw === null) return null
+  if (typeof raw !== "object") return null
+  const o = raw as Record<string, unknown>
+  const gl =
+    typeof o.grading_level === "string"
+      ? o.grading_level.trim()
+      : typeof o.grading_level === "number" && Number.isFinite(o.grading_level)
+        ? String(o.grading_level)
+        : undefined
+  const pv = typeof o.provider === "string" ? o.provider.trim() : undefined
+  if (!gl && !pv) return null
+  return { grading_level: gl, provider: pv }
 }
 
 /**
@@ -209,12 +245,15 @@ function extractResearchFromInvokeData(data: unknown): {
     return undefined
   }
 
+  const gradingInfo = pickGradingInfo(candidate)
+
   const cardResult: ResearchCardFields = {
-    game_title: pickStr("game_title"),
+    game_title: sanitizeModelGameTitle(pickStr("game_title")),
     name: pickStr("name"),
     set_number: pickStr("set_number"),
     card_number: pickStr("card_number"),
     rarity: pickStr("rarity"),
+    grading_info: gradingInfo === undefined ? undefined : gradingInfo,
     formatted_result: pickStr("formatted_result"),
     estimated_price: pickStrOrNum("estimated_price"),
     introduction: pickStr("introduction"),
@@ -224,9 +263,15 @@ function extractResearchFromInvokeData(data: unknown): {
   const hasStructured =
     Boolean(cardResult.introduction) ||
     Boolean(cardResult.game_title) ||
+    Boolean(cardResult.name?.trim()) ||
+    Boolean(cardResult.set_number?.trim()) ||
+    Boolean(cardResult.card_number?.trim()) ||
+    Boolean(cardResult.rarity?.trim()) ||
     Boolean(cardResult.formatted_result) ||
     Boolean(cardResult.estimated_price) ||
-    Boolean(cardResult.reasoning)
+    Boolean(cardResult.reasoning) ||
+    Boolean(cardResult.grading_info?.grading_level?.trim()) ||
+    Boolean(cardResult.grading_info?.provider?.trim())
 
   if (hasStructured) return { cardResult, rawFallback: null }
   return { cardResult: null, rawFallback: stringifyDataFallback(candidate) }
@@ -263,9 +308,16 @@ const RING_C = 2 * Math.PI * RING_R
 
 type Stage = "pick" | "loading" | "done"
 
+export type AskAiPurchaseIntentPayload = {
+  previewDataUrl: string | null
+  cardResult: ResearchCardFields | null
+}
+
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Opens Buy flow with the same photo and parsed card fields when provided. */
+  onPurchaseIntent?: (payload: AskAiPurchaseIntentPayload) => void
 }
 
 function AskAiCircularProgress({
@@ -360,7 +412,7 @@ function AskAiCircularProgress({
   )
 }
 
-export function AskAiResearchDialog({ open, onOpenChange }: Props) {
+export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Props) {
   const loadingTitleId = useId()
   const [stage, setStage] = useState<Stage>("pick")
   const [loadingMsg, setLoadingMsg] = useState(() => pickLoadingMessage())
@@ -790,7 +842,7 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
           <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
             <DialogTitle>Result</DialogTitle>
             <DialogDescription className="sr-only">
-              Price estimate and details for your card.
+              Price estimate, grading hints if available, and details for your card.
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="flex min-h-0 flex-col gap-4 px-4 sm:px-6">
@@ -823,11 +875,41 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
                 {cardResult.game_title ? (
                   <div className="space-y-1">
                     <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Game
+                      Game title
                     </p>
                     <p className="font-heading text-base font-medium leading-snug">
-                      {cardResult.game_title}
+                      {gameTitleDisplayText(cardResult.game_title)}
                     </p>
+                  </div>
+                ) : null}
+
+                {cardResult.grading_info &&
+                (cardResult.grading_info.grading_level?.trim() ||
+                  cardResult.grading_info.provider?.trim()) ? (
+                  <div className="rounded-lg border border-border bg-muted/15 px-3 py-3 sm:px-4">
+                    <div className="space-y-1.5">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Grading
+                      </p>
+                      <dl className="grid gap-1 text-sm text-foreground">
+                        {cardResult.grading_info.provider?.trim() ? (
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                            <dt className="text-muted-foreground">Provider</dt>
+                            <dd className="font-medium">
+                              {cardResult.grading_info.provider.trim()}
+                            </dd>
+                          </div>
+                        ) : null}
+                        {cardResult.grading_info.grading_level?.trim() ? (
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                            <dt className="text-muted-foreground">Level</dt>
+                            <dd className="font-medium">
+                              {cardResult.grading_info.grading_level.trim()}
+                            </dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    </div>
                   </div>
                 ) : null}
 
@@ -902,10 +984,24 @@ export function AskAiResearchDialog({ open, onOpenChange }: Props) {
               </p>
             ) : null}
           </DialogBody>
-          <DialogFooter className="shrink-0 border-t px-4 py-3 sm:px-6">
+          <DialogFooter className="flex shrink-0 flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:flex-wrap sm:justify-end sm:px-6">
             <Button type="button" variant="outline" onClick={closeEntireFlow}>
               Close
             </Button>
+            {onPurchaseIntent && previewUrl ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  onPurchaseIntent({
+                    previewDataUrl: previewUrl,
+                    cardResult,
+                  })
+                }}
+              >
+                I am about to Purchase
+              </Button>
+            ) : null}
             <Button type="button" onClick={askAgainFromResult}>
               Ask again
             </Button>

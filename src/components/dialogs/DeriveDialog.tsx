@@ -30,6 +30,7 @@ import {
 } from "@/components/form-input"
 import { FieldGroup } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { GAME_TITLE_OPTIONS, type GameTitleValue } from "@/lib/gameTitles"
 import { supabase } from "@/lib/supabase"
 import {
   DerivedItemCostDialog,
@@ -41,7 +42,6 @@ import { LayoutGrid, Plus, PlusSquare, Trash2 } from "lucide-react"
 
 type DeriveMode = "create_new" | "choose_from_base"
 
-const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
 const PROVIDERS = ["PSA"] as const
 
 type DerivedItemDraft = {
@@ -56,7 +56,7 @@ type DerivedItemDraft = {
   createNew: {
     sourceImage: File | null
     sourceImageUrl: string | null
-    gameTitle: (typeof GAME_TITLES)[number] | null
+    gameTitle: GameTitleValue | null
     category: "Card" | "Product"
     cardNo: string
     name: string
@@ -571,7 +571,7 @@ export function DeriveDialog({
                                       ...x,
                                       createNew: {
                                         ...x.createNew,
-                                        gameTitle: ((v as any) ?? null) as any,
+                                        gameTitle: (v as GameTitleValue) ?? null,
                                       },
                                     }
                                   : x
@@ -584,9 +584,9 @@ export function DeriveDialog({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
-                              {GAME_TITLES.map((t) => (
-                                <SelectItem key={t} value={t}>
-                                  {t}
+                              {GAME_TITLE_OPTIONS.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label}
                                 </SelectItem>
                               ))}
                             </SelectGroup>
