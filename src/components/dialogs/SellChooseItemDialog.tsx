@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -44,10 +45,14 @@ function SellChoiceTile({
   choice,
   workerOrigin,
   onSelect,
+  rawLabel,
+  untitledLabel,
 }: {
   choice: SellChoice
   workerOrigin?: string
   onSelect: () => void
+  rawLabel: string
+  untitledLabel: string
 }) {
   const [imgUrl, setImgUrl] = useState<string | null>(null)
 
@@ -78,7 +83,7 @@ function SellChoiceTile({
     }
   }, [choice.base?.image_cloud_path, workerOrigin])
 
-  const name = choice.base?.name ?? "Untitled"
+  const name = choice.base?.name ?? untitledLabel
   const meta = [choice.base?.game_title, choice.base?.card_no].filter(Boolean).join(" · ")
 
   return (
@@ -108,7 +113,7 @@ function SellChoiceTile({
             />
           ) : (
             <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[11px] font-semibold leading-none text-foreground">
-              Raw
+              {rawLabel}
             </span>
           )}
         </div>
@@ -126,6 +131,7 @@ type Props = {
 }
 
 export function SellChooseItemDialog({ open, onOpenChange, onSelect }: Props) {
+  const { t } = useTranslation()
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
 
   const [loading, setLoading] = useState(false)
@@ -163,7 +169,7 @@ export function SellChooseItemDialog({ open, onOpenChange, onSelect }: Props) {
       const userRes = await supabase.auth.getUser()
       const userId = userRes.data.user?.id ?? null
       if (!userId) {
-        setError("You are not signed in.")
+        setError(t("dialogs.notSignedIn"))
         setLoading(false)
         return
       }
@@ -224,13 +230,13 @@ export function SellChooseItemDialog({ open, onOpenChange, onSelect }: Props) {
       setChoices(list)
       setLoading(false)
     })()
-  }, [open])
+  }, [open, t])
 
   const subtitle = useMemo(() => {
-    if (loading) return "Loading your items…"
-    if (error) return "Could not load items."
-    return "Choose an item from your collection to sell."
-  }, [error, loading])
+    if (loading) return t("dialogs.sellChoose.loadingSubtitle")
+    if (error) return t("dialogs.sellChoose.errorSubtitle")
+    return t("dialogs.sellChoose.defaultSubtitle")
+  }, [error, loading, t])
 
   const allGameTitles = useMemo(() => {
     const set = new Set<string>()
@@ -296,19 +302,19 @@ export function SellChooseItemDialog({ open, onOpenChange, onSelect }: Props) {
             {!loading ? (
               <div className="mb-4 rounded-xl border bg-card/40 p-3">
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <Input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Name" />
+                  <Input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder={t("dialogs.placeholderName")} />
                   <Input
                     value={cardNoQuery}
                     onChange={(e) => setCardNoQuery(e.target.value)}
-                    placeholder="Card Number"
+                    placeholder={t("dialogs.placeholderCardNo")}
                   />
                   <Select value={gameTitle ?? "__all__"} onValueChange={(v) => setGameTitle(v === "__all__" ? null : v)}>
                     <SelectTrigger className="w-full" size="default">
-                      <SelectValue placeholder="Game title" />
+                      <SelectValue placeholder={t("dialogs.gameTitlePlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem value="__all__">All game titles</SelectItem>
+                        <SelectItem value="__all__">{t("dialogs.allGameTitles")}</SelectItem>
                         {allGameTitles.map((t) => (
                           <SelectItem key={t} value={t}>
                             {t}
@@ -329,20 +335,19 @@ export function SellChooseItemDialog({ open, onOpenChange, onSelect }: Props) {
               </div>
             ) : choices.length === 0 ? (
               <div className="rounded-xl border bg-card/40 p-3 text-sm text-muted-foreground">
-                No eligible items to sell. (Only items with <span className="font-medium">grading=false</span> and{" "}
-                <span className="font-medium">derived=false</span> can be sold.)
+                {t("dialogs.sellChoose.emptyEligible")}
               </div>
             ) : gradedChoices.length === 0 && rawChoices.length === 0 ? (
               <div className="rounded-xl border bg-card/40 p-3 text-sm text-muted-foreground">
-                No items match the current filters.
+                {t("dialogs.sellChoose.emptyFiltered")}
               </div>
             ) : (
               <div className="space-y-6">
                 {gradedChoices.length ? (
                   <section>
                     <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">Graded</h3>
-                      <span className="text-xs text-muted-foreground">{gradedChoices.length} groups</span>
+                      <h3 className="text-sm font-semibold">{t("dialogs.sellChoose.sectionGraded")}</h3>
+                      <span className="text-xs text-muted-foreground">{t("dialogs.groupsCount", { count: gradedChoices.length })}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                       {gradedChoices.map((c) => (
@@ -350,6 +355,8 @@ export function SellChooseItemDialog({ open, onOpenChange, onSelect }: Props) {
                           key={c.key}
                           choice={c}
                           workerOrigin={workerOrigin}
+                          rawLabel={t("dialogs.raw")}
+                          untitledLabel={t("common.untitled")}
                           onSelect={() => {
                             onOpenChange(false)
                             onSelect(c)
@@ -372,6 +379,8 @@ export function SellChooseItemDialog({ open, onOpenChange, onSelect }: Props) {
                           key={c.key}
                           choice={c}
                           workerOrigin={workerOrigin}
+                          rawLabel={t("dialogs.raw")}
+                          untitledLabel={t("common.untitled")}
                           onSelect={() => {
                             onOpenChange(false)
                             onSelect(c)
@@ -389,7 +398,7 @@ export function SellChooseItemDialog({ open, onOpenChange, onSelect }: Props) {
         <DialogFooter className="px-0">
           <div className="flex w-full justify-end gap-2 px-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Close
+              {t("common.close")}
             </Button>
           </div>
         </DialogFooter>

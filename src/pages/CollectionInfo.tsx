@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { Route } from "@/routes/user/my-collection/$collection_item_id"
 import { ArrowLeft, Sparkles } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { DeriveDialog } from "@/components/dialogs/DeriveDialog"
 import { GradingCostDialog } from "../components/dialogs/GradingCostDialog"
 import { ItemInfoCard } from "@/components/collection-info/ItemInfoCard"
@@ -25,6 +26,7 @@ function formatMoneyHKD(n: number): string {
 }
 
 export function CollectionInfo() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
@@ -59,7 +61,7 @@ export function CollectionInfo() {
 
   const abortRef = useRef<AbortController | null>(null)
 
-  const title = item?.name ?? "Untitled"
+  const title = item?.name ?? t("common.untitled")
   const overviewCounts = useMemo(() => {
     const available = overviewRows.filter((r) => !r.derived && !r.grading).length
     const grading = overviewRows.filter((r) => !r.derived && r.grading).length
@@ -68,11 +70,11 @@ export function CollectionInfo() {
   }, [overviewRows])
   const itemFields = useMemo(() => {
     return [
-      { label: "Game Title", value: item?.game_title ?? null },
-      { label: "Card Number", value: item?.card_no ?? null },
-      { label: "Name", value: item?.name ?? null },
+      { label: t("collectionInfo.fieldGameTitle"), value: item?.game_title ?? null },
+      { label: t("collectionInfo.fieldCardNumber"), value: item?.card_no ?? null },
+      { label: t("collectionInfo.fieldName"), value: item?.name ?? null },
     ].filter((f) => f.value)
-  }, [item?.card_no, item?.game_title, item?.name])
+  }, [item?.card_no, item?.game_title, item?.name, t])
 
   async function refreshSignedUrls(
     pathKeys: Array<{ key: string; path: string | null | undefined }>,
@@ -643,7 +645,7 @@ export function CollectionInfo() {
               onClick={() => navigate({ to: "/user/my-collection" })}
             >
               <ArrowLeft aria-hidden="true" className="size-5" />
-              My Collection
+              {t("collectionInfo.backMyCollection")}
             </Button>
 
             <Button
@@ -660,7 +662,7 @@ export function CollectionInfo() {
               }
             >
               <Sparkles className="size-4" aria-hidden="true" />
-              {graded ? "View Raw" : "View Graded"}
+              {graded ? t("collectionInfo.viewRaw") : t("collectionInfo.viewGraded")}
             </Button>
           </div>
 

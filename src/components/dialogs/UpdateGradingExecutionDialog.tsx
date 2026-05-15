@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -14,7 +15,7 @@ import { supabase } from "@/lib/supabase"
 import { FormSelectField, FormTextInput } from "@/components/form-input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FieldGroup } from "@/components/ui/field"
-import { toast } from "sonner"
+import { toastUpdated } from "@/lib/toastI18n"
 
 const PROVIDERS = ["PSA"] as const
 
@@ -35,6 +36,7 @@ export function UpdateGradingExecutionDialog({
   userCollectionId,
   onUpdated,
 }: UpdateGradingExecutionDialogProps) {
+  const { t } = useTranslation()
   const [outcome, setOutcome] = useState<Outcome>("graded")
   const [provider, setProvider] = useState<(typeof PROVIDERS)[number]>("PSA")
   const [grade, setGrade] = useState("")
@@ -63,7 +65,7 @@ export function UpdateGradingExecutionDialog({
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
@@ -126,7 +128,7 @@ export function UpdateGradingExecutionDialog({
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Updated successfully", { duration: 5000 })
+    toastUpdated()
     onUpdated?.()
   }
 
@@ -135,9 +137,9 @@ export function UpdateGradingExecutionDialog({
       <DialogContent className="max-h-[min(90dvh,40rem)] overflow-x-hidden sm:max-w-md p-0">
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Update grading result</DialogTitle>
+            <DialogTitle>{t("dialogs.updateGradingTitle")}</DialogTitle>
             <DialogDescription>
-              Choose whether this item became graded or remains raw. Once executed, it will disappear from this list.
+              {t("dialogs.updateGrading.description")} {t("dialogs.updateGrading.extendedDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -145,7 +147,7 @@ export function UpdateGradingExecutionDialog({
 
           <div className="mt-4 space-y-3">
             <div className="rounded-xl border bg-card p-3">
-              <p className="text-sm font-semibold">Result</p>
+              <p className="text-sm font-semibold">{t("dialogs.updateGrading.result")}</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -154,7 +156,7 @@ export function UpdateGradingExecutionDialog({
                   onClick={() => setOutcome("graded")}
                   disabled={saving}
                 >
-                  Graded
+                  {t("dialogs.updateGrading.outcomeGraded")}
                 </Button>
                 <Button
                   type="button"
@@ -163,7 +165,7 @@ export function UpdateGradingExecutionDialog({
                   onClick={() => setOutcome("raw")}
                   disabled={saving}
                 >
-                  Remain Raw
+                  {t("dialogs.updateGrading.remainRaw")}
                 </Button>
               </div>
             </div>
@@ -171,10 +173,10 @@ export function UpdateGradingExecutionDialog({
             {outcome === "graded" ? (
               <div className="rounded-xl border bg-card p-3">
                 <FieldGroup>
-                  <FormSelectField label="Provider" htmlFor="grade-provider">
+                  <FormSelectField label={t("dialogs.provider")} htmlFor="grade-provider">
                     <Select value={provider} onValueChange={(v) => setProvider(v as any)}>
                       <SelectTrigger id="grade-provider" className="w-full" size="default">
-                        <SelectValue placeholder="Select provider" />
+                        <SelectValue placeholder={t("dialogs.selectProvider")} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
@@ -189,13 +191,13 @@ export function UpdateGradingExecutionDialog({
                   </FormSelectField>
 
                   <FormTextInput
-                    label="Grade"
+                    label={t("dialogs.grade")}
                     id="grade-value"
                     type="number"
                     inputMode="decimal"
                     step="any"
                     min={0}
-                    placeholder="e.g. 10"
+                    placeholder={t("dialogs.gradePlaceholder")}
                     value={grade}
                     onChange={(e) => setGrade(e.target.value)}
                   />
@@ -208,10 +210,10 @@ export function UpdateGradingExecutionDialog({
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Cancel
+              {t("dialogs.cancel")}
             </Button>
             <Button type="button" onClick={handleSave} disabled={!canSave}>
-              Save
+              {t("dialogs.save")}
             </Button>
           </div>
         </DialogFooter>

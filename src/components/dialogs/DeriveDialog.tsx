@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -89,6 +90,7 @@ export function DeriveDialog({
   sourceQuantity,
   onSubmitted,
 }: Props) {
+  const { t } = useTranslation()
   const [items, setItems] = useState<DerivedItemDraft[]>(() => [
     {
       id: uid(),
@@ -127,19 +129,19 @@ export function DeriveDialog({
     return items.map((it) => {
       const title =
         it.mode === "choose_from_base"
-          ? it.selectedBase?.name ?? "Choose from Card Base"
+          ? it.selectedBase?.name ?? t("dialogs.derive.chooseFromBase")
           : it.mode === "create_new"
-            ? it.createNew.name?.trim() || "Create New"
-            : "Unselected"
+            ? it.createNew.name?.trim() || t("dialogs.derive.createNew")
+            : t("dialogs.derive.unselected")
 
       const subtitle =
         it.mode === "choose_from_base"
-          ? [it.selectedBase?.game_title, it.selectedBase?.card_no].filter(Boolean).join(" · ") || "—"
+          ? [it.selectedBase?.game_title, it.selectedBase?.card_no].filter(Boolean).join(" · ") || t("common.emDash")
           : it.mode === "create_new"
             ? [it.createNew.gameTitle, it.createNew.category === "Card" ? it.createNew.cardNo : null]
                 .filter(Boolean)
-                .join(" · ") || "—"
-            : "—"
+                .join(" · ") || t("common.emDash")
+            : t("common.emDash")
 
       const imageSrc =
         it.mode === "choose_from_base"
@@ -150,7 +152,7 @@ export function DeriveDialog({
 
       return { id: it.id, title, subtitle, imageSrc }
     })
-  }, [items, pickedBaseImageUrls])
+  }, [items, pickedBaseImageUrls, t])
 
   const pickingItem = useMemo(
     () => items.find((i) => i.id === pickingForId) ?? null,
@@ -261,24 +263,24 @@ export function DeriveDialog({
         <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0">
           <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
             <DialogHeader className="px-0">
-              <DialogTitle>Derive</DialogTitle>
-              <DialogDescription>
-                Choose how this item is derived. You can create multiple derived outputs.
-              </DialogDescription>
+              <DialogTitle>{t("dialogs.deriveTitle")}</DialogTitle>
+              <DialogDescription>{t("dialogs.derive.introDescription")}</DialogDescription>
             </DialogHeader>
 
             <div className="mt-4 space-y-3">
               {items.map((it, idx) => (
                 <div key={it.id} className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
                 <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">Derived item {idx + 1}</p>
+                  <p className="text-sm font-semibold">
+                    {t("dialogs.derive.derivedItem", { number: idx + 1 })}
+                  </p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => setItems((prev) => prev.filter((x) => x.id !== it.id))}
                     disabled={items.length === 1}
-                    aria-label="Remove derived item"
+                    aria-label={t("dialogs.derive.removeItemAria")}
                   >
                     <Trash2 className="size-4" aria-hidden="true" />
                   </Button>
@@ -304,7 +306,7 @@ export function DeriveDialog({
                   >
                     <PlusSquare aria-hidden="true" className="size-9" />
                     <span className="whitespace-normal break-words text-sm font-medium leading-tight">
-                      Create New
+                      {t("dialogs.derive.createNew")}
                     </span>
                   </Button>
 
@@ -327,7 +329,7 @@ export function DeriveDialog({
                   >
                     <LayoutGrid aria-hidden="true" className="size-9" />
                     <span className="whitespace-normal break-words text-sm font-medium leading-tight">
-                      Choose from Card Base
+                      {t("dialogs.derive.chooseFromBase")}
                     </span>
                   </Button>
                 </div>
@@ -340,7 +342,7 @@ export function DeriveDialog({
                           {pickedBaseImageUrls[it.id] ? (
                             <img
                               src={pickedBaseImageUrls[it.id]}
-                              alt={it.selectedBase?.name ?? "Selected item"}
+                              alt={it.selectedBase?.name ?? t("dialogs.derive.selectedItemAlt")}
                               className="h-full w-full object-cover object-left-top"
                               loading="lazy"
                             />
@@ -350,12 +352,12 @@ export function DeriveDialog({
                         </div>
                         <div className="min-w-0 flex-1 text-left">
                           <p className="break-words text-sm font-medium leading-snug">
-                            {it.selectedBase?.name ?? "No item selected"}
+                            {it.selectedBase?.name ?? t("dialogs.derive.noItemSelected")}
                           </p>
                           <p className="mt-0.5 break-words text-xs leading-snug text-muted-foreground">
                             {[it.selectedBase?.game_title, it.selectedBase?.card_no]
                               .filter(Boolean)
-                              .join(" · ") || "—"}
+                              .join(" · ") || t("common.emDash")}
                           </p>
                         </div>
                       </div>
@@ -365,21 +367,21 @@ export function DeriveDialog({
                         className="w-full shrink-0 sm:w-auto sm:self-start"
                         onClick={() => setPickingForId(it.id)}
                       >
-                        Choose
+                        {t("dialogs.derive.choose")}
                       </Button>
                     </div>
 
                     <FieldGroup
                       className="mb-0 mt-3 gap-3 border-t pt-3"
                       role="group"
-                      aria-label="Common details"
+                      aria-label={t("dialogs.commonDetailsAria")}
                     >
-                      <p className="text-sm font-medium">Details</p>
+                      <p className="text-sm font-medium">{t("dialogs.details")}</p>
 
                       <FormSwitchField
                         id={`derive-base-graded-${it.id}`}
-                        label="Graded"
-                        description="Whether the item is professionally graded."
+                        label={t("dialogs.graded")}
+                        description={t("dialogs.gradedDescription")}
                         checked={it.chooseFromBase.graded}
                         onCheckedChange={(checked) =>
                           setItems((prev) =>
@@ -398,7 +400,7 @@ export function DeriveDialog({
                       {it.chooseFromBase.graded ? (
                         <div className="flex flex-col gap-3">
                           <FormSelectField
-                            label="Provider"
+                            label={t("dialogs.provider")}
                             htmlFor={`derive-base-provider-${it.id}`}
                           >
                             <Select
@@ -425,7 +427,7 @@ export function DeriveDialog({
                                 className="w-full"
                                 size="default"
                               >
-                                <SelectValue placeholder="Select provider" />
+                                <SelectValue placeholder={t("dialogs.selectProvider")} />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectGroup>
@@ -440,13 +442,13 @@ export function DeriveDialog({
                           </FormSelectField>
 
                           <FormTextInput
-                            label="Grade"
+                            label={t("dialogs.grade")}
                             id={`derive-base-grade-${it.id}`}
                             type="number"
                             inputMode="decimal"
                             step="any"
                             min={0}
-                            placeholder="e.g. 10"
+                            placeholder={t("dialogs.gradePlaceholder")}
                             value={it.chooseFromBase.grade}
                             onChange={(e) =>
                               setItems((prev) =>
@@ -472,11 +474,11 @@ export function DeriveDialog({
                   <div className="mt-3 rounded-lg border bg-muted/30 p-3">
                     <FieldGroup>
                       <FormFieldRow
-                        label="Source Image"
+                        label={t("dialogs.sourceImage")}
                         htmlFor={`derive-source-image-${it.id}`}
                         error={
                           submitAttempted && !it.createNew.sourceImage && !it.createNew.sourceImageUrl
-                            ? "Source Image is required"
+                            ? t("dialogs.buyForm.sourceImageRequired")
                             : undefined
                         }
                         invalid={
@@ -542,14 +544,14 @@ export function DeriveDialog({
                                 ?.click()
                             }
                           >
-                            Choose / Take photo
+                            {t("dialogs.choosePhoto")}
                           </Button>
 
                           {it.createNew.sourceImageUrl ? (
                             <div className="overflow-hidden rounded-lg border">
                               <img
                                 src={it.createNew.sourceImageUrl}
-                                alt="Selected source"
+                                alt={t("dialogs.selectedSourceAlt")}
                                 className="max-h-64 w-full bg-muted/30 object-contain"
                               />
                             </div>
@@ -558,7 +560,7 @@ export function DeriveDialog({
                       </FormFieldRow>
 
                       <FormSelectField
-                        label="Game Title"
+                        label={t("dialogs.gameTitle")}
                         htmlFor={`derive-game-title-${it.id}`}
                       >
                         <Select
@@ -580,7 +582,7 @@ export function DeriveDialog({
                           }
                         >
                           <SelectTrigger id={`derive-game-title-${it.id}`} className="w-full" size="default">
-                            <SelectValue placeholder="Select game title" />
+                            <SelectValue placeholder={t("dialogs.selectGameTitle")} />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
@@ -594,7 +596,7 @@ export function DeriveDialog({
                         </Select>
                       </FormSelectField>
 
-                      <FormToggleGroupField label="Product Category">
+                      <FormToggleGroupField label={t("dialogs.productCategory")}>
                         <ToggleGroup
                           type="single"
                           variant="outline"
@@ -613,18 +615,26 @@ export function DeriveDialog({
                             )
                           }}
                         >
-                          <ToggleGroupItem className="min-w-0 flex-1" value="Card" aria-label="Card">
-                            Card
+                          <ToggleGroupItem
+                            className="min-w-0 flex-1"
+                            value="Card"
+                            aria-label={t("dialogs.categoryCard")}
+                          >
+                            {t("dialogs.categoryCard")}
                           </ToggleGroupItem>
-                          <ToggleGroupItem className="min-w-0 flex-1" value="Product" aria-label="Product">
-                            Product
+                          <ToggleGroupItem
+                            className="min-w-0 flex-1"
+                            value="Product"
+                            aria-label={t("dialogs.categoryProduct")}
+                          >
+                            {t("dialogs.categoryProduct")}
                           </ToggleGroupItem>
                         </ToggleGroup>
                       </FormToggleGroupField>
 
                       {it.createNew.category === "Card" ? (
                         <FormTextInput
-                          label="Card No."
+                          label={t("dialogs.cardNo")}
                           id={`derive-card-no-${it.id}`}
                           autoComplete="off"
                           value={it.createNew.cardNo}
@@ -644,12 +654,12 @@ export function DeriveDialog({
                       ) : null}
 
                       <FormTextInput
-                        label="Name"
+                        label={t("dialogs.name")}
                         id={`derive-name-${it.id}`}
                         autoComplete="off"
                         error={
                           submitAttempted && !it.createNew.name.trim()
-                            ? "Name is required"
+                            ? t("dialogs.buyForm.nameRequired")
                             : undefined
                         }
                         invalid={submitAttempted && !it.createNew.name.trim()}
@@ -671,14 +681,14 @@ export function DeriveDialog({
                       <div
                         className="mb-0 flex flex-col gap-2 border-t pt-3"
                         role="group"
-                        aria-label="Common details"
+                        aria-label={t("dialogs.commonDetailsAria")}
                       >
-                        <p className="text-sm font-medium">Details</p>
+                        <p className="text-sm font-medium">{t("dialogs.details")}</p>
 
                         <FormSwitchField
                           id={`derive-graded-${it.id}`}
-                          label="Graded"
-                          description="Whether the item is professionally graded."
+                          label={t("dialogs.graded")}
+                          description={t("dialogs.gradedDescription")}
                           checked={it.createNew.graded}
                           onCheckedChange={(checked) =>
                             setItems((prev) =>
@@ -697,7 +707,7 @@ export function DeriveDialog({
                         {it.createNew.graded ? (
                           <div className="flex flex-col gap-3">
                             <FormSelectField
-                              label="Provider"
+                              label={t("dialogs.provider")}
                               htmlFor={`derive-provider-${it.id}`}
                             >
                               <Select
@@ -721,7 +731,7 @@ export function DeriveDialog({
                                   className="w-full"
                                   size="default"
                                 >
-                                  <SelectValue placeholder="Select provider" />
+                                  <SelectValue placeholder={t("dialogs.selectProvider")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectGroup>
@@ -736,13 +746,13 @@ export function DeriveDialog({
                             </FormSelectField>
 
                             <FormTextInput
-                              label="Grade"
+                              label={t("dialogs.grade")}
                               id={`derive-grade-${it.id}`}
                               type="number"
                               inputMode="decimal"
                               step="any"
                               min={0}
-                              placeholder="e.g. 10"
+                              placeholder={t("dialogs.gradePlaceholder")}
                               value={it.createNew.grade}
                               onChange={(e) =>
                                 setItems((prev) =>
@@ -764,7 +774,7 @@ export function DeriveDialog({
                   </div>
                 ) : (
                   <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-left text-sm text-muted-foreground">
-                    Choose a mode to continue.
+                    {t("dialogs.derive.chooseModeToContinue")}
                   </div>
                 )}
 
@@ -803,26 +813,22 @@ export function DeriveDialog({
               }
             >
               <Plus className="size-4" aria-hidden="true" />
-              Add another derived item
+              {t("dialogs.derive.addAnotherDerived")}
             </Button>
 
             <div className="mt-1 border-t pt-4">
               <div className="rounded-lg border bg-muted/30 p-3">
               <FieldGroup>
                 <FormQuantityStepper
-                  label="Sets of derived items"
+                  label={t("dialogs.derive.setsLabel")}
                   id="derive-sets"
                   htmlFor="derive-sets"
-                  description={
-                    <>
-                      How many source items will be consumed. This produces the same number of
-                      copies for every derived item you defined above. Max:{" "}
-                      {Math.max(0, sourceQuantity || 0)}.
-                    </>
-                  }
+                  description={t("dialogs.derive.setsDescription", {
+                    max: Math.max(0, sourceQuantity || 0),
+                  })}
                   error={
                     submitAttempted && sets > Math.max(0, sourceQuantity || 0)
-                      ? "Sets cannot be greater than current quantity"
+                      ? t("dialogs.derive.setsMaxError")
                       : undefined
                   }
                   invalid={
@@ -843,7 +849,7 @@ export function DeriveDialog({
           <DialogFooter className="px-0 pb-5 sm:pb-6">
             <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t("dialogs.cancel")}
               </Button>
               <Button
                 type="button"
@@ -858,7 +864,7 @@ export function DeriveDialog({
                   setCostOpen(true)
                 }}
               >
-                Next
+                {t("dialogs.next")}
               </Button>
             </div>
           </DialogFooter>

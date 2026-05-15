@@ -5,6 +5,7 @@ import { AvailableChip } from "@/components/AvailableChip"
 import type { CollectionBase } from "@/components/collection-info/types"
 import { cn } from "@/lib/utils"
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { DeleteUserCollectionItemsDialog } from "@/components/dialogs/DeleteUserCollectionItemsDialog"
 import { EditCollectionBaseDialog } from "@/components/dialogs/EditCollectionBaseDialog"
 import { BadgeCheck, Pencil, Sparkles, Trash2 } from "lucide-react"
@@ -57,6 +58,7 @@ export function ItemInfoCard({
   onDeleted,
   onEdited,
 }: Props) {
+  const { t } = useTranslation()
   const disableActions = loading || !item || availableQuantity <= 0
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -125,7 +127,7 @@ export function ItemInfoCard({
           )}
 
           <div className="grid min-w-0 grid-cols-1 gap-2 text-sm sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
-            <span className="text-white/60">Current quantity</span>
+            <span className="text-white/60">{t("itemInfo.currentQuantity")}</span>
             <span className="min-w-0 text-white/90">{sourceQuantity}</span>
           </div>
 
@@ -133,19 +135,19 @@ export function ItemInfoCard({
             {loading && !item ? (
               <>
                 <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
-                  <dt className="text-white/60">Game Title</dt>
+                  <dt className="text-white/60">{t("itemInfo.gameTitleDt")}</dt>
                   <dd className="min-w-0">
                     <Skeleton className="h-4 w-full max-w-[10rem]" />
                   </dd>
                 </div>
                 <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
-                  <dt className="text-white/60">Card Number</dt>
+                  <dt className="text-white/60">{t("itemInfo.cardNumberDt")}</dt>
                   <dd className="min-w-0">
                     <Skeleton className="h-4 w-full max-w-[8rem]" />
                   </dd>
                 </div>
                 <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,110px)_1fr] sm:gap-3">
-                  <dt className="text-white/60">Name</dt>
+                  <dt className="text-white/60">{t("itemInfo.nameDt")}</dt>
                   <dd className="min-w-0">
                     <Skeleton className="h-4 w-full max-w-[14rem]" />
                   </dd>
@@ -162,7 +164,7 @@ export function ItemInfoCard({
                 </div>
               ))
             ) : (
-              <p className="text-sm text-white/60">No item details found.</p>
+              <p className="text-sm text-white/60">{t("itemInfo.noDetails")}</p>
             )}
           </dl>
 
@@ -180,7 +182,7 @@ export function ItemInfoCard({
                 disabled={disableActions}
               >
                 <BadgeCheck className="-ml-0.5 mr-2 size-4" aria-hidden="true" />
-                Grade
+                {t("itemInfo.grade")}
               </Button>
             ) : null}
             <Button
@@ -191,7 +193,7 @@ export function ItemInfoCard({
               disabled={disableActions}
             >
               <Sparkles className="-ml-0.5 mr-2 size-4" aria-hidden="true" />
-              Derive
+              {t("itemInfo.derive")}
             </Button>
           </div>
 
@@ -204,7 +206,7 @@ export function ItemInfoCard({
               disabled={loading || !item}
             >
               <Pencil className="-ml-0.5 mr-2 size-4" aria-hidden="true" />
-              Edit
+              {t("itemInfo.edit")}
             </Button>
 
             <Button
@@ -215,7 +217,7 @@ export function ItemInfoCard({
               disabled={loading || !item || availableQuantity <= 0}
             >
               <Trash2 className="-ml-0.5 mr-2 size-4" aria-hidden="true" />
-              Delete Items
+              {t("itemInfo.deleteItems")}
             </Button>
           </div>
           </div>

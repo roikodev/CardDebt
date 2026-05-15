@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastCancelled } from "@/lib/toastI18n"
 import type { MiscCostLine } from "@/components/collection-info/types"
 
 export type CancelGradingRecordDialogProps = {
@@ -31,6 +32,7 @@ export function CancelGradingRecordDialog({
   costLines,
   onCancelled,
 }: CancelGradingRecordDialogProps) {
+  const { t } = useTranslation()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,12 +52,11 @@ export function CancelGradingRecordDialog({
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
 
-    // Remove mappings + misc entries used by this record (the ones shown in UI).
     if (miscIds.length) {
       const delMapRes = await supabase
         .from("user_collection_miscellaneous")
@@ -83,7 +84,6 @@ export function CancelGradingRecordDialog({
       }
     }
 
-    // Reset the item to not be grading anymore.
     const ucUpd = await supabase
       .from("user_collection")
       .update({ grading: false })
@@ -97,7 +97,6 @@ export function CancelGradingRecordDialog({
       return
     }
 
-    // Mark this grading record executed so it will not show again.
     const execUpd = await supabase
       .from("user_collection_sending_to_grade")
       .update({ executed: true })
@@ -113,7 +112,7 @@ export function CancelGradingRecordDialog({
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Cancelled successfully", { duration: 5000 })
+    toastCancelled()
     onCancelled?.()
   }
 
@@ -122,18 +121,16 @@ export function CancelGradingRecordDialog({
       <DialogContent className="max-h-[min(90dvh,34rem)] overflow-x-hidden sm:max-w-md p-0">
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Cancel grading</DialogTitle>
-            <DialogDescription>
-              This will remove the cost entries for this grading record, set the item back to not grading, and hide this record forever.
-            </DialogDescription>
+            <DialogTitle>{t("dialogs.cancelGradingTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogs.cancelGrading.description")}</DialogDescription>
           </DialogHeader>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
           <div className="mt-4 rounded-xl border bg-card p-3 text-sm">
-            <p className="font-medium">You are about to delete:</p>
+            <p className="font-medium">{t("dialogs.cancelGrading.aboutToDelete")}</p>
             <p className="mt-1 text-muted-foreground">
-              {miscIds.length} cost entr{miscIds.length === 1 ? "y" : "ies"}
+              {t("dialogs.cancelGrading.costEntries", { count: miscIds.length })}
             </p>
           </div>
         </DialogBody>
@@ -141,10 +138,10 @@ export function CancelGradingRecordDialog({
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button type="button" variant="destructive" onClick={handleCancel} disabled={saving}>
-              Cancel grading
+              {t("dialogs.cancelGrading.confirm")}
             </Button>
           </div>
         </DialogFooter>
@@ -152,4 +149,3 @@ export function CancelGradingRecordDialog({
     </Dialog>
   )
 }
-

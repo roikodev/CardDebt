@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useTimeRangeOptions } from "@/hooks/useTimeRangeOptions"
+import { useTranslation } from "react-i18next"
 
 import { formatHKD } from "./utils"
 import type { RoiRow } from "./types"
@@ -8,7 +10,6 @@ import type { RoiRow } from "./types"
 export function RoiSection({
   roiError,
   roiLoading,
-  /** Parent bumps when ROI data is committed (same idea as My Balance `rowsAnimKey`). */
   rowsAnimKey,
   range,
   onRangeChange,
@@ -33,11 +34,11 @@ export function RoiSection({
   roiExpandedKey: string | null
   setRoiExpandedKey: (v: string | null | ((cur: string | null) => string | null)) => void
 }) {
+  const { t } = useTranslation()
+  const rangeOpts = useTimeRangeOptions()
   const rowsWrapRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    // Deterministic fade-in on commit (matches My Balance pattern),
-    // without depending on Tailwind keyframes / mount timing.
     if (roiLoading) return
     const el = rowsWrapRef.current
     if (!el) return
@@ -51,7 +52,6 @@ export function RoiSection({
     el.style.transition = "none"
     el.style.opacity = "0"
     el.style.transform = "translateY(-4px)"
-    // Force a layout so the browser commits the initial style.
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     el.getBoundingClientRect()
 
@@ -61,25 +61,16 @@ export function RoiSection({
       el.style.transform = "translateY(0)"
     })
     return () => cancelAnimationFrame(id)
-  }, [rowsAnimKey])
+  }, [rowsAnimKey, roiLoading])
 
   return (
     <section className="col-span-12">
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-muted/20 via-background to-background shadow-sm ring-1 ring-border/60">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Top Ranking of Return on Investment (ROI)
-          </CardTitle>
+          <CardTitle className="text-base">{t("roi.title")}</CardTitle>
           <div className="mt-2 flex w-full flex-col gap-2 sm:flex-row">
             <div className="flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60 sm:w-1/2">
-              {(
-                [
-                  ["all", "All Time"],
-                  ["365", "1y"],
-                  ["180", "6m"],
-                  ["90", "3m"],
-                ] as const
-              ).map(([k, label]) => (
+              {rangeOpts.map(([k, label]) => (
                 <button
                   key={k}
                   type="button"
@@ -98,8 +89,8 @@ export function RoiSection({
             <div className="flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60 sm:w-1/2">
               {(
                 [
-                  ["profit", "By Profit"],
-                  ["roi", "By Percentage"],
+                  ["profit", t("roi.sortByProfit")] as const,
+                  ["roi", t("roi.sortByRoi")] as const,
                 ] as const
               ).map(([k, label]) => (
                 <button
@@ -126,232 +117,241 @@ export function RoiSection({
           <div className="mt-2 overflow-hidden rounded-xl border bg-card">
             <div className="max-h-[22rem] overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="sticky top-0 z-10 grid grid-cols-[28px_52px_minmax(0,1fr)_84px] items-center gap-3 rounded-t-xl border-b bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/30 sm:grid-cols-[28px_52px_minmax(0,1fr)_96px_84px]">
-              <div className="text-center">#</div>
-              <div> </div>
-              <div>Item</div>
-              <div className="hidden sm:block">Type</div>
-              <div className="text-right">{roiSortApplied === "profit" ? "Profit" : "ROI"}</div>
+                <div className="text-center">{t("roi.colRank")}</div>
+                <div> </div>
+                <div>{t("roi.colItem")}</div>
+                <div className="hidden sm:block">{t("roi.colType")}</div>
+                <div className="text-right">
+                  {roiSortApplied === "profit" ? t("roi.profit") : t("roi.roi")}
+                </div>
               </div>
 
               <div ref={rowsWrapRef} className="divide-y will-change-[opacity,transform]">
-              {(() => {
-                const items = roiLoading
-                  ? Array.from({ length: 5 }).map((_, i) => ({
-                      key: `sk-${i}`,
-                      loading: true,
-                      rank: i + 1,
-                    }))
-                  : [...roiRawTop, ...roiGradedTop]
-                      .sort((a, b) => {
-                        if (roiSortApplied === "profit") {
-                          return (b.total_profit - a.total_profit) || (b.roi - a.roi)
-                        }
-                        return (b.roi - a.roi) || (b.total_profit - a.total_profit)
-                      })
-                      .slice(0, 10)
-                      .map((r, i) => ({
-                        key: `${r.collection_item_id}-${r.graded}`,
-                        row: r,
+                {(() => {
+                  const items = roiLoading
+                    ? Array.from({ length: 5 }).map((_, i) => ({
+                        key: `sk-${i}`,
+                        loading: true,
                         rank: i + 1,
                       }))
+                    : [...roiRawTop, ...roiGradedTop]
+                        .sort((a, b) => {
+                          if (roiSortApplied === "profit") {
+                            return b.total_profit - a.total_profit || b.roi - a.roi
+                          }
+                          return b.roi - a.roi || b.total_profit - a.total_profit
+                        })
+                        .slice(0, 10)
+                        .map((r, i) => ({
+                          key: `${r.collection_item_id}-${r.graded}`,
+                          row: r,
+                          rank: i + 1,
+                        }))
 
-                return items.map((x) =>
-                  (x as any).loading ? (
-                    <div
-                      key={(x as any).key}
-                      className="grid grid-cols-[28px_52px_minmax(0,1fr)_84px] items-center gap-3 px-3 py-3 sm:grid-cols-[28px_52px_minmax(0,1fr)_96px_84px]"
-                    >
-                      <div className="text-center text-xs font-semibold text-muted-foreground tabular-nums">
-                        {(x as any).rank}
+                  return items.map((x) =>
+                    (x as { loading?: boolean }).loading ? (
+                      <div
+                        key={(x as { key: string }).key}
+                        className="grid grid-cols-[28px_52px_minmax(0,1fr)_84px] items-center gap-3 px-3 py-3 sm:grid-cols-[28px_52px_minmax(0,1fr)_96px_84px]"
+                      >
+                        <div className="text-center text-xs font-semibold text-muted-foreground tabular-nums">
+                          {(x as { rank: number }).rank}
+                        </div>
+                        <div className="h-10 w-10 animate-pulse rounded-lg bg-muted/40" />
+                        <div className="min-w-0">
+                          <div className="h-4 w-2/3 animate-pulse rounded bg-muted/40" />
+                          <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-muted/30" />
+                        </div>
+                        <div className="hidden sm:block">
+                          <div className="h-3 w-16 animate-pulse rounded bg-muted/30" />
+                        </div>
+                        <div className="ml-auto h-5 w-16 animate-pulse rounded bg-muted/40" />
                       </div>
-                      <div className="h-10 w-10 animate-pulse rounded-lg bg-muted/40" />
-                      <div className="min-w-0">
-                        <div className="h-4 w-2/3 animate-pulse rounded bg-muted/40" />
-                        <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-muted/30" />
-                      </div>
-                      <div className="hidden sm:block">
-                        <div className="h-3 w-16 animate-pulse rounded bg-muted/30" />
-                      </div>
-                      <div className="ml-auto h-5 w-16 animate-pulse rounded bg-muted/40" />
-                    </div>
-                  ) : (() => {
-                      const k = (x as any).key as string
-                      const open = roiExpandedKey === k
-                      const row = (x as any).row as RoiRow
-                      return (
-                        <div key={k}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRoiExpandedKey((cur) => (cur === k ? null : k))
-                            }
-                            className="w-full cursor-pointer text-left"
-                          >
-                            <div className="grid grid-cols-[28px_52px_minmax(0,1fr)_84px] items-stretch gap-3 px-3 py-3 hover:bg-muted/20 sm:grid-cols-[28px_52px_minmax(0,1fr)_96px_84px]">
-                              <div
-                                className={[
-                                  "col-span-2 -my-3 -ml-3 flex items-stretch gap-3 py-3 pl-3 pr-1",
-                                  (x as any).rank === 1
-                                    ? "bg-gradient-to-r from-amber-300/90 via-amber-100/25 to-transparent"
-                                    : (x as any).rank === 2
-                                      ? "bg-gradient-to-r from-slate-200/80 to-transparent"
-                                      : (x as any).rank === 3
-                                        ? "bg-gradient-to-r from-orange-200/80 to-transparent"
-                                        : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                              >
-                                <div className="flex items-center">
-                                  <div
-                                    className={[
-                                      "w-[28px] text-center text-xs font-semibold tabular-nums",
-                                      (x as any).rank <= 3
-                                        ? "text-foreground"
-                                        : "text-muted-foreground",
-                                    ].join(" ")}
-                                  >
-                                    {(x as any).rank}
-                                  </div>
-                                </div>
-                                <div className="flex items-center">
-                                  <div className="h-10 w-10 overflow-hidden rounded-lg border bg-muted/30">
-                                    {row.image_url ? (
-                                      <img
-                                        src={row.image_url}
-                                        alt={row.name}
-                                        className="h-full w-full object-cover object-left-top"
-                                        loading="lazy"
-                                      />
-                                    ) : (
-                                      <div className="h-full w-full bg-muted/40" />
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">{row.name}</p>
-                                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                                  <p className="line-clamp-1">{row.game_title || "—"}</p>
-                                  <p className="line-clamp-1">{row.card_no || "—"}</p>
-                                </div>
-                                <div className="mt-1 sm:hidden">
-                                  <span
-                                    className={[
-                                      "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
-                                      row.graded
-                                        ? "border-sky-200 bg-sky-50 text-sky-700"
-                                        : "border-zinc-200 bg-zinc-50 text-zinc-700",
-                                    ].join(" ")}
-                                  >
-                                    {row.graded ? "Graded" : "Raw"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="hidden sm:block">
-                                <p className="text-xs text-muted-foreground">
-                                  {row.graded ? "Graded" : "Raw"}
-                                </p>
-                              </div>
-
-                              <div
-                                className={[
-                                  "text-right text-sm font-semibold tabular-nums",
-                                  roiSortApplied === "profit"
-                                    ? row.total_profit >= 0
-                                      ? "text-emerald-600"
-                                      : "text-red-600"
-                                    : row.roi >= 0
-                                      ? "text-emerald-600"
-                                      : "text-red-600",
-                                ].join(" ")}
-                              >
-                                {roiSortApplied === "profit"
-                                  ? formatHKD(row.total_profit)
-                                  : `${(row.roi * 100).toFixed(1)}%`}
-                              </div>
-                            </div>
-                          </button>
-
-                          <div
-                            className={[
-                              "overflow-hidden transition-all duration-200",
-                              open
-                                ? "max-h-80 opacity-100 translate-y-0"
-                                : "max-h-0 opacity-0 -translate-y-1 pointer-events-none",
-                            ].join(" ")}
-                          >
-                            <div className="px-3 pt-3 pb-3">
-                              <div className="rounded-lg border bg-muted/10 p-3">
-                                <div className="flex flex-col gap-2">
-                                  <div className="flex items-baseline justify-between gap-3">
-                                    <p className="text-xs font-medium text-muted-foreground">
-                                      ROI
-                                    </p>
-                                    <p
+                    ) : (() => {
+                        const k = (x as { key: string }).key
+                        const open = roiExpandedKey === k
+                        const row = (x as { row: RoiRow }).row
+                        const rank = (x as { rank: number }).rank
+                        const typeLabel = row.graded ? t("roi.typeGraded") : t("roi.typeRaw")
+                        return (
+                          <div key={k}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRoiExpandedKey((cur) => (cur === k ? null : k))
+                              }
+                              className="w-full cursor-pointer text-left"
+                            >
+                              <div className="grid grid-cols-[28px_52px_minmax(0,1fr)_84px] items-stretch gap-3 px-3 py-3 hover:bg-muted/20 sm:grid-cols-[28px_52px_minmax(0,1fr)_96px_84px]">
+                                <div
+                                  className={[
+                                    "col-span-2 -my-3 -ml-3 flex items-stretch gap-3 py-3 pl-3 pr-1",
+                                    rank === 1
+                                      ? "bg-gradient-to-r from-amber-300/90 via-amber-100/25 to-transparent"
+                                      : rank === 2
+                                        ? "bg-gradient-to-r from-slate-200/80 to-transparent"
+                                        : rank === 3
+                                          ? "bg-gradient-to-r from-orange-200/80 to-transparent"
+                                          : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                >
+                                  <div className="flex items-center">
+                                    <div
                                       className={[
-                                        "text-base font-semibold tabular-nums",
-                                        row.roi >= 0 ? "text-emerald-600" : "text-red-600",
+                                        "w-[28px] text-center text-xs font-semibold tabular-nums",
+                                        rank <= 3 ? "text-foreground" : "text-muted-foreground",
                                       ].join(" ")}
                                     >
-                                      {(row.roi * 100).toFixed(2)}%
+                                      {rank}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <div className="h-10 w-10 overflow-hidden rounded-lg border bg-muted/30">
+                                      {row.image_url ? (
+                                        <img
+                                          src={row.image_url}
+                                          alt={row.name}
+                                          className="h-full w-full object-cover object-left-top"
+                                          loading="lazy"
+                                        />
+                                      ) : (
+                                        <div className="h-full w-full bg-muted/40" />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold">{row.name}</p>
+                                  <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                                    <p className="line-clamp-1">
+                                      {row.game_title || t("common.emDash")}
+                                    </p>
+                                    <p className="line-clamp-1">
+                                      {row.card_no || t("common.emDash")}
                                     </p>
                                   </div>
+                                  <div className="mt-1 sm:hidden">
+                                    <span
+                                      className={[
+                                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                                        row.graded
+                                          ? "border-sky-200 bg-sky-50 text-sky-700"
+                                          : "border-zinc-200 bg-zinc-50 text-zinc-700",
+                                      ].join(" ")}
+                                    >
+                                      {typeLabel}
+                                    </span>
+                                  </div>
+                                </div>
 
-                                  <div className="h-px bg-border/60" />
+                                <div className="hidden sm:block">
+                                  <p className="text-xs text-muted-foreground">{typeLabel}</p>
+                                </div>
 
-                                  <div className="grid grid-cols-1 gap-1 text-sm tabular-nums sm:grid-cols-2 sm:gap-x-6">
-                                    <div className="flex items-center justify-between gap-3">
+                                <div
+                                  className={[
+                                    "text-right text-sm font-semibold tabular-nums",
+                                    roiSortApplied === "profit"
+                                      ? row.total_profit >= 0
+                                        ? "text-emerald-600"
+                                        : "text-red-600"
+                                      : row.roi >= 0
+                                        ? "text-emerald-600"
+                                        : "text-red-600",
+                                  ].join(" ")}
+                                >
+                                  {roiSortApplied === "profit"
+                                    ? formatHKD(row.total_profit)
+                                    : `${(row.roi * 100).toFixed(1)}%`}
+                                </div>
+                              </div>
+                            </button>
+
+                            <div
+                              className={[
+                                "overflow-hidden transition-all duration-200",
+                                open
+                                  ? "max-h-80 opacity-100 translate-y-0"
+                                  : "max-h-0 opacity-0 -translate-y-1 pointer-events-none",
+                              ].join(" ")}
+                            >
+                              <div className="px-3 pt-3 pb-3">
+                                <div className="rounded-lg border bg-muted/10 p-3">
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex items-baseline justify-between gap-3">
                                       <p className="text-xs font-medium text-muted-foreground">
-                                        Revenue
-                                      </p>
-                                      <p className="font-medium text-foreground">
-                                        {formatHKD(row.total_revenue)}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-3">
-                                      <p className="text-xs font-medium text-muted-foreground">
-                                        Total cost
-                                      </p>
-                                      <p className="font-medium text-foreground">
-                                        {formatHKD(row.total_cost)}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-3">
-                                      <p className="text-xs font-medium text-muted-foreground">
-                                        Profit
+                                        {t("roi.roi")}
                                       </p>
                                       <p
                                         className={[
-                                          "font-medium",
-                                          row.total_profit >= 0
-                                            ? "text-emerald-600"
-                                            : "text-red-600",
+                                          "text-base font-semibold tabular-nums",
+                                          row.roi >= 0 ? "text-emerald-600" : "text-red-600",
                                         ].join(" ")}
                                       >
-                                        {formatHKD(row.total_profit)}
+                                        {(row.roi * 100).toFixed(2)}%
                                       </p>
                                     </div>
-                                  </div>
 
-                                  <div className="mt-1 rounded-md border bg-background/40 p-2">
-                                    <p className="text-xs font-medium text-muted-foreground">
-                                      Cost breakdown
-                                    </p>
-                                    <div className="mt-1 grid grid-cols-1 gap-1 tabular-nums sm:grid-cols-2 sm:gap-x-6">
+                                    <div className="h-px bg-border/60" />
+
+                                    <div className="grid grid-cols-1 gap-1 text-sm tabular-nums sm:grid-cols-2 sm:gap-x-6">
                                       <div className="flex items-center justify-between gap-3">
-                                        <p className="text-xs text-muted-foreground">Buy</p>
-                                        <p className="text-xs font-medium text-foreground">
-                                          {formatHKD(row.buy_cost)}
+                                        <p className="text-xs font-medium text-muted-foreground">
+                                          {t("roi.revenue")}
+                                        </p>
+                                        <p className="font-medium text-foreground">
+                                          {formatHKD(row.total_revenue)}
                                         </p>
                                       </div>
                                       <div className="flex items-center justify-between gap-3">
-                                        <p className="text-xs text-muted-foreground">Misc</p>
-                                        <p className="text-xs font-medium text-foreground">
-                                          {formatHKD(row.misc_cost)}
+                                        <p className="text-xs font-medium text-muted-foreground">
+                                          {t("roi.totalCost")}
                                         </p>
+                                        <p className="font-medium text-foreground">
+                                          {formatHKD(row.total_cost)}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center justify-between gap-3">
+                                        <p className="text-xs font-medium text-muted-foreground">
+                                          {t("roi.profit")}
+                                        </p>
+                                        <p
+                                          className={[
+                                            "font-medium",
+                                            row.total_profit >= 0
+                                              ? "text-emerald-600"
+                                              : "text-red-600",
+                                          ].join(" ")}
+                                        >
+                                          {formatHKD(row.total_profit)}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-1 rounded-md border bg-background/40 p-2">
+                                      <p className="text-xs font-medium text-muted-foreground">
+                                        {t("roi.costBreakdown")}
+                                      </p>
+                                      <div className="mt-1 grid grid-cols-1 gap-1 tabular-nums sm:grid-cols-2 sm:gap-x-6">
+                                        <div className="flex items-center justify-between gap-3">
+                                          <p className="text-xs text-muted-foreground">
+                                            {t("roi.buy")}
+                                          </p>
+                                          <p className="text-xs font-medium text-foreground">
+                                            {formatHKD(row.buy_cost)}
+                                          </p>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                          <p className="text-xs text-muted-foreground">
+                                            {t("roi.misc")}
+                                          </p>
+                                          <p className="text-xs font-medium text-foreground">
+                                            {formatHKD(row.misc_cost)}
+                                          </p>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -359,17 +359,16 @@ export function RoiSection({
                               </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })()
-                )
-              })()}
+                        )
+                      })()
+                  )
+                })()}
 
-              {!roiLoading && roiRawTop.length === 0 && roiGradedTop.length === 0 ? (
-                <div className="px-3 py-6 text-sm text-muted-foreground">
-                  No ROI data in the selected range.
-                </div>
-              ) : null}
+                {!roiLoading && roiRawTop.length === 0 && roiGradedTop.length === 0 ? (
+                  <div className="px-3 py-6 text-sm text-muted-foreground">
+                    {t("roi.noData")}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -378,4 +377,3 @@ export function RoiSection({
     </section>
   )
 }
-

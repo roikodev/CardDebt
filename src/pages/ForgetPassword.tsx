@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -12,9 +12,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { supabase } from "@/lib/supabase"
-import { passwordFieldSchema } from "@/lib/passwordPolicy"
 import { PasswordPolicyHint } from "@/components/auth/PasswordPolicyHint"
 import { cn } from "@/lib/utils"
+import {
+  emailOnlySchema,
+  newPasswordSchema,
+  otpSchema,
+} from "@/lib/i18nValidation"
 import {
   isPasswordRecoveryFlowValid,
   usePasswordRecoveryStore,
@@ -23,36 +27,11 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 import { CheckCircle2 } from "lucide-react"
-import { z } from "zod"
-
-const emailSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-})
-
-type EmailForm = z.infer<typeof emailSchema>
-
-const otpSchema = z.object({
-  token: z
-    .string()
-    .regex(/^[0-9]{6}$/, "Enter the 6-digit code")
-    .transform((v) => v.trim()),
-})
-
-type OtpForm = z.infer<typeof otpSchema>
-
-const newPasswordSchema = z
-  .object({
-    password: passwordFieldSchema,
-    confirmPassword: z.string().min(1, "Confirm your new password"),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  })
-
-type NewPasswordForm = z.infer<typeof newPasswordSchema>
+import type { z } from "zod"
+import { useTranslation } from "react-i18next"
 
 export function ForgetPassword() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const email = usePasswordRecoveryStore((s) => s.email)
   const phase = usePasswordRecoveryStore((s) => s.phase)
@@ -64,6 +43,14 @@ export function ForgetPassword() {
 
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [passwordUpdated, setPasswordUpdated] = useState(false)
+
+  const emailSchema = useMemo(() => emailOnlySchema(t), [t])
+  const otpFormSchema = useMemo(() => otpSchema(t), [t])
+  const passwordSchemaResolved = useMemo(() => newPasswordSchema(t), [t])
+
+  type EmailForm = z.infer<ReturnType<typeof emailOnlySchema>>
+  type OtpFormValues = z.infer<ReturnType<typeof otpSchema>>
+  type NewPasswordFormValues = z.infer<ReturnType<typeof newPasswordSchema>>
 
   useEffect(() => {
     if (
@@ -87,14 +74,14 @@ export function ForgetPassword() {
     mode: "onSubmit",
   })
 
-  const otpForm = useForm<OtpForm>({
-    resolver: zodResolver(otpSchema),
+  const otpForm = useForm<OtpFormValues>({
+    resolver: zodResolver(otpFormSchema),
     defaultValues: { token: "" },
     mode: "onSubmit",
   })
 
-  const passwordForm = useForm<NewPasswordForm>({
-    resolver: zodResolver(newPasswordSchema),
+  const passwordForm = useForm<NewPasswordFormValues>({
+    resolver: zodResolver(passwordSchemaResolved),
     defaultValues: { password: "", confirmPassword: "" },
     mode: "onSubmit",
   })
@@ -115,7 +102,9 @@ export function ForgetPassword() {
       <main className="text-foreground">
         <div className="mx-auto w-full max-w-md px-6 pb-14">
           <header className="text-center">
-            <h1 className="mt-5 text-2xl font-semibold tracking-tight">Password updated</h1>
+            <h1 className="mt-5 text-2xl font-semibold tracking-tight">
+              {t("auth.forgetPassword.updatedTitle")}
+            </h1>
           </header>
 
           <Card className="mx-auto mt-8 w-full max-w-sm">
@@ -127,8 +116,7 @@ export function ForgetPassword() {
                 <CheckCircle2 className="size-8" strokeWidth={2} />
               </div>
               <p className="text-sm text-muted-foreground">
-                Your password has been updated successfully. Use the button below to return to the
-                login page and sign in with your new password.
+                {t("auth.forgetPassword.updatedBody")}
               </p>
             </CardContent>
             <CardFooter className="flex flex-col items-stretch px-6 pb-4 pt-2">
@@ -140,7 +128,7 @@ export function ForgetPassword() {
                   navigate({ to: "/auth/login" })
                 }}
               >
-                Back to Login
+                {t("auth.forgetPassword.backLogin")}
               </Button>
             </CardFooter>
           </Card>
@@ -155,13 +143,13 @@ export function ForgetPassword() {
         <div className="mx-auto w-full max-w-md px-6 pb-14">
           <header className="text-center">
             <h1 className="mt-5 text-2xl font-semibold tracking-tight">
-              Check your email
+              {t("auth.forgetPassword.checkEmailTitle")}
             </h1>
           </header>
 
           <Card className="mx-auto mt-8 w-full max-w-sm">
             <CardHeader className="text-left">
-              <CardTitle>Reset code</CardTitle>
+              <CardTitle>{t("auth.forgetPassword.resetCodeTitle")}</CardTitle>
             </CardHeader>
 
             <form
@@ -184,8 +172,7 @@ export function ForgetPassword() {
               <CardContent className="mb-4">
                 <div className="grid gap-2">
                   <Label htmlFor="recovery-token" className="text-pretty">
-                    Enter the code sent to{" "}
-                    <span className="font-medium break-all">{email}</span>
+                    {t("auth.forgetPassword.enterCodeSent", { email })}
                   </Label>
                   <Controller
                     control={otpForm.control}
@@ -228,7 +215,9 @@ export function ForgetPassword() {
                   className="w-full"
                   disabled={otpForm.formState.isSubmitting}
                 >
-                  {otpForm.formState.isSubmitting ? "Verifying…" : "Continue"}
+                  {otpForm.formState.isSubmitting
+                    ? t("auth.forgetPassword.verifying")
+                    : t("auth.forgetPassword.continue")}
                 </Button>
                 <Button
                   type="button"
@@ -242,14 +231,14 @@ export function ForgetPassword() {
                     setPasswordUpdated(false)
                   }}
                 >
-                  Use a different email
+                  {t("auth.forgetPassword.useDifferentEmail")}
                 </Button>
               </CardFooter>
             </form>
           </Card>
 
           <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-fit">
-            <Link to="/auth/login">Back to login</Link>
+            <Link to="/auth/login">{t("auth.forgetPassword.backLoginLink")}</Link>
           </Button>
         </div>
       </main>
@@ -261,12 +250,14 @@ export function ForgetPassword() {
       <main className="text-foreground">
         <div className="mx-auto w-full max-w-md px-6 pb-14">
           <header className="text-center">
-            <h1 className="mt-5 text-2xl font-semibold tracking-tight">New password</h1>
+            <h1 className="mt-5 text-2xl font-semibold tracking-tight">
+              {t("auth.forgetPassword.newPasswordPageTitle")}
+            </h1>
           </header>
 
           <Card className="mx-auto mt-8 w-full max-w-sm">
             <CardHeader className="text-left">
-              <CardTitle>Set password</CardTitle>
+              <CardTitle>{t("auth.forgetPassword.setPasswordCardTitle")}</CardTitle>
             </CardHeader>
 
             <form
@@ -290,7 +281,7 @@ export function ForgetPassword() {
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-2">
                     <PasswordPolicyHint id="reset-password-policy" />
-                    <Label htmlFor="new-password">Password</Label>
+                    <Label htmlFor="new-password">{t("auth.password")}</Label>
                     <Input
                       id="new-password"
                       type="password"
@@ -309,7 +300,9 @@ export function ForgetPassword() {
                     ) : null}
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="confirm-new-password">Confirm password</Label>
+                    <Label htmlFor="confirm-new-password">
+                      {t("auth.forgetPassword.confirmPassword")}
+                    </Label>
                     <Input
                       id="confirm-new-password"
                       type="password"
@@ -341,14 +334,16 @@ export function ForgetPassword() {
                   className="w-full"
                   disabled={passwordForm.formState.isSubmitting}
                 >
-                  {passwordForm.formState.isSubmitting ? "Saving…" : "Update password"}
+                  {passwordForm.formState.isSubmitting
+                    ? t("auth.forgetPassword.saving")
+                    : t("auth.forgetPassword.updatePassword")}
                 </Button>
               </CardFooter>
             </form>
           </Card>
 
           <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-fit">
-            <Link to="/auth/login">Back to login</Link>
+            <Link to="/auth/login">{t("auth.forgetPassword.backLoginLink")}</Link>
           </Button>
         </div>
       </main>
@@ -359,12 +354,14 @@ export function ForgetPassword() {
     <main className="text-foreground">
       <div className="mx-auto w-full max-w-md px-6 pb-14">
         <header className="text-center">
-          <h1 className="mt-5 text-2xl font-semibold tracking-tight">Forgot password</h1>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight">
+            {t("auth.forgetPassword.initialPageTitle")}
+          </h1>
         </header>
 
         <Card className="mx-auto mt-8 w-full max-w-sm">
           <CardHeader className="text-left">
-            <CardTitle>Your email</CardTitle>
+            <CardTitle>{t("auth.forgetPassword.yourEmailCardTitle")}</CardTitle>
           </CardHeader>
 
           <form
@@ -378,13 +375,13 @@ export function ForgetPassword() {
           >
             <CardContent className="mb-4">
               <div className="grid gap-2">
-                <Label htmlFor="recovery-email">Email</Label>
+                <Label htmlFor="recovery-email">{t("auth.email")}</Label>
                 <Input
                   id="recovery-email"
                   type="email"
                   autoComplete="email"
                   inputMode="email"
-                  placeholder="m@example.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   aria-invalid={emailForm.formState.errors.email ? "true" : "false"}
                   className={cn(emailForm.formState.errors.email && "border-destructive")}
                   {...emailForm.register("email")}
@@ -406,14 +403,16 @@ export function ForgetPassword() {
                 className="w-full"
                 disabled={emailForm.formState.isSubmitting}
               >
-                {emailForm.formState.isSubmitting ? "Sending…" : "Send reset code"}
+                {emailForm.formState.isSubmitting
+                  ? t("auth.forgetPassword.sending")
+                  : t("auth.forgetPassword.sendCode")}
               </Button>
             </CardFooter>
           </form>
         </Card>
 
         <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-fit">
-          <Link to="/auth/login">Back to login</Link>
+          <Link to="/auth/login">{t("auth.forgetPassword.backLoginLink")}</Link>
         </Button>
       </div>
     </main>

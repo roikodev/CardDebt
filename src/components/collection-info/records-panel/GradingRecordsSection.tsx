@@ -1,10 +1,14 @@
-import { SkeletonMuted } from "@/components/collection-info/records-panel/shared"
+import {
+  formatCostLinesSummary,
+  SkeletonMuted,
+} from "@/components/collection-info/records-panel/shared"
 import type { GradingRecordRow } from "@/components/collection-info/types"
 import { Button } from "@/components/ui/button"
 import { UpdateGradingExecutionDialog } from "@/components/dialogs/UpdateGradingExecutionDialog"
 import { EditGradingRecordDialog } from "@/components/dialogs/EditGradingRecordDialog"
 import { CancelGradingRecordDialog } from "@/components/dialogs/CancelGradingRecordDialog"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { CheckCircle2, Pencil, XCircle } from "lucide-react"
 
 type Props = {
@@ -24,6 +28,7 @@ export function GradingRecordsSection({
   formatMoneyHKD,
   onUpdated,
 }: Props) {
+  const { t } = useTranslation()
   const [updating, setUpdating] = useState<null | { recordId: string; userCollectionId: string }>(null)
   const [editing, setEditing] = useState<null | { recordId: string; userCollectionId: string }>(null)
   const [cancelling, setCancelling] = useState<null | { recordId: string; userCollectionId: string }>(null)
@@ -43,7 +48,9 @@ export function GradingRecordsSection({
     )
   }
 
-  if (!gradingRecords.length) return <p className="text-sm text-muted-foreground">No grading records found.</p>
+  if (!gradingRecords.length) {
+    return <p className="text-sm text-muted-foreground">{t("recordsPanel.noGradingRecords")}</p>
+  }
 
   return (
     <>
@@ -67,7 +74,9 @@ export function GradingRecordsSection({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{sourceTitle}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Sent at: {new Date(r.sent_at).toLocaleDateString()}
+                  {t("recordsPanel.sentAt", {
+                    date: new Date(r.sent_at).toLocaleDateString(),
+                  })}
                 </p>
               </div>
 
@@ -76,7 +85,7 @@ export function GradingRecordsSection({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  aria-label="Edit grading record"
+                  aria-label={t("recordsPanel.editGradingAria")}
                   onClick={() => setEditing({ recordId: r.id, userCollectionId: r.user_collection_id })}
                 >
                   <Pencil className="size-4" aria-hidden="true" />
@@ -86,7 +95,7 @@ export function GradingRecordsSection({
                   size="icon-sm"
                   variant="ghost"
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  aria-label="Cancel grading record"
+                  aria-label={t("recordsPanel.cancelGradingAria")}
                   onClick={() => setCancelling({ recordId: r.id, userCollectionId: r.user_collection_id })}
                 >
                   <XCircle className="size-4" aria-hidden="true" />
@@ -96,15 +105,15 @@ export function GradingRecordsSection({
 
             {r.costLines.length ? (
               <p className="mt-2 text-xs text-muted-foreground">
-                {r.costLines.map((c) => `${c.type} ${formatMoneyHKD(Number(c.price) || 0)}`).join(" · ")}
+                {formatCostLinesSummary(t, r.costLines, formatMoneyHKD)}
               </p>
             ) : (
-              <p className="mt-2 text-xs text-muted-foreground">No cost entries.</p>
+              <p className="mt-2 text-xs text-muted-foreground">{t("recordsPanel.noCostEntries")}</p>
             )}
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-baseline justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2 sm:border-0 sm:bg-transparent sm:p-0">
-                <p className="text-xs text-muted-foreground sm:hidden">Total cost</p>
+                <p className="text-xs text-muted-foreground sm:hidden">{t("recordsPanel.totalCost")}</p>
                 <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(r.costTotal)}</p>
               </div>
               <Button
@@ -115,7 +124,7 @@ export function GradingRecordsSection({
                 onClick={() => setUpdating({ recordId: r.id, userCollectionId: r.user_collection_id })}
               >
                 <CheckCircle2 className="size-4" aria-hidden="true" />
-                Update
+                {t("recordsPanel.updateButton")}
               </Button>
             </div>
           </div>

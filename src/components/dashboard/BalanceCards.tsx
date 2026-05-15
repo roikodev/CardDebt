@@ -1,8 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useTimeRangeOptions } from "@/hooks/useTimeRangeOptions"
 import { ArrowUpRight, TrendingDown, TrendingUp } from "lucide-react"
+import { useTranslation } from "react-i18next"
+
+import { SkeletonMuted } from "@/components/collection-info/records-panel/shared"
 
 import { formatHKD } from "./utils"
-import { SkeletonMuted } from "@/components/collection-info/records-panel/shared"
 
 export function TotalBalanceCard({
   loading,
@@ -17,6 +20,8 @@ export function TotalBalanceCard({
   animatedBalance: number
   onOpenLedger?: () => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <Card
       className={[
@@ -40,11 +45,11 @@ export function TotalBalanceCard({
             }
           : undefined
       }
-      aria-label={onOpenLedger ? "Open My Balance" : undefined}
+      aria-label={onOpenLedger ? t("balance.openLedgerAria") : undefined}
     >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-sm font-medium">Total balance</CardTitle>
+          <CardTitle className="text-sm font-medium">{t("balance.totalTitle")}</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="text-left">
@@ -61,7 +66,7 @@ export function TotalBalanceCard({
             .filter(Boolean)
             .join(" ")}
         >
-          {error ? "—" : formatHKD(animatedBalance)}
+          {error ? t("common.emDash") : formatHKD(animatedBalance)}
         </p>
       </CardContent>
 
@@ -93,19 +98,17 @@ export function BalanceChangeCard({
   range: "all" | "365" | "180" | "90"
   onRangeChange: (v: "all" | "365" | "180" | "90") => void
 }) {
+  const { t } = useTranslation()
+  const timeOpts = useTimeRangeOptions()
+
   return (
     <Card className="h-full w-full overflow-hidden border-0 bg-gradient-to-br from-muted/20 via-background to-background shadow-sm ring-1 ring-border/60">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Change vs {compareLabel} ago</CardTitle>
+        <CardTitle className="text-sm font-medium">
+          {t("balance.changeTitle", { label: compareLabel })}
+        </CardTitle>
         <div className="mt-2 flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60">
-          {(
-            [
-              ["all", "All Time"],
-              ["365", "1y"],
-              ["180", "6m"],
-              ["90", "3m"],
-            ] as const
-          ).map(([k, label]) => (
+          {timeOpts.map(([k, label]) => (
             <button
               key={k}
               type="button"
@@ -124,7 +127,7 @@ export function BalanceChangeCard({
       </CardHeader>
       <CardContent className="text-left">
         {notAvailable ? (
-          <p className="text-sm text-muted-foreground">Not Available</p>
+          <p className="text-sm text-muted-foreground">{t("common.notAvailable")}</p>
         ) : null}
 
         {loading ? (
@@ -182,4 +185,3 @@ export function BalanceChangeCard({
     </Card>
   )
 }
-

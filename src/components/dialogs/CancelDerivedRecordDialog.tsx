@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastCancelled } from "@/lib/toastI18n"
 
 type Props = {
   open: boolean
@@ -30,6 +31,7 @@ export function CancelDerivedRecordDialog({
   toUserCollectionId,
   onCancelled,
 }: Props) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +56,7 @@ export function CancelDerivedRecordDialog({
       const userRes = await supabase.auth.getUser()
       const userId = userRes.data.user?.id ?? null
       if (!userId) {
-        setError("You are not signed in.")
+        setError(t("dialogs.notSignedIn"))
         setLoading(false)
         return
       }
@@ -114,23 +116,21 @@ export function CancelDerivedRecordDialog({
       })
       setLoading(false)
     })()
-  }, [open, toUserCollectionId])
+  }, [open, t, toUserCollectionId])
 
   const warning = useMemo(() => {
     if (!toInfo) return null
     if (toInfo.grading) {
-      return "Warning: this derived item is currently being graded, so it cannot be consumed/rolled back. We can still delete this derived mapping and its miscellaneous records, and restore the source item, but the derived item will NOT be consumed."
+      return t("dialogs.cancelDerived.warningGrading")
     }
     if (!toInfo.exists || toInfo.deleted) {
-      return "Warning: your derived item quantity is not enough to rollback (the derived item is missing or already removed). We can still delete this derived mapping and its miscellaneous records, and restore the source item, but the derived item will NOT be consumed."
+      return t("dialogs.cancelDerived.warningQty")
     }
-    // Requirement from you: warn when required quantity is less than current quantity.
-    // Here required is always 1 derived mapping.
     if (toInfo.currentQty > 1) {
-      return `Warning: you currently have ${toInfo.currentQty} copies of this derived item. Cancelling will remove 1 copy, which may be confusing when you have multiple copies.`
+      return t("dialogs.cancelDerived.warningMultipleCopies", { count: toInfo.currentQty })
     }
     return null
-  }, [toInfo])
+  }, [toInfo, t])
 
   async function handleCancel() {
     if (saving) return
@@ -140,12 +140,11 @@ export function CancelDerivedRecordDialog({
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
 
-    // 1) Find related misc entries via user_derived_collection_miscellaneous
     const linksRes = await supabase
       .from("user_derived_collection_miscellaneous")
       .select("miscellaneous_entries_id")
@@ -166,7 +165,6 @@ export function CancelDerivedRecordDialog({
       )
     )
 
-    // Delete link rows then misc rows.
     if (miscIds.length) {
       const delLinks = await supabase
         .from("user_derived_collection_miscellaneous")
@@ -194,7 +192,6 @@ export function CancelDerivedRecordDialog({
       }
     }
 
-    // 2) Rollback: consume the derived item if it still exists and isn't deleted.
     const toRes = await supabase
       .from("user_collection")
       .select("id, deleted, grading")
@@ -223,7 +220,6 @@ export function CancelDerivedRecordDialog({
       }
     }
 
-    // 3) Remove the derived mapping record itself.
     const delMap = await supabase
       .from("user_derived_collection")
       .delete({ count: "exact" })
@@ -236,14 +232,11 @@ export function CancelDerivedRecordDialog({
       return
     }
     if (!delMap.count) {
-      setError(
-        "Failed to remove the derived mapping record (no rows were deleted). This is usually caused by a missing RLS DELETE policy on public.user_derived_collection."
-      )
+      setError(t("dialogs.cancelDerived.deleteFailed"))
       setSaving(false)
       return
     }
 
-    // 4) Restore source item derived=false if no other derived mappings remain for that source row.
     const remainingRes = await supabase
       .from("user_derived_collection")
       .select("id", { count: "exact", head: true })
@@ -274,7 +267,7 @@ export function CancelDerivedRecordDialog({
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Cancelled successfully", { duration: 5000 })
+    toastCancelled()
     onCancelled?.()
   }
 
@@ -283,16 +276,14 @@ export function CancelDerivedRecordDialog({
       <DialogContent className="max-h-[min(90dvh,34rem)] overflow-x-hidden sm:max-w-md p-0">
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Cancel derived record</DialogTitle>
-            <DialogDescription>
-              This will delete the costs linked to this derived record, remove the derived mapping, and restore the source item when possible.
-            </DialogDescription>
+            <DialogTitle>{t("dialogs.cancelDerivedTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogs.cancelDerived.description")}</DialogDescription>
           </DialogHeader>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
           {loading ? (
-            <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t("common.loading")}</p>
           ) : (
             <>
               {warning ? (
@@ -301,7 +292,7 @@ export function CancelDerivedRecordDialog({
                 </div>
               ) : null}
               <div className="mt-4 rounded-xl border bg-card p-3 text-sm text-muted-foreground">
-                You can proceed to cancel this derived record.
+                {t("dialogs.cancelDerived.proceedToCancel")}
               </div>
             </>
           )}
@@ -310,7 +301,7 @@ export function CancelDerivedRecordDialog({
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button
               type="button"
@@ -318,7 +309,7 @@ export function CancelDerivedRecordDialog({
               onClick={handleCancel}
               disabled={saving || loading}
             >
-              Cancel
+              {t("dialogs.cancel")}
             </Button>
           </div>
         </DialogFooter>
@@ -326,4 +317,3 @@ export function CancelDerivedRecordDialog({
     </Dialog>
   )
 }
-

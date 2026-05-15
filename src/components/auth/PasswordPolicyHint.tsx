@@ -1,4 +1,6 @@
-import { PASSWORD_POLICY_BULLETS } from "@/lib/passwordPolicy"
+import { useTranslation } from "react-i18next"
+
+import { getPasswordPolicyBullets } from "@/lib/passwordPolicy"
 import { cn } from "@/lib/utils"
 
 type PasswordPolicyHintProps = {
@@ -7,6 +9,9 @@ type PasswordPolicyHintProps = {
 }
 
 export function PasswordPolicyHint({ id, className }: PasswordPolicyHintProps) {
+  const { t } = useTranslation()
+  const bullets = getPasswordPolicyBullets(t)
+
   return (
     <div
       id={id}
@@ -15,9 +20,9 @@ export function PasswordPolicyHint({ id, className }: PasswordPolicyHintProps) {
         className
       )}
     >
-      <p className="font-medium text-foreground/90">Your password must have:</p>
+      <p className="font-medium text-foreground/90">{t("auth.passwordPolicy.title")}</p>
       <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
-        {PASSWORD_POLICY_BULLETS.map((line) => (
+        {bullets.map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>

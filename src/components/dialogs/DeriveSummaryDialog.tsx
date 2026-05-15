@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 import type { DerivedItemCostTarget, CostEntry } from "@/components/dialogs/DerivedItemCostDialog"
 import { ArrowRight } from "lucide-react"
-import { toast } from "sonner"
+import { toastSaved } from "@/lib/toastI18n"
 
 type Provider = "PSA"
 type DeriveMode = "create_new" | "choose_from_base"
@@ -59,10 +60,7 @@ type Props = {
   onBack?: () => void
 }
 
-function moneyHKD(n: number): string {
-  if (!Number.isFinite(n)) return "HKD$—"
-  return `HKD$${n.toFixed(2)}`
-}
+type CostType = "Grading" | "Postal" | "Other"
 
 function sumCosts(costs: CostEntry[] | undefined): number {
   if (!costs?.length) return 0
@@ -90,6 +88,19 @@ export function DeriveSummaryDialog({
   onSubmitted,
   onBack,
 }: Props) {
+  const { t } = useTranslation()
+  const emDash = t("common.emDash")
+  const moneyHKD = (n: number) => {
+    if (!Number.isFinite(n)) return `HKD$${emDash}`
+    return `HKD$${n.toFixed(2)}`
+  }
+  const costTypeLabel = (type: CostType) =>
+    type === "Grading"
+      ? t("dialogs.costType.grading")
+      : type === "Postal"
+        ? t("dialogs.costType.postal")
+        : t("dialogs.costType.other")
+
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
   const [source, setSource] = useState<SourceBase | null>(null)
   const [sourceImg, setSourceImg] = useState<string | null>(null)
@@ -98,9 +109,9 @@ export function DeriveSummaryDialog({
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const derivedRows = useMemo(() => {
-    return targets.map((t) => {
-      const per1 = sumCosts(perItemCosts[t.id])
-      return { ...t, per1 }
+    return targets.map((target) => {
+      const per1 = sumCosts(perItemCosts[target.id])
+      return { ...target, per1 }
     })
   }, [perItemCosts, targets])
 
@@ -167,7 +178,7 @@ export function DeriveSummaryDialog({
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setSaveError("You are not signed in.")
+      setSaveError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
@@ -226,7 +237,7 @@ export function DeriveSummaryDialog({
     }
 
     if (srcIds.length < setsInt) {
-      setSaveError("Not enough available items to derive from.")
+      setSaveError(t("dialogs.deriveSummary.notEnoughItems"))
       setSaving(false)
       return
     }
@@ -251,18 +262,18 @@ export function DeriveSummaryDialog({
     for (const d of createNewDrafts) {
       const file = d.createNew.sourceImage
       if (!file) {
-        setSaveError("Missing source image for a Create New item.")
+        setSaveError(t("dialogs.deriveSummary.missingSourceImage"))
         setSaving(false)
         return
       }
       if (!accessToken) {
-        setSaveError("Missing session token for image upload.")
+        setSaveError(t("dialogs.deriveSummary.missingSession"))
         setSaving(false)
         return
       }
       const base = (workerOrigin ?? "").replace(/\/+$/, "")
       if (!base) {
-        setSaveError("Missing Worker origin for image upload.")
+        setSaveError(t("dialogs.deriveSummary.missingWorker"))
         setSaving(false)
         return
       }
@@ -287,14 +298,19 @@ export function DeriveSummaryDialog({
           body: file,
         })
       } catch {
-        setSaveError(`Image upload failed: could not reach Worker (${base}).`)
+        setSaveError(t("dialogs.editCollection.imageUploadReach", { base }))
         setSaving(false)
         return
       }
 
       if (!uploadRes.ok) {
         const text = await uploadRes.text().catch(() => "")
-        setSaveError(`Image upload failed (${uploadRes.status}). ${text}`.trim())
+        setSaveError(
+          t("dialogs.editCollection.imageUploadStatus", {
+            status: String(uploadRes.status),
+            text,
+          }).trim()
+        )
         setSaving(false)
         return
       }
@@ -313,7 +329,7 @@ export function DeriveSummaryDialog({
         .single()
 
       if (cbRes.error || !cbRes.data?.id) {
-        setSaveError(cbRes.error?.message ?? "Failed to create collection item.")
+        setSaveError(cbRes.error?.message ?? t("dialogs.deriveSummary.createBaseFailed"))
         setSaving(false)
         return
       }
@@ -325,7 +341,7 @@ export function DeriveSummaryDialog({
       if (d.mode !== "choose_from_base") continue
       const baseId = d.selectedBase?.id ?? null
       if (!baseId) {
-        setSaveError("Missing selected base item for a Choose from Card Base entry.")
+        setSaveError(t("dialogs.deriveSummary.missingBaseItem"))
         setSaving(false)
         return
       }
@@ -334,7 +350,7 @@ export function DeriveSummaryDialog({
 
     const activeDrafts = drafts.filter((d) => d.mode === "choose_from_base" || d.mode === "create_new")
     if (!activeDrafts.length) {
-      setSaveError("No derived items to create.")
+      setSaveError(t("dialogs.deriveSummary.noDerivedItems"))
       setSaving(false)
       return
     }
@@ -373,7 +389,7 @@ export function DeriveSummaryDialog({
         .insert(toInsert.map((x) => x.row))
         .select("id")
       if (ucInsertRes.error || !ucInsertRes.data?.length) {
-        setSaveError(ucInsertRes.error?.message ?? "Failed to create derived collection items.")
+        setSaveError(ucInsertRes.error?.message ?? t("dialogs.deriveSummary.createDerivedFailed"))
         setSaving(false)
         return
       }
@@ -411,7 +427,7 @@ export function DeriveSummaryDialog({
         .insert(mapRows)
 
       if (mapRes.error) {
-        setSaveError(mapRes.error?.message ?? "Failed to create derived mapping records.")
+        setSaveError(mapRes.error?.message ?? t("dialogs.deriveSummary.createMappingFailed"))
         setSaving(false)
         return
       }
@@ -467,7 +483,7 @@ export function DeriveSummaryDialog({
 
     onOpenChange(false)
     onSubmitted?.()
-    toast.success("Saved successfully", { duration: 5000 })
+    toastSaved()
   }
 
   return (
@@ -475,19 +491,19 @@ export function DeriveSummaryDialog({
       <DialogContent className="max-h-[min(90dvh,46rem)] min-w-0 overflow-x-hidden sm:max-w-lg p-0">
         <DialogBody className="min-w-0 px-4 pt-4 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Derive summary</DialogTitle>
-            <DialogDescription>Review the derived items and costs.</DialogDescription>
+            <DialogTitle>{t("dialogs.deriveSummaryTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogs.deriveSummary.description")}</DialogDescription>
           </DialogHeader>
 
           <div className="mt-4 min-w-0 space-y-3">
             <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
-              <p className="text-sm font-semibold">Source</p>
+              <p className="text-sm font-semibold">{t("dialogs.deriveSummary.sourceHeading")}</p>
               <div className="mt-2 flex min-w-0 items-start gap-3">
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-muted/30">
                   {sourceImg ? (
                     <img
                       src={sourceImg}
-                      alt={source?.name ?? "Source item"}
+                      alt={source?.name ?? t("dialogs.deriveSummary.sourceAlt")}
                       className="h-full w-full object-cover object-left-top"
                       loading="lazy"
                     />
@@ -496,12 +512,17 @@ export function DeriveSummaryDialog({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium leading-snug">{source?.name ?? "—"}</p>
+                  <p className="break-words text-sm font-medium leading-snug">{source?.name ?? emDash}</p>
                   <p className="mt-0.5 break-words text-xs leading-snug text-muted-foreground">
-                    {[source?.game_title, source?.card_no].filter(Boolean).join(" · ") || "—"}
+                    {[source?.game_title, source?.card_no].filter(Boolean).join(" · ") || emDash}
                   </p>
                   <p className="mt-1 break-words text-xs text-muted-foreground">
-                    graded: {String(sourceGraded)} · current qty: {sourceQuantity}
+                    {t("dialogs.deriveSummary.sourceLineMeta", {
+                      graded: sourceGraded ? t("dialogs.graded") : t("dialogs.raw"),
+                      currentQty: t("dialogs.gradingCostSummary.currentQty", {
+                        count: sourceQuantity,
+                      }),
+                    })}
                   </p>
                 </div>
               </div>
@@ -509,16 +530,18 @@ export function DeriveSummaryDialog({
 
             <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                <span className="font-semibold">Derive</span>
+                <span className="font-semibold">{t("dialogs.deriveSummary.deriveRowLead")}</span>
                 <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="min-w-0 text-muted-foreground">
-                  consume {sets} source item{sets === 1 ? "" : "s"}
+                  {t("dialogs.deriveSummary.consumeSource", { count: sets })}
                 </span>
               </div>
             </div>
 
             <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
-              <p className="text-sm font-semibold leading-snug">Derived items (cost per 1)</p>
+              <p className="text-sm font-semibold leading-snug">
+                {t("dialogs.deriveSummary.derivedItemsCostPerOne")}
+              </p>
               {derivedRows.length ? (
                 <div className="mt-3 space-y-2">
                   {derivedRows.map((r) => (
@@ -559,7 +582,7 @@ export function DeriveSummaryDialog({
                             >
                               <div className="min-w-0 flex-1">
                                 <p className="break-words text-sm font-medium leading-snug">
-                                  {c.type}{" "}
+                                  {costTypeLabel(c.type as CostType)}{" "}
                                   <span className="text-xs font-normal text-muted-foreground">
                                     · {c.date}
                                   </span>
@@ -577,20 +600,24 @@ export function DeriveSummaryDialog({
                           ))}
                         </div>
                       ) : (
-                        <p className="mt-2 text-sm text-muted-foreground">No costs for this item.</p>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {t("dialogs.deriveSummary.noCostsForItem")}
+                        </p>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-muted-foreground">No derived items.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t("dialogs.deriveSummary.noDerivedItemsInList")}
+                </p>
               )}
 
             </div>
 
             <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
               <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <p className="text-sm font-semibold">Total cost</p>
+                <p className="text-sm font-semibold">{t("dialogs.deriveSummary.totalLabel")}</p>
                 <p className="shrink-0 text-sm font-semibold tabular-nums">{moneyHKD(total)}</p>
               </div>
               {saveError ? (
@@ -599,16 +626,19 @@ export function DeriveSummaryDialog({
               <div className="mt-3 grid min-w-0 gap-2 text-sm">
                 <div className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">Derived items</p>
+                    <p className="font-medium">{t("dialogs.deriveSummary.derivedItemsSubheading")}</p>
                     <p className="break-words text-xs text-muted-foreground">
-                      {moneyHKD(derivedPer1)} per 1 × {sets} set{sets === 1 ? "" : "s"}
+                      {t("dialogs.deriveSummary.perSetSummary", {
+                        count: sets,
+                        perOne: moneyHKD(derivedPer1),
+                      })}
                     </p>
                   </div>
                   <p className="shrink-0 font-semibold tabular-nums sm:text-right">{moneyHKD(derivedTotal)}</p>
                 </div>
 
                 <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-3 rounded-lg border bg-background px-3 py-2">
-                  <p className="font-semibold">Total</p>
+                  <p className="font-semibold">{t("dialogs.deriveSummary.grandTotalLabel")}</p>
                   <p className="shrink-0 font-semibold tabular-nums">{moneyHKD(total)}</p>
                 </div>
               </div>
@@ -627,10 +657,10 @@ export function DeriveSummaryDialog({
             }}
             disabled={saving}
           >
-            Back
+            {t("dialogs.back")}
           </Button>
           <Button type="button" className="w-full min-w-0 sm:w-auto" onClick={handleDone} disabled={saving}>
-            Done
+            {t("dialogs.done")}
           </Button>
         </DialogFooter>
       </DialogContent>

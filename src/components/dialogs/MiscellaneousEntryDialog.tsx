@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -21,7 +22,7 @@ import {
 import { FieldGroup } from "@/components/ui/field"
 import { FormMoneyInput, FormSelectField, FormTextInput } from "@/components/form-input"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastSaved } from "@/lib/toastI18n"
 
 type MiscType = "Grading" | "Postal" | "Other"
 
@@ -40,6 +41,7 @@ type Props = {
 }
 
 export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Props) {
+  const { t } = useTranslation()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,7 +77,7 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
@@ -96,7 +98,7 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Saved successfully", { duration: 5000 })
+    toastSaved()
     onSubmitted?.()
   }
 
@@ -105,8 +107,8 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
       <DialogContent className="max-h-[min(90dvh,34rem)] min-w-0 overflow-x-hidden p-0 sm:max-w-md">
         <DialogBody className="min-w-0 px-4 pt-4 sm:px-6 sm:pt-6">
           <DialogHeader className="min-w-0 px-0">
-            <DialogTitle>Miscellaneous</DialogTitle>
-            <DialogDescription>Add a single miscellaneous record.</DialogDescription>
+            <DialogTitle>{t("dialogs.miscTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogs.misc.description")}</DialogDescription>
           </DialogHeader>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
@@ -114,7 +116,7 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
           <div className="mt-4 min-w-0 max-w-full overflow-hidden rounded-xl border bg-card p-3 sm:p-4">
             <FieldGroup className="min-w-0">
               <FormTextInput
-                label="Date"
+                label={t("dialogs.date")}
                 id="misc-date"
                 type="date"
                 value={date}
@@ -123,16 +125,16 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
                 inputClassName="min-w-0 max-w-full"
               />
 
-              <FormSelectField label="Type" htmlFor="misc-type">
+              <FormSelectField label={t("dialogs.type")} htmlFor="misc-type">
                 <Select value={type} onValueChange={(v) => setType(v as MiscType)} disabled={saving}>
                   <SelectTrigger id="misc-type" className="w-full" size="default">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="Grading">Grading</SelectItem>
-                      <SelectItem value="Postal">Postal</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
+                      <SelectItem value="Grading">{t("dialogs.costType.grading")}</SelectItem>
+                      <SelectItem value="Postal">{t("dialogs.costType.postal")}</SelectItem>
+                      <SelectItem value="Other">{t("dialogs.costType.other")}</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -140,7 +142,7 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
 
               {type === "Other" ? (
                 <FormTextInput
-                  label="Description"
+                  label={t("dialogs.description")}
                   id="misc-desc"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -151,7 +153,7 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
 
               <FormMoneyInput
                 className="min-w-0"
-                label="Cost"
+                label={t("dialogs.cost")}
                 htmlFor="misc-cost"
                 inputProps={{
                   id: "misc-cost",
@@ -176,10 +178,10 @@ export function MiscellaneousEntryDialog({ open, onOpenChange, onSubmitted }: Pr
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
-            Back
+            {t("dialogs.back")}
           </Button>
           <Button type="button" className="w-full sm:w-auto" onClick={handleSubmit} disabled={!canSubmit}>
-            Save
+            {t("dialogs.save")}
           </Button>
         </DialogFooter>
       </DialogContent>

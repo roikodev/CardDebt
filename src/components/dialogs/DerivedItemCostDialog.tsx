@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -88,9 +89,10 @@ export function DerivedItemCostDialog({
   onNext,
   onBack,
 }: Props) {
+  const { t } = useTranslation()
   const [perItemCosts, setPerItemCosts] = useState<Record<string, CostEntry[]>>({})
 
-  const targetIds = useMemo(() => targets.map((t) => t.id), [targets])
+  const targetIds = useMemo(() => targets.map((x) => x.id), [targets])
 
   useEffect(() => {
     if (!open) return
@@ -113,21 +115,21 @@ export function DerivedItemCostDialog({
       <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0">
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Derived item costs</DialogTitle>
+            <DialogTitle>{t("dialogs.derivedCostsTitle")}</DialogTitle>
             <DialogDescription>
-              Add any number of cost records (or none) for 1 set. Sets: {sets} (max {maxSets}).
+              {t("dialogs.derivedItemCost.descriptionWithSets", { sets, maxSets })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="mt-4 space-y-3">
-            {targets.map((t) => {
-              const costs = perItemCosts[t.id] ?? []
+            {targets.map((target) => {
+              const costs = perItemCosts[target.id] ?? []
               return (
-                <div key={t.id} className="rounded-xl border bg-card p-3">
+                <div key={target.id} className="rounded-xl border bg-card p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{t.title}</p>
-                      <p className="truncate text-xs text-muted-foreground">{t.subtitle}</p>
+                      <p className="truncate text-sm font-semibold">{target.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">{target.subtitle}</p>
                     </div>
                     <Button
                       type="button"
@@ -136,12 +138,12 @@ export function DerivedItemCostDialog({
                       onClick={() =>
                         setPerItemCosts((prev) => ({
                           ...prev,
-                          [t.id]: [...(prev[t.id] ?? []), newEntry()],
+                          [target.id]: [...(prev[target.id] ?? []), newEntry()],
                         }))
                       }
                     >
                       <Plus className="size-4" aria-hidden="true" />
-                      Add
+                      {t("dialogs.add")}
                     </Button>
                   </div>
 
@@ -151,14 +153,14 @@ export function DerivedItemCostDialog({
                         <div key={c.id} className="rounded-lg border bg-muted/30 p-3">
                           <FieldGroup>
                             <FormTextInput
-                              label="Date"
-                              id={`item-${t.id}-date-${c.id}`}
+                              label={t("dialogs.date")}
+                              id={`item-${target.id}-date-${c.id}`}
                               type="date"
                               value={c.date}
                               onChange={(e) =>
                                 setPerItemCosts((prev) => ({
                                   ...prev,
-                                  [t.id]: (prev[t.id] ?? []).map((x) =>
+                                  [target.id]: (prev[target.id] ?? []).map((x) =>
                                     x.id === c.id ? { ...x, date: e.target.value } : x
                                   ),
                                 }))
@@ -166,15 +168,15 @@ export function DerivedItemCostDialog({
                             />
 
                             <FormSelectField
-                              label="Type"
-                              htmlFor={`item-${t.id}-type-${c.id}`}
+                              label={t("dialogs.typeLabel")}
+                              htmlFor={`item-${target.id}-type-${c.id}`}
                             >
                               <Select
                                 value={c.type}
                                 onValueChange={(v) =>
                                   setPerItemCosts((prev) => ({
                                     ...prev,
-                                    [t.id]: (prev[t.id] ?? []).map((x) =>
+                                    [target.id]: (prev[target.id] ?? []).map((x) =>
                                       x.id === c.id
                                         ? { ...x, type: v as DerivedItemCostType, description: "" }
                                         : x
@@ -183,7 +185,7 @@ export function DerivedItemCostDialog({
                                 }
                               >
                                 <SelectTrigger
-                                  id={`item-${t.id}-type-${c.id}`}
+                                  id={`item-${target.id}-type-${c.id}`}
                                   className="w-full"
                                   size="default"
                                 >
@@ -191,9 +193,15 @@ export function DerivedItemCostDialog({
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectGroup>
-                                    <SelectItem value="Grading">Grading</SelectItem>
-                                    <SelectItem value="Postal">Postal</SelectItem>
-                                    <SelectItem value="Other">Other</SelectItem>
+                                    <SelectItem value="Grading">
+                                      {t("dialogs.costType.grading")}
+                                    </SelectItem>
+                                    <SelectItem value="Postal">
+                                      {t("dialogs.costType.postal")}
+                                    </SelectItem>
+                                    <SelectItem value="Other">
+                                      {t("dialogs.costType.other")}
+                                    </SelectItem>
                                   </SelectGroup>
                                 </SelectContent>
                               </Select>
@@ -201,13 +209,13 @@ export function DerivedItemCostDialog({
 
                             {c.type === "Other" ? (
                               <FormTextInput
-                                label="Description"
-                                id={`item-${t.id}-desc-${c.id}`}
+                                label={t("dialogs.description")}
+                                id={`item-${target.id}-desc-${c.id}`}
                                 value={c.description}
                                 onChange={(e) =>
                                   setPerItemCosts((prev) => ({
                                     ...prev,
-                                    [t.id]: (prev[t.id] ?? []).map((x) =>
+                                    [target.id]: (prev[target.id] ?? []).map((x) =>
                                       x.id === c.id ? { ...x, description: e.target.value } : x
                                     ),
                                   }))
@@ -216,10 +224,10 @@ export function DerivedItemCostDialog({
                             ) : null}
 
                             <FormMoneyInput
-                              label="Cost"
-                              htmlFor={`item-${t.id}-cost-${c.id}`}
+                              label={t("dialogs.cost")}
+                              htmlFor={`item-${target.id}-cost-${c.id}`}
                               inputProps={{
-                                id: `item-${t.id}-cost-${c.id}`,
+                                id: `item-${target.id}-cost-${c.id}`,
                                 type: "number",
                                 inputMode: "decimal",
                                 step: "any",
@@ -228,7 +236,7 @@ export function DerivedItemCostDialog({
                                 onChange: (e) =>
                                   setPerItemCosts((prev) => ({
                                     ...prev,
-                                    [t.id]: (prev[t.id] ?? []).map((x) =>
+                                    [target.id]: (prev[target.id] ?? []).map((x) =>
                                       x.id === c.id ? { ...x, costHKD: e.target.value } : x
                                     ),
                                   })),
@@ -244,19 +252,21 @@ export function DerivedItemCostDialog({
                               onClick={() =>
                                 setPerItemCosts((prev) => ({
                                   ...prev,
-                                  [t.id]: (prev[t.id] ?? []).filter((x) => x.id !== c.id),
+                                  [target.id]: (prev[target.id] ?? []).filter((x) => x.id !== c.id),
                                 }))
                               }
                             >
                               <Trash2 className="size-4" aria-hidden="true" />
-                              Remove
+                              {t("dialogs.remove")}
                             </Button>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">No costs for this item.</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {t("dialogs.derivedItemCost.noCostsForItem")}
+                    </p>
                   )}
                 </div>
               )
@@ -274,7 +284,7 @@ export function DerivedItemCostDialog({
                 else onOpenChange(false)
               }}
             >
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button
               type="button"
@@ -283,7 +293,7 @@ export function DerivedItemCostDialog({
                 onOpenChange(false)
               }}
             >
-              Next
+              {t("dialogs.next")}
             </Button>
           </div>
         </DialogFooter>
@@ -291,4 +301,3 @@ export function DerivedItemCostDialog({
     </Dialog>
   )
 }
-

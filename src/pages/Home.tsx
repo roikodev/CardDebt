@@ -1,14 +1,17 @@
 import { Button } from "@/components/ui/button"
 import { Link } from "@tanstack/react-router"
 import { LayoutGrid, PieChart, Wallet } from "lucide-react"
-
-const highlights = [
-  { icon: LayoutGrid, label: "Collection" },
-  { icon: Wallet, label: "Spend & balance" },
-  { icon: PieChart, label: "Insights" },
-] as const
+import { useTranslation } from "react-i18next"
 
 export function Home() {
+  const { t } = useTranslation()
+
+  const highlights = [
+    { icon: LayoutGrid, label: t("home.highlightCollection") },
+    { icon: Wallet, label: t("home.highlightSpend") },
+    { icon: PieChart, label: t("home.highlightInsights") },
+  ] as const
+
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-10 sm:py-14">
       <div className="relative mx-auto w-full max-w-md text-center">
@@ -22,17 +25,17 @@ export function Home() {
         />
 
         <p className="relative text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Card Debt
+          {t("home.brand")}
         </p>
         <h2 className="relative mt-3 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
-          Track cards,{" "}
+          {t("home.taglineLead")}{" "}
           <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            spending
+            {t("home.taglineAccent")}
           </span>
-          , and value
+          {t("home.taglineTrail")}
         </h2>
         <p className="relative mx-auto mt-3 max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground">
-          Sign in so your hobby stays organized—wherever you open the app.
+          {t("home.sub")}
         </p>
 
         <div
@@ -53,7 +56,7 @@ export function Home() {
 
         <div className="relative mt-9 flex justify-center">
           <Button asChild size="default" className="min-w-[7.5rem] shadow-md">
-            <Link to="/auth/login">Login</Link>
+            <Link to="/auth/login">{t("home.login")}</Link>
           </Button>
         </div>
       </div>

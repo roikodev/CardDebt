@@ -7,6 +7,7 @@ import {
   useState,
 } from "react"
 import { createPortal } from "react-dom"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -134,8 +135,8 @@ export type ResearchCardFields = {
   reasoning?: string
 }
 
-function formatHkdDisplay(value: string | undefined): string {
-  if (value === undefined || !String(value).trim()) return "—"
+function formatHkdDisplay(value: string | undefined, emptyDisplay = "—"): string {
+  if (value === undefined || !String(value).trim()) return emptyDisplay
   const s = String(value).trim()
   const n = Number(s.replace(/,/g, "").replace(/[^0-9.-]/g, ""))
   if (Number.isFinite(n) && /[0-9]/.test(s)) {
@@ -277,24 +278,6 @@ function extractResearchFromInvokeData(data: unknown): {
   return { cardResult: null, rawFallback: stringifyDataFallback(candidate) }
 }
 
-const LOADING_MESSAGES = [
-  "Sharpening card edges in the image…",
-  "Matching print patterns to known sets…",
-  "Scanning recent marketplace listings…",
-  "Estimating condition from surface glare…",
-  "Cross-checking rarity signals…",
-  "Building a fair price band from comps…",
-  "Almost there — packaging the answer…",
-]
-
-function pickLoadingMessage(exclude?: string): string {
-  const pool =
-    LOADING_MESSAGES.length > 1
-      ? LOADING_MESSAGES.filter((m) => m !== exclude)
-      : LOADING_MESSAGES
-  return pool[Math.floor(Math.random() * pool.length)] ?? "Working…"
-}
-
 const LOADING_PROGRESS_CAP = 88
 
 function progressFromElapsedSeconds(elapsedSec: number): number {
@@ -413,9 +396,24 @@ function AskAiCircularProgress({
 }
 
 export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Props) {
+  const { t } = useTranslation()
   const loadingTitleId = useId()
+
+  const pickLoadingMessage = useCallback(
+    (exclude?: string) => {
+      const raw = t("dialogs.askAi.loadingMessages", { returnObjects: true })
+      const pool = Array.isArray(raw)
+        ? raw.filter((m): m is string => typeof m === "string")
+        : []
+      const messages = pool.length ? pool : [t("dialogs.askAi.working")]
+      const choices = messages.length > 1 ? messages.filter((m) => m !== exclude) : messages
+      return choices[Math.floor(Math.random() * choices.length)] ?? t("dialogs.askAi.working")
+    },
+    [t]
+  )
+
+  const [loadingMsg, setLoadingMsg] = useState("")
   const [stage, setStage] = useState<Stage>("pick")
-  const [loadingMsg, setLoadingMsg] = useState(() => pickLoadingMessage())
   const [fakeProgress, setFakeProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [cardResult, setCardResult] = useState<ResearchCardFields | null>(null)
@@ -467,7 +465,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
     setLoadingMsg(pickLoadingMessage())
     if (albumInputRef.current) albumInputRef.current.value = ""
     stopLoadingMotion()
-  }, [releaseAlbumPickerGuard, stopLoadingMotion])
+  }, [releaseAlbumPickerGuard, stopLoadingMotion, pickLoadingMessage])
 
   useEffect(() => {
     if (!open) {
@@ -504,9 +502,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         stopLoadingMotion()
         setFakeProgress(100)
         setLoadingMsg(
-          payload.error
-            ? "Couldn't finish that lookup."
-            : "Done — here is your estimate."
+          payload.error ? t("dialogs.askAi.loadingFailed") : t("dialogs.askAi.loadingDone")
         )
         const waitMs = payload.settlingMs ?? 2_600
         await new Promise<void>((resolve) => setTimeout(resolve, waitMs))
@@ -528,7 +524,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
             jpegDataUrl = await dataUrlToJpegDataUrl(rawDataUrl, 1600, 0.92)
           } catch {
             await revealOutcome({
-              error: "We couldn't process that image. Try another photo.",
+              error: t("dialogs.askAi.imageProcessError"),
               settlingMs: 1_450,
             })
             return
@@ -540,7 +536,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         const imageBase64 = dataUrlToRawBase64(jpegDataUrl)
         if (!imageBase64 || imageBase64.length < 100) {
           await revealOutcome({
-            error: "That photo couldn't be used. Try a clearer image.",
+            error: t("dialogs.askAi.imageUseError"),
             settlingMs: 1_450,
           })
           return
@@ -554,14 +550,13 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         if (fnError) {
           logAskAiDevDetail("research-card-price invoke", fnError)
           await revealOutcome({
-            error:
-              "We couldn't complete the request. Check your connection and try again.",
+            error: t("dialogs.askAi.requestError"),
           })
           return
         }
         if (data === null || data === undefined) {
           await revealOutcome({
-            error: "No result came back. Please try again.",
+            error: t("dialogs.askAi.noResultError"),
           })
           return
         }
@@ -570,7 +565,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
           if (msg) {
             logAskAiDevDetail("research-card-price response error field", msg)
             await revealOutcome({
-              error: "We couldn't finish this lookup. Please try again.",
+              error: t("dialogs.askAi.lookupError"),
             })
             return
           }
@@ -586,11 +581,11 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
       } catch (e) {
         logAskAiDevDetail("research-card-price unexpected", e)
         await revealOutcome({
-          error: "Something went wrong. Please try again.",
+          error: t("dialogs.askAi.genericError"),
         })
       }
     },
-    [stopLoadingMotion]
+    [stopLoadingMotion, t, pickLoadingMessage]
   )
 
   useEffect(() => {
@@ -623,7 +618,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
     return () => {
       stopLoadingMotion()
     }
-  }, [stage, stopLoadingMotion])
+  }, [stage, stopLoadingMotion, pickLoadingMessage])
 
   const handleAlbumChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -634,13 +629,13 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         return
       }
       if (!file.type.startsWith("image/")) {
-        setError("Please choose an image file (JPEG, PNG, WebP, etc.).")
+        setError(t("dialogs.askAi.chooseImageType"))
         releaseAlbumPickerGuard()
         return
       }
       const maxBytes = 8 * 1024 * 1024
       if (file.size > maxBytes) {
-        setError("Image must be 8 MB or smaller.")
+        setError(t("dialogs.askAi.imageTooLarge"))
         releaseAlbumPickerGuard()
         return
       }
@@ -649,7 +644,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
       reader.onload = () => {
         const result = reader.result
         if (typeof result !== "string" || !result.startsWith("data:image/")) {
-          setError("We couldn't read that file. Try a different image.")
+          setError(t("dialogs.askAi.readFileError"))
           releaseAlbumPickerGuard()
           return
         }
@@ -658,12 +653,12 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         void runResearch(result)
       }
       reader.onerror = () => {
-        setError("Failed to read the file.")
+        setError(t("dialogs.askAi.readFileFailed"))
         releaseAlbumPickerGuard()
       }
       reader.readAsDataURL(file)
     },
-    [releaseAlbumPickerGuard, runResearch]
+    [releaseAlbumPickerGuard, runResearch, t]
   )
 
   const openIdentifyCardPicker = useCallback(() => {
@@ -727,7 +722,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
     <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
       <img
         src={previewUrl}
-        alt="Photo used for this estimate"
+        alt={t("dialogs.askAi.photoAlt")}
         className="mx-auto max-h-48 w-full max-w-md object-contain"
       />
     </div>
@@ -761,10 +756,10 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
               id={loadingTitleId}
               className="font-heading text-lg font-medium text-foreground"
             >
-              Identifying the Card...
+              {t("dialogs.askAi.loadingOverlayTitle")}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Estimating from your card photo — this can take up to a minute.
+              {t("dialogs.askAi.loadingOverlaySubtitle")}
             </p>
           </div>
           <AskAiCircularProgress
@@ -803,9 +798,9 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         >
           <>
             <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
-              <DialogTitle>Ask AI</DialogTitle>
+              <DialogTitle>{t("dialogs.askAi.title")}</DialogTitle>
               <DialogDescription className="sr-only">
-                Choose a card photo from your device to identify it.
+                {t("dialogs.askAi.chooserDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="px-4 pb-4 sm:px-6 sm:pb-6">
@@ -817,7 +812,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
               >
                 <IdentifyCardIcon className="size-9 shrink-0" />
                 <span className="break-words text-sm font-medium leading-tight">
-                  Identify Card
+                  {t("dialogs.askAi.identifyCard")}
                 </span>
               </Button>
               {error ? (
@@ -840,9 +835,9 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
           )}
         >
           <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
-            <DialogTitle>Result</DialogTitle>
+            <DialogTitle>{t("dialogs.askAi.resultTitle")}</DialogTitle>
             <DialogDescription className="sr-only">
-              Price estimate, grading hints if available, and details for your card.
+              {t("dialogs.askAi.resultDescription")}
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="flex min-h-0 flex-col gap-4 px-4 sm:px-6">
@@ -863,7 +858,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                   <div className="rounded-lg border border-border bg-muted/15 px-3 py-3 sm:px-4">
                     <div className="space-y-1.5">
                       <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Introduction
+                        {t("dialogs.askAi.introduction")}
                       </p>
                       <p className="text-sm leading-relaxed text-foreground">
                         {cardResult.introduction}
@@ -875,7 +870,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                 {cardResult.game_title ? (
                   <div className="space-y-1">
                     <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Game title
+                      {t("dialogs.askAi.gameTitle")}
                     </p>
                     <p className="font-heading text-base font-medium leading-snug">
                       {gameTitleDisplayText(cardResult.game_title)}
@@ -889,12 +884,12 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                   <div className="rounded-lg border border-border bg-muted/15 px-3 py-3 sm:px-4">
                     <div className="space-y-1.5">
                       <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Grading
+                        {t("dialogs.askAi.grading")}
                       </p>
                       <dl className="grid gap-1 text-sm text-foreground">
                         {cardResult.grading_info.provider?.trim() ? (
                           <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                            <dt className="text-muted-foreground">Provider</dt>
+                            <dt className="text-muted-foreground">{t("dialogs.askAi.provider")}</dt>
                             <dd className="font-medium">
                               {cardResult.grading_info.provider.trim()}
                             </dd>
@@ -902,7 +897,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                         ) : null}
                         {cardResult.grading_info.grading_level?.trim() ? (
                           <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                            <dt className="text-muted-foreground">Level</dt>
+                            <dt className="text-muted-foreground">{t("dialogs.askAi.level")}</dt>
                             <dd className="font-medium">
                               {cardResult.grading_info.grading_level.trim()}
                             </dd>
@@ -930,7 +925,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                   return (
                     <div className="space-y-1">
                       <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Card
+                        {t("dialogs.askAi.card")}
                       </p>
                       <p className="font-heading text-lg font-semibold leading-snug">
                         {line}
@@ -943,10 +938,10 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                 String(cardResult.estimated_price).trim() ? (
                   <div className="rounded-xl border border-border bg-gradient-to-br from-violet-500/8 via-transparent to-cyan-500/8 px-4 py-4">
                     <p className="text-xs font-medium text-muted-foreground">
-                      Estimated market price (HKD)
+                      {t("dialogs.askAi.estimatedPrice")}
                     </p>
                     <p className="mt-1.5 font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                      {formatHkdDisplay(cardResult.estimated_price)}
+                      {formatHkdDisplay(cardResult.estimated_price, t("common.emDash"))}
                     </p>
                   </div>
                 ) : null}
@@ -954,7 +949,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                 {cardResult.reasoning ? (
                   <details className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">
                     <summary className="cursor-pointer font-medium text-foreground outline-none">
-                      Why this estimate
+                      {t("dialogs.askAi.whyEstimate")}
                     </summary>
                     <p className="mt-2 text-muted-foreground leading-relaxed">
                       {cardResult.reasoning}
@@ -967,9 +962,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
             {!error && resultRawFallback ? (
               <div className="flex min-h-[10rem] flex-col gap-4">
                 {resultPreviewImage}
-                <p className="text-xs text-muted-foreground">
-                  Result was not in the expected format; showing raw response.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("dialogs.askAi.rawFormatHint")}</p>
                 <div className="max-h-[min(50dvh,22rem)] flex-1 overflow-auto rounded-lg border border-border bg-muted/25 p-3 font-mono text-xs whitespace-pre-wrap sm:text-sm">
                   {resultRawFallback}
                 </div>
@@ -979,14 +972,12 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
             {!error &&
             !cardResult &&
             !resultRawFallback ? (
-              <p className="text-sm text-muted-foreground">
-                No estimate was returned. Try another photo.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("dialogs.askAi.noEstimate")}</p>
             ) : null}
           </DialogBody>
           <DialogFooter className="flex shrink-0 flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:flex-wrap sm:justify-end sm:px-6">
             <Button type="button" variant="outline" onClick={closeEntireFlow}>
-              Close
+              {t("common.close")}
             </Button>
             {onPurchaseIntent && previewUrl ? (
               <Button
@@ -999,11 +990,11 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                   })
                 }}
               >
-                I am about to Purchase
+                {t("dialogs.askAi.purchaseIntent")}
               </Button>
             ) : null}
             <Button type="button" onClick={askAgainFromResult}>
-              Ask again
+              {t("dialogs.askAi.askAgain")}
             </Button>
           </DialogFooter>
         </DialogContent>
