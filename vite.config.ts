@@ -19,6 +19,8 @@ export default defineConfig({
         short_name: 'CardDebt',
         description: 'Track your TCG collection and financial debt.',
         theme_color: '#09090b',
+        background_color: '#09090b',
+        display: 'standalone',
         icons: [
           {
             src: 'android-chrome-192x192.png',

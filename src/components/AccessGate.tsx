@@ -11,11 +11,6 @@ type BeforeInstallPromptEvent = Event & {
 export function AccessGate({ children }: { children: React.ReactNode }) {
   const [bipEvent, setBipEvent] = useState<BeforeInstallPromptEvent | null>(null)
 
-  useEffect(() => {
-    document.documentElement.classList.add("dark")
-    return () => document.documentElement.classList.remove("dark")
-  }, [])
-
   const isStandalone = useMemo(() => {
     if (typeof window === "undefined") return false
     const standaloneMedia = window.matchMedia?.("(display-mode: standalone)").matches
@@ -56,8 +51,8 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
   if (!shouldGate) return <>{children}</>
 
   return (
-    <main className="min-h-svh bg-background text-foreground">
-      <div className="mx-auto w-full max-w-xl px-6 py-12">
+    <main className="min-h-svh bg-background text-foreground pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+      <div className="mx-auto w-full max-w-xl px-6 pb-[calc(3rem+env(safe-area-inset-bottom,0px))] pt-[calc(3rem+env(safe-area-inset-top,0px))]">
         <div className="rounded-xl border bg-card p-6 text-left shadow-sm">
           <div className="flex items-center gap-3">
             <img
