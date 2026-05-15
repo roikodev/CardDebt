@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -12,32 +12,32 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GoogleIcon } from "@/components/icons/GoogleIcon"
+import { loginSchema } from "@/lib/i18nValidation"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
+import { useTranslation } from "react-i18next"
 import { z } from "zod"
 import { useAuthStore } from "@/stores/auth"
 
-const loginSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-})
-
-type LoginFormValues = z.infer<typeof loginSchema>
+type LoginFormValues = z.infer<ReturnType<typeof loginSchema>>
 
 export function Login() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const schema = useMemo(() => loginSchema(t), [t])
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
     mode: "onSubmit",
   })
@@ -46,15 +46,15 @@ export function Login() {
     <main className="text-foreground">
       <div className="mx-auto w-full max-w-md px-6 pb-14">
         <header className="text-center">
-          <h1 className="mt-5 text-2xl font-semibold tracking-tight">Login</h1>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight">{t("auth.login.title")}</h1>
         </header>
 
         <Card className="mx-auto mt-8 w-full max-w-sm">
           <CardHeader className="text-left">
-            <CardTitle>Login to your account</CardTitle>
+            <CardTitle>{t("auth.login.cardTitle")}</CardTitle>
             <CardAction>
               <Button asChild type="button">
-                <Link to="/auth/signup">Sign Up</Link>
+                <Link to="/auth/signup">{t("auth.login.signUp")}</Link>
               </Button>
             </CardAction>
           </CardHeader>
@@ -99,13 +99,13 @@ export function Login() {
             <CardContent className="mb-4">
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("auth.email")}</Label>
                   <Input
                     id="email"
                     type="email"
                     autoComplete="email"
                     inputMode="email"
-                    placeholder="m@example.com"
+                    placeholder={t("auth.emailPlaceholder")}
                     aria-invalid={errors.email ? "true" : "false"}
                     className={cn(errors.email && "border-destructive")}
                     {...register("email")}
@@ -117,12 +117,12 @@ export function Login() {
 
                 <div className="grid gap-2">
                   <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password">{t("auth.password")}</Label>
                     <Link
                       to="/auth/forget-password"
                       className="ml-auto text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
-                      Forgot your password?
+                      {t("auth.login.forgotPassword")}
                     </Link>
                   </div>
                   <Input
@@ -138,15 +138,15 @@ export function Login() {
                   ) : null}
                 </div>
               </div>
-
-              {submitError ? (
-                <p className="mt-4 text-sm text-destructive">{submitError}</p>
-              ) : null}
             </CardContent>
+
+            {submitError ? (
+              <p className="px-6 text-sm text-destructive">{submitError}</p>
+            ) : null}
 
             <CardFooter className="flex-col gap-3">
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Logging in..." : "Login"}
+                {isSubmitting ? t("auth.login.submitting") : t("auth.login.submit")}
               </Button>
 
               <div className="h-px w-full bg-border" role="presentation" />
@@ -160,14 +160,14 @@ export function Login() {
                 }}
               >
                 <GoogleIcon className="mr-2 h-4 w-4" />
-                Login with Google
+                {t("auth.login.google")}
               </Button>
             </CardFooter>
           </form>
         </Card>
 
         <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-fit">
-          <Link to="/auth/home">Back</Link>
+          <Link to="/auth/home">{t("auth.login.backHome")}</Link>
         </Button>
       </div>
     </main>

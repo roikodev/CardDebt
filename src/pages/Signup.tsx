@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -10,37 +10,36 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { supabase } from "@/lib/supabase"
-import { passwordFieldSchema } from "@/lib/passwordPolicy"
 import { PasswordPolicyHint } from "@/components/auth/PasswordPolicyHint"
+import { signupSchema } from "@/lib/i18nValidation"
+import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useRegistrationStore } from "@/stores/registration"
 import { useAuthStore } from "@/stores/auth"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
+import { useTranslation } from "react-i18next"
 import { z } from "zod"
 
-const signupSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: passwordFieldSchema,
-})
-
-type SignupFormValues = z.infer<typeof signupSchema>
+type SignupFormValues = z.infer<ReturnType<typeof signupSchema>>
 
 export function Signup() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const startIntent = useRegistrationStore((s) => s.startIntent)
   const setAuth = useAuthStore((s) => s.setAuth)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitNote, setSubmitNote] = useState<string | null>(null)
 
+  const schema = useMemo(() => signupSchema(t), [t])
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<SignupFormValues>({
-    resolver: zodResolver(signupSchema),
+    resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
     mode: "onSubmit",
   })
@@ -49,12 +48,12 @@ export function Signup() {
     <main className="text-foreground">
       <div className="mx-auto w-full max-w-md px-6 pb-14">
         <header className="text-center">
-          <h1 className="mt-5 text-2xl font-semibold tracking-tight">Sign up</h1>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight">{t("auth.signup.title")}</h1>
         </header>
 
         <Card className="mx-auto mt-8 w-full max-w-sm">
           <CardHeader className="text-left">
-            <CardTitle>Create your account</CardTitle>
+            <CardTitle>{t("auth.signup.cardTitle")}</CardTitle>
           </CardHeader>
 
           <form
@@ -80,12 +79,12 @@ export function Signup() {
                 Array.isArray(data.user.identities) &&
                 data.user.identities.length === 0
               ) {
-                setSubmitError("User already exists")
+                setSubmitError(t("auth.signup.userExists"))
                 return
               }
 
               if (data.session) {
-                setSubmitNote("Account created. You’re signed in.")
+                setSubmitNote(t("auth.signup.signedInNote"))
                 setAuth({
                   user: data.user ? { id: data.user.id, email: data.user.email ?? null } : null,
                   session: {
@@ -107,13 +106,13 @@ export function Signup() {
             <CardContent className="mb-4">
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("auth.email")}</Label>
                   <Input
                     id="email"
                     type="email"
                     autoComplete="email"
                     inputMode="email"
-                    placeholder="m@example.com"
+                    placeholder={t("auth.emailPlaceholder")}
                     aria-invalid={errors.email ? "true" : "false"}
                     className={cn(errors.email && "border-destructive")}
                     {...register("email")}
@@ -125,7 +124,7 @@ export function Signup() {
 
                 <div className="grid gap-2">
                   <PasswordPolicyHint id="signup-password-policy" />
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t("auth.password")}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -151,14 +150,14 @@ export function Signup() {
 
             <CardFooter className="flex-col gap-3">
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Creating account..." : "Create account"}
+                {isSubmitting ? t("auth.signup.submitting") : t("auth.signup.submit")}
               </Button>
             </CardFooter>
           </form>
         </Card>
 
         <Button asChild type="button" variant="ghost" className="mx-auto mt-4 w-fit">
-          <Link to="/auth/login">Back</Link>
+          <Link to="/auth/login">{t("auth.signup.backLogin")}</Link>
         </Button>
       </div>
     </main>

@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { type Resolver, Controller, useForm, useWatch } from "react-hook-form"
-import { z } from "zod"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -33,11 +33,23 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { createBuyProductFormSchema } from "@/lib/i18nValidation"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import {
+  GAME_TITLE_OPTIONS,
+  type GameTitleValue,
+} from "@/lib/gameTitles"
+import { toastSaved } from "@/lib/toastI18n"
 
 const PROVIDERS = ["PSA"] as const
-const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
+
+export {
+  GAME_TITLE_OPTIONS,
+  GAME_TITLE_VALUES,
+  GAME_TITLES,
+  type GameTitleValue,
+  gameTitleDisplayText,
+} from "@/lib/gameTitles"
 
 function todayISODate(): string {
   const d = new Date()
@@ -101,73 +113,9 @@ async function preprocessImageForUpload(input: File): Promise<File> {
   return new File([outBlob], `${baseName}.${outExt}`, { type: outType })
 }
 
-const buyProductFormSchema = z
-  .object({
-    sourceImage: z.preprocess(
-      (v) => (v === null ? undefined : v),
-      z.custom<File>(
-        (v) => typeof File !== "undefined" && v instanceof File,
-        { message: "Source Image is required" }
-      )
-    ),
-    gameTitle: z.enum(GAME_TITLES).nullable().optional(),
-    category: z.enum(["Card", "Product"]),
-    cardNo: z.string(),
-    name: z.string().min(1, "Name is required"),
-    graded: z.boolean(),
-    price: z.preprocess(
-      (v) => (v === "" || v === null || v === undefined ? Number.NaN : Number(v)),
-      z.number()
-    ),
-    quantity: z.preprocess(
-      (v) => (v === "" || v === null || v === undefined ? Number.NaN : Number(v)),
-      z
-        .number()
-        .int("Quantity must be a whole number")
-        .min(1, "Quantity must be at least 1")
-    ),
-    purchaseDate: z.string().min(1, "Purchase date is required"),
-    provider: z.string().min(1, "Provider is required"),
-    grade: z.string(),
-  })
-  .refine(
-    (data) => {
-      if (data.category !== "Card") return true
-      return data.cardNo.trim().length > 0
-    },
-    { path: ["cardNo"], message: "Card No. is required" }
-  )
-  .refine(
-    (data) => {
-      if (!data.graded) return true
-      return data.provider.trim().length > 0
-    },
-    { path: ["provider"], message: "Provider is required" }
-  )
-  .refine(
-    (data) => {
-      if (!data.graded) return true
-      const n = parseFloat(data.grade)
-      return !Number.isNaN(n) && n > 0
-    },
-    { path: ["grade"], message: "Grade must be greater than 0" }
-  )
-  .refine(
-    (data) => {
-      return Number.isFinite(data.price) && !Number.isNaN(data.price)
-    },
-    { path: ["price"], message: "Price is required" }
-  )
-  .refine(
-    (data) => {
-      return Number.isFinite(data.quantity) && !Number.isNaN(data.quantity)
-    },
-    { path: ["quantity"], message: "Quantity is required" }
-  )
-
 export type BuyProductFormValues = {
   sourceImage: File | null
-  gameTitle: (typeof GAME_TITLES)[number] | null
+  gameTitle: GameTitleValue | null
   category: "Card" | "Product"
   cardNo: string
   name: string
@@ -197,13 +145,21 @@ type BuyProductDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmitSuccess?: (values: BuyProductFormValues) => void
+  /** Merged into defaults when `open` becomes true; clear from parent when dialog closes. */
+  prefill?: Partial<BuyProductFormValues> | null
 }
 
 export function BuyProductDialog({
   open,
   onOpenChange,
   onSubmitSuccess,
+  prefill = null,
 }: BuyProductDialogProps) {
+  const { t, i18n } = useTranslation()
+  const formSchema = useMemo(
+    () => createBuyProductFormSchema(t),
+    [i18n.language, t],
+  )
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null)
 
@@ -216,7 +172,7 @@ export function BuyProductDialog({
     setValue,
     setError,
   } = useForm<BuyProductFormValues>({
-    resolver: zodResolver(buyProductFormSchema) as Resolver<BuyProductFormValues>,
+    resolver: zodResolver(formSchema) as Resolver<BuyProductFormValues>,
     defaultValues: defaultFormValues,
   })
 
@@ -224,13 +180,31 @@ export function BuyProductDialog({
   const graded = useWatch({ control, name: "graded" })
 
   useEffect(() => {
-    if (open) {
-      reset({
-        ...defaultFormValues,
-        purchaseDate: todayISODate(),
-      })
+    if (!open) return
+
+    setSourceImageUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+
+    const base: BuyProductFormValues = {
+      ...defaultFormValues,
+      purchaseDate: todayISODate(),
     }
-  }, [open, reset])
+    const merged: BuyProductFormValues = {
+      ...base,
+      ...(prefill ?? {}),
+      sourceImage: prefill?.sourceImage ?? null,
+      purchaseDate: prefill?.purchaseDate?.trim()
+        ? prefill.purchaseDate
+        : base.purchaseDate,
+    }
+    reset(merged)
+
+    if (prefill?.sourceImage) {
+      setSourceImageUrl(URL.createObjectURL(prefill.sourceImage))
+    }
+  }, [open, prefill, reset])
 
   useEffect(() => {
     return () => {
@@ -266,7 +240,7 @@ export function BuyProductDialog({
     if (!workerOrigin) {
       setError("root", {
         type: "manual",
-        message: "Missing VITE_CF_WORKER_ORIGIN in .env",
+        message: t("dialogs.buyForm.missingWorkerOrigin"),
       })
       return
     }
@@ -277,7 +251,7 @@ export function BuyProductDialog({
     const accessToken = session?.access_token
 
     if (!userId || !accessToken) {
-      setError("root", { type: "manual", message: "Not signed in." })
+      setError("root", { type: "manual", message: t("dialogs.buyForm.notSignedIn") })
       return
     }
 
@@ -285,7 +259,7 @@ export function BuyProductDialog({
     if (!originalFile) {
       setError("sourceImage", {
         type: "manual",
-        message: "Source Image is required",
+        message: t("dialogs.buyForm.sourceImageRequired"),
       })
       return
     }
@@ -355,7 +329,7 @@ export function BuyProductDialog({
     if (collectionRes.error || !collectionRes.data?.id) {
       setError("root", {
         type: "manual",
-        message: collectionRes.error?.message ?? "Failed to save collection item.",
+        message: collectionRes.error?.message ?? t("dialogs.buyForm.saveCollectionFailed"),
       })
       return
     }
@@ -379,7 +353,7 @@ export function BuyProductDialog({
       await supabase.from("collection_base").delete().eq("id", collectionItemId)
       setError("root", {
         type: "manual",
-        message: buyEntryRes.error?.message ?? "Failed to save purchase.",
+        message: buyEntryRes.error?.message ?? t("dialogs.buyForm.savePurchaseFailed"),
       })
       return
     }
@@ -422,7 +396,7 @@ export function BuyProductDialog({
       await supabase.from("collection_base").delete().eq("id", collectionItemId)
       setError("root", {
         type: "manual",
-        message: userCollectionRes.error?.message ?? "Failed to save collection items.",
+        message: userCollectionRes.error?.message ?? t("dialogs.buyForm.saveItemsFailed"),
       })
       return
     }
@@ -451,7 +425,7 @@ export function BuyProductDialog({
 
     onSubmitSuccess?.(values)
     onOpenChange(false)
-    toast.success("Saved successfully", { duration: 5000 })
+    toastSaved()
 
     reset({
       ...defaultFormValues,
@@ -476,8 +450,8 @@ export function BuyProductDialog({
           <DialogBody className="px-0">
           <div className="p-4 pb-2">
           <DialogHeader>
-            <DialogTitle>Buy</DialogTitle>
-            <DialogDescription>Enter details for the item you are purchasing.</DialogDescription>
+            <DialogTitle>{t("dashboard.buy")}</DialogTitle>
+            <DialogDescription>{t("dialogs.buyDescription")}</DialogDescription>
           </DialogHeader>
         </div>
           <div className="px-4">
@@ -486,7 +460,7 @@ export function BuyProductDialog({
                 <FieldError errors={[{ message: errors.root.message }]} />
               ) : null}
               <FormFieldRow
-                label="Source Image"
+                label={t("dialogs.sourceImage")}
                 htmlFor="buy-source-image"
                 error={errors.sourceImage?.message}
                 invalid={!!errors.sourceImage}
@@ -518,14 +492,14 @@ export function BuyProductDialog({
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Choose / Take photo
+                    {t("dialogs.choosePhoto")}
                   </Button>
 
                   {sourceImageUrl ? (
                     <div className="overflow-hidden rounded-lg border">
                       <img
                         src={sourceImageUrl}
-                        alt="Selected source"
+                        alt={t("dialogs.selectedSourceAlt")}
                         className="max-h-64 w-full bg-muted/30 object-contain"
                       />
                     </div>
@@ -538,7 +512,7 @@ export function BuyProductDialog({
                 control={control}
                 render={({ field }) => (
                   <FormSelectField
-                    label="Game Title"
+                    label={t("dialogs.gameTitle")}
                     htmlFor="buy-game-title"
                     error={errors.gameTitle?.message}
                     invalid={!!errors.gameTitle}
@@ -546,17 +520,17 @@ export function BuyProductDialog({
                     <Select
                       value={field.value ?? undefined}
                       onValueChange={(v) =>
-                        field.onChange((v as BuyProductFormValues["gameTitle"]) ?? null)
+                        field.onChange((v as GameTitleValue) ?? null)
                       }
                     >
                       <SelectTrigger id="buy-game-title" className="w-full" size="default">
-                        <SelectValue placeholder="Select game title" />
+                        <SelectValue placeholder={t("dialogs.selectGameTitle")} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          {GAME_TITLES.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
+                          {GAME_TITLE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -571,7 +545,7 @@ export function BuyProductDialog({
                 control={control}
                 render={({ field }) => (
                   <FormToggleGroupField
-                    label="Product Category"
+                    label={t("dialogs.productCategory")}
                     error={errors.category?.message}
                     invalid={!!errors.category}
                   >
@@ -588,16 +562,16 @@ export function BuyProductDialog({
                       <ToggleGroupItem
                         className="min-w-0 flex-1"
                         value="Card"
-                        aria-label="Card"
+                        aria-label={t("dialogs.categoryCard")}
                       >
-                        Card
+                        {t("dialogs.categoryCard")}
                       </ToggleGroupItem>
                       <ToggleGroupItem
                         className="min-w-0 flex-1"
                         value="Product"
-                        aria-label="Product"
+                        aria-label={t("dialogs.categoryProduct")}
                       >
-                        Product
+                        {t("dialogs.categoryProduct")}
                       </ToggleGroupItem>
                     </ToggleGroup>
                   </FormToggleGroupField>
@@ -607,7 +581,7 @@ export function BuyProductDialog({
               {category === "Card" && (
                 <>
                   <FormTextInput
-                    label="Card No."
+                    label={t("dialogs.cardNo")}
                     id="buy-card-no"
                     error={errors.cardNo?.message}
                     invalid={!!errors.cardNo}
@@ -615,7 +589,7 @@ export function BuyProductDialog({
                     {...register("cardNo")}
                   />
                   <FormTextInput
-                    label="Name"
+                    label={t("dialogs.name")}
                     id="buy-name-card"
                     error={errors.name?.message}
                     invalid={!!errors.name}
@@ -638,9 +612,9 @@ export function BuyProductDialog({
               <div
                 className="mb-3 flex flex-col gap-2 border-t pt-3"
                 role="group"
-                aria-label="Common details"
+                aria-label={t("dialogs.commonDetailsAria")}
               >
-                <p className="text-sm font-medium">Details</p>
+                <p className="text-sm font-medium">{t("dialogs.details")}</p>
 
                 <Controller
                   name="graded"
@@ -648,8 +622,8 @@ export function BuyProductDialog({
                   render={({ field }) => (
                     <FormSwitchField
                       id="buy-graded"
-                      label="Graded"
-                      description="Whether the item is professionally graded."
+                      label={t("dialogs.graded")}
+                      description={t("dialogs.gradedDescription")}
                       checked={field.value}
                       onCheckedChange={field.onChange}
                       invalid={!!errors.graded}
@@ -664,7 +638,7 @@ export function BuyProductDialog({
                       control={control}
                       render={({ field: providerField }) => (
                         <FormSelectField
-                          label="Provider"
+                          label={t("dialogs.provider")}
                           htmlFor="buy-provider"
                           error={errors.provider?.message}
                           invalid={!!errors.provider}
@@ -679,7 +653,7 @@ export function BuyProductDialog({
                               size="default"
                               aria-invalid={!!errors.provider}
                             >
-                              <SelectValue placeholder="Select provider" />
+                              <SelectValue placeholder={t("dialogs.selectProvider")} />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
@@ -695,7 +669,7 @@ export function BuyProductDialog({
                       )}
                     />
                     <FormTextInput
-                      label="Grade"
+                      label={t("dialogs.grade")}
                       id="buy-grade"
                       error={errors.grade?.message}
                       invalid={!!errors.grade}
@@ -703,14 +677,14 @@ export function BuyProductDialog({
                       inputMode="decimal"
                       step="any"
                       min={0}
-                      placeholder="e.g. 10"
+                      placeholder={t("dialogs.gradePlaceholder")}
                       {...register("grade")}
                     />
                   </div>
                 )}
 
                 <FormMoneyInput
-                  label="Price (per 1)"
+                  label={t("dialogs.pricePerOne")}
                   htmlFor="buy-price"
                   error={errors.price?.message}
                   invalid={!!errors.price}
@@ -730,7 +704,7 @@ export function BuyProductDialog({
                   control={control}
                   render={({ field }) => (
                     <FormQuantityStepper
-                      label="Quantity"
+                      label={t("dialogs.quantity")}
                       id="buy-quantity"
                       error={errors.quantity?.message}
                       invalid={!!errors.quantity}
@@ -747,7 +721,7 @@ export function BuyProductDialog({
                 />
 
                 <FormTextInput
-                  label="Purchase Date"
+                  label={t("dialogs.purchaseDate")}
                   id="buy-purchase-date"
                   error={errors.purchaseDate?.message}
                   invalid={!!errors.purchaseDate}
@@ -764,13 +738,13 @@ export function BuyProductDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Saving…" : "Save"}
+              {isSubmitting ? t("dialogs.saving") : t("common.save")}
             </Button>
           </DialogFooter>
         </form>

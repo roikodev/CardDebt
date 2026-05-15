@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -48,6 +49,7 @@ export function DeriveGradedSelectionDialog({
   requiredCount,
   onConfirm,
 }: DeriveGradedSelectionDialogProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rows, setRows] = useState<SelectableRow[]>([])
@@ -82,7 +84,7 @@ export function DeriveGradedSelectionDialog({
       const userRes = await supabase.auth.getUser()
       const userId = userRes.data.user?.id ?? null
       if (!userId) {
-        setError("You are not signed in.")
+        setError(t("dialogs.notSignedIn"))
         setLoading(false)
         return
       }
@@ -167,10 +169,11 @@ export function DeriveGradedSelectionDialog({
       <DialogContent className="max-h-[min(90dvh,44rem)] overflow-x-hidden sm:max-w-lg p-0">
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Select graded items to derive</DialogTitle>
+            <DialogTitle>{t("dialogs.deriveGradedSelection.title")}</DialogTitle>
             <DialogDescription>
-              You have multiple grading levels under the same card. Select exactly{" "}
-              <span className="font-semibold">{requiredCount}</span> item{requiredCount === 1 ? "" : "s"} to consume.
+              {t("dialogs.deriveGradedSelection.selectExactlyToConsume", {
+                count: requiredCount,
+              })}
             </DialogDescription>
           </DialogHeader>
 
@@ -178,7 +181,7 @@ export function DeriveGradedSelectionDialog({
 
           <div className="mt-4 space-y-3">
             <div className="rounded-xl border bg-card p-3">
-              <p className="text-sm font-semibold">Available</p>
+              <p className="text-sm font-semibold">{t("dialogs.available")}</p>
               {loading ? (
                 <div className="mt-2 h-4 w-40 animate-pulse rounded bg-muted" />
               ) : (
@@ -191,22 +194,26 @@ export function DeriveGradedSelectionDialog({
                       >
                         {lvl.provider && typeof lvl.grade === "number"
                           ? `${lvl.provider} ${lvl.grade} × ${lvl.count}`
-                          : `Unknown × ${lvl.count}`}
+                          : t("dialogs.deriveGradedSelection.unknownTimes", { count: lvl.count })}
                       </span>
                     ))
                   ) : (
-                    <span>—</span>
+                    <span>{t("common.emDash")}</span>
                   )}
                 </div>
               )}
               <p className="mt-2 text-xs text-muted-foreground">
-                Selected: <span className="font-semibold text-foreground">{totalSelected}</span>
+                {t("dialogs.deriveGradedSelection.selectedProgress", {
+                  selected: totalSelected,
+                  required: requiredCount,
+                })}
                 {requiredCount ? (
                   <>
-                    {" "}
-                    / {requiredCount}{" "}
                     {remaining ? (
-                      <span className="text-muted-foreground">(need {remaining} more)</span>
+                      <>
+                        {" "}
+                        {t("dialogs.deriveGradedSelection.needMore", { count: remaining })}
+                      </>
                     ) : null}
                   </>
                 ) : null}
@@ -214,7 +221,9 @@ export function DeriveGradedSelectionDialog({
             </div>
 
             <div className="rounded-xl border bg-card p-3">
-              <p className="text-sm font-semibold">Choose quantities by grade</p>
+              <p className="text-sm font-semibold">
+                {t("dialogs.deriveGradedSelection.chooseQuantitiesByGrade")}
+              </p>
               {loading ? (
                 <div className="mt-3 space-y-2">
                   {Array.from({ length: Math.max(3, Math.min(6, requiredCount || 3)) }).map((_, i) => (
@@ -222,7 +231,9 @@ export function DeriveGradedSelectionDialog({
                   ))}
                 </div>
               ) : rows.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">No available graded items.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t("dialogs.deriveGradedSelection.noGradedItemsAvailable")}
+                </p>
               ) : (
                 <div className="mt-3 space-y-3">
                   {groups.map((g) => {
@@ -230,18 +241,22 @@ export function DeriveGradedSelectionDialog({
                     const totalOther = totalSelected - current
                     const maxForThis = Math.max(0, Math.min(g.count, requiredCount - totalOther))
                     const label =
-                      g.provider && typeof g.grade === "number" ? `${g.provider} ${g.grade}` : "Unknown grade"
+                      g.provider && typeof g.grade === "number"
+                        ? `${g.provider} ${g.grade}`
+                        : t("dialogs.deriveGradedSelection.unknownGrade")
                     return (
                       <div key={g.key} className="rounded-lg border bg-muted/20 p-3">
                         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold">{label}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">Available: {g.count}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {t("dialogs.availableCount", { count: g.count })}
+                            </p>
                           </div>
 
                           <div className="shrink-0">
                             <FormQuantityStepper
-                              label="Derive"
+                              label={t("dialogs.deriveGradedSelection.deriveLabel")}
                               id={`derive-graded-${g.key}`}
                               className="gap-2"
                               value={current}
@@ -260,7 +275,9 @@ export function DeriveGradedSelectionDialog({
 
                   {requiredCount > rows.length ? (
                     <p className="text-sm text-destructive">
-                      Not enough available items to select {requiredCount}.
+                      {t("dialogs.deriveGradedSelection.notEnoughToSelect", {
+                        count: requiredCount,
+                      })}
                     </p>
                   ) : null}
                 </div>
@@ -272,7 +289,7 @@ export function DeriveGradedSelectionDialog({
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button
               type="button"
@@ -289,7 +306,7 @@ export function DeriveGradedSelectionDialog({
                 onOpenChange(false)
               }}
             >
-              Confirm
+              {t("dialogs.confirm")}
             </Button>
           </div>
         </DialogFooter>

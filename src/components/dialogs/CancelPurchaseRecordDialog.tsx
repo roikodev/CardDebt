@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastCancelled } from "@/lib/toastI18n"
 
 type Props = {
   open: boolean
@@ -21,6 +22,7 @@ type Props = {
 }
 
 export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onCancelled }: Props) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +48,7 @@ export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onC
       const userRes = await supabase.auth.getUser()
       const userId = userRes.data.user?.id ?? null
       if (!userId) {
-        setError("You are not signed in.")
+        setError(t("dialogs.notSignedIn"))
         setLoading(false)
         return
       }
@@ -69,7 +71,7 @@ export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onC
         | null
 
       if (!be) {
-        setError("Purchase record not found.")
+        setError(t("dialogs.purchaseNotFound"))
         setLoading(false)
         return
       }
@@ -122,10 +124,10 @@ export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onC
     if (!info) return null
     if (info.quantity <= 0) return null
     if (info.linkedEligibleCount < info.quantity) {
-      return "Warning: there aren't enough eligible items to consume/rollback this purchase (some items may have been derived, sent to grading, deleted, or otherwise moved). We can still delete this purchase record, but some or all purchased items will NOT be consumed."
+      return t("dialogs.cancelPurchase.warningShortfall")
     }
     return null
-  }, [info])
+  }, [info, t])
 
   async function handleCancel() {
     if (saving) return
@@ -135,7 +137,7 @@ export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onC
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
@@ -155,7 +157,7 @@ export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onC
 
     const be = beRes.data as { id: string; graded: boolean; quantity: number } | null
     if (!be) {
-      setError("Purchase record not found.")
+      setError(t("dialogs.purchaseNotFound"))
       setSaving(false)
       return
     }
@@ -208,20 +210,20 @@ export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onC
       return
     }
     if (!delBe.count) {
-      setError(
-        "Failed to remove the purchase record (no rows were deleted). This is usually caused by a missing RLS DELETE policy on public.buy_entries."
-      )
+      setError(t("dialogs.cancelPurchase.deleteFailed"))
       setSaving(false)
       return
     }
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Cancelled successfully", { duration: 5000 })
+    toastCancelled()
     onCancelled?.()
   }
 
-  const title = info ? `Cancel purchase (${info.purchase_date})` : "Cancel purchase"
+  const title = info
+    ? t("dialogs.cancelPurchase.titleWithDate", { date: info.purchase_date })
+    : t("dialogs.cancelPurchaseTitle")
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -229,21 +231,21 @@ export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onC
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>
-              This will remove the purchase record and attempt to consume the same quantity from your collection (only items that are not derived and not in grading).
-            </DialogDescription>
+            <DialogDescription>{t("dialogs.cancelPurchase.description")}</DialogDescription>
           </DialogHeader>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
           {loading ? (
-            <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t("common.loading")}</p>
           ) : (
             <>
               {info ? (
                 <div className="mt-4 rounded-xl border bg-card p-3 text-sm text-muted-foreground">
-                  <div>Type: {info.graded ? "Graded" : "Raw"}</div>
-                  <div>Quantity: {info.quantity}</div>
+                  <div>
+                    {t("dialogs.typeLabel")}: {info.graded ? t("dialogs.graded") : t("dialogs.raw")}
+                  </div>
+                  <div>{t("dialogs.quantityLabel")}: {info.quantity}</div>
                 </div>
               ) : null}
 
@@ -259,10 +261,10 @@ export function CancelPurchaseRecordDialog({ open, onOpenChange, buyEntryId, onC
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button type="button" variant="destructive" onClick={handleCancel} disabled={saving || loading}>
-              Cancel
+              {t("dialogs.cancel")}
             </Button>
           </div>
         </DialogFooter>

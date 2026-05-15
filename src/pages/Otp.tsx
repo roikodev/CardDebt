@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -18,18 +18,12 @@ import { useNavigate } from "@tanstack/react-router"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 import { Sparkles } from "lucide-react"
-import { z } from "zod"
+import type { z } from "zod"
+import { useTranslation } from "react-i18next"
+
+import { otpSchema } from "@/lib/i18nValidation"
 
 const WELCOME_DASHBOARD_ZOOM_KEY = "carddebt:welcome-dashboard-zoom"
-
-const otpSchema = z.object({
-  token: z
-    .string()
-    .regex(/^[0-9]{6}$/, "Enter the 6-digit code")
-    .transform((v) => v.trim()),
-})
-
-type OtpFormValues = z.infer<typeof otpSchema>
 
 function pickWelcomeName(email: string | null | undefined): string | null {
   if (!email) return null
@@ -39,11 +33,15 @@ function pickWelcomeName(email: string | null | undefined): string | null {
 }
 
 export function Otp() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
   const intent = useRegistrationStore((s) => s.intent)
   const clearIntent = useRegistrationStore((s) => s.clearIntent)
   const email = intent?.email
+
+  const otpFormSchema = useMemo(() => otpSchema(t), [t])
+  type OtpFormValues = z.infer<ReturnType<typeof otpSchema>>
 
   const [phase, setPhase] = useState<"otp" | "welcome">("otp")
   const [welcomeName, setWelcomeName] = useState<string | null>(null)
@@ -56,7 +54,7 @@ export function Otp() {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<OtpFormValues>({
-    resolver: zodResolver(otpSchema),
+    resolver: zodResolver(otpFormSchema),
     defaultValues: { token: "" },
     mode: "onSubmit",
   })
@@ -110,14 +108,14 @@ export function Otp() {
       >
         <header className="text-center">
           <h1 className="mt-5 text-2xl font-semibold tracking-tight">
-            {phase === "welcome" ? "You're all set" : "Verify OTP"}
+            {phase === "welcome" ? t("auth.otp.titleWelcome") : t("auth.otp.titleVerify")}
           </h1>
         </header>
 
         {phase === "otp" ? (
           <Card className="mx-auto mt-8 w-full max-w-sm">
             <CardHeader className="text-left">
-              <CardTitle>Confirmation code</CardTitle>
+              <CardTitle>{t("auth.otp.cardTitle")}</CardTitle>
             </CardHeader>
 
             <form
@@ -125,7 +123,7 @@ export function Otp() {
               onSubmit={handleSubmit(async (values) => {
                 setSubmitError(null)
                 if (!email) {
-                  setSubmitError("Missing email. Please sign up again.")
+                  setSubmitError(t("auth.otp.missingEmail"))
                   return
                 }
 
@@ -165,14 +163,7 @@ export function Otp() {
               <CardContent className="mb-4">
                 <div className="grid gap-2">
                   <Label htmlFor="token" className="text-pretty">
-                    {email ? (
-                      <>
-                        Enter the code we sent to{" "}
-                        <span className="font-medium break-all">{email}</span>
-                      </>
-                    ) : (
-                      "Enter the 6-digit code from your email."
-                    )}
+                    {email ? t("auth.otp.enterCodeSentTo", { email }) : t("auth.otp.labelFallback")}
                   </Label>
                   <Controller
                     control={control}
@@ -210,7 +201,7 @@ export function Otp() {
 
               <CardFooter className="flex flex-col items-stretch gap-3">
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? "Verifying..." : "Verify"}
+                  {isSubmitting ? t("auth.otp.verifying") : t("auth.otp.verify")}
                 </Button>
                 <Button
                   type="button"
@@ -218,7 +209,7 @@ export function Otp() {
                   className="self-center w-fit"
                   onClick={() => navigate({ to: "/auth/login" })}
                 >
-                  Back to login
+                  {t("auth.otp.backLogin")}
                 </Button>
               </CardFooter>
             </form>
@@ -234,26 +225,18 @@ export function Otp() {
                   <Sparkles className="size-5" strokeWidth={2} />
                 </div>
                 <div className="min-w-0">
-                  <CardTitle>Welcome to CardDebt</CardTitle>
+                  <CardTitle>{t("auth.otp.welcomeTitle")}</CardTitle>
                   <p className="mt-1.5 text-sm text-muted-foreground">
-                    {welcomeName ? (
-                      <>
-                        Hi {welcomeName} — your email is verified. Track what you spend on cards,
-                        grading, and pickups in one place. Dive in whenever you are ready.
-                      </>
-                    ) : (
-                      <>
-                        Your email is verified. Track what you spend on cards, grading, and pickups
-                        in one place. Dive in whenever you are ready.
-                      </>
-                    )}
+                    {welcomeName
+                      ? t("auth.otp.welcomeNamed", { name: welcomeName })
+                      : t("auth.otp.welcomeGeneric")}
                   </p>
                 </div>
               </div>
             </CardHeader>
             <CardFooter className="flex flex-col items-stretch gap-3 pt-2">
               <Button type="button" className="w-full" onClick={handleLetsStart}>
-                Let&apos;s Start
+                {t("auth.otp.letsStart")}
               </Button>
             </CardFooter>
           </Card>

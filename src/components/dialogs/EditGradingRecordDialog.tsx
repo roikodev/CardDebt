@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -15,7 +16,7 @@ import { FormMoneyInput, FormTextInput } from "@/components/form-input"
 import { FormSelectField } from "@/components/form-input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastUpdated } from "@/lib/toastI18n"
 import type { MiscCostLine } from "@/components/collection-info/types"
 import { Plus, Trash2 } from "lucide-react"
 
@@ -66,6 +67,7 @@ export function EditGradingRecordDialog({
   initialLines,
   onSaved,
 }: EditGradingRecordDialogProps) {
+  const { t } = useTranslation()
   const [lines, setLines] = useState<EditableLine[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -99,7 +101,7 @@ export function EditGradingRecordDialog({
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
@@ -170,7 +172,7 @@ export function EditGradingRecordDialog({
 
       const insRes = await supabase.from("miscellaneous_entries").insert(miscRows).select("id")
       if (insRes.error || !insRes.data?.length) {
-        setError(insRes.error?.message ?? "Failed to create cost entries.")
+        setError(insRes.error?.message ?? t("dialogs.editGrading.saveFailed"))
         setSaving(false)
         return
       }
@@ -191,7 +193,7 @@ export function EditGradingRecordDialog({
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Updated successfully", { duration: 5000 })
+    toastUpdated()
     onSaved?.()
   }
 
@@ -203,10 +205,8 @@ export function EditGradingRecordDialog({
       >
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Edit grading costs</DialogTitle>
-            <DialogDescription>
-              Edit the cost lines for this grading record. You must keep at least 1 line.
-            </DialogDescription>
+            <DialogTitle>{t("dialogs.editGradingCostsTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogs.editGrading.description")}</DialogDescription>
           </DialogHeader>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
@@ -215,13 +215,15 @@ export function EditGradingRecordDialog({
             {lines.map((l, idx) => (
               <div key={l.id} className="rounded-xl border bg-card p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">Cost line {idx + 1}</p>
+                  <p className="text-sm font-semibold">
+                    {t("dialogs.editGrading.costLine", { number: idx + 1 })}
+                  </p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
                     disabled={lines.length <= 1 || saving}
-                    aria-label="Remove cost line"
+                    aria-label={t("dialogs.editGrading.removeLineAria")}
                     onClick={() => setLines((prev) => prev.filter((x) => x.id !== l.id))}
                   >
                     <Trash2 className="size-4" aria-hidden="true" />
@@ -230,7 +232,7 @@ export function EditGradingRecordDialog({
 
                 <FieldGroup>
                   <FormTextInput
-                    label="Date"
+                    label={t("dialogs.date")}
                     id={`grading-edit-date-${l.id}`}
                     type="date"
                     value={l.date}
@@ -239,7 +241,7 @@ export function EditGradingRecordDialog({
                     }
                   />
 
-                  <FormSelectField label="Type" htmlFor={`grading-edit-type-${l.id}`}>
+                  <FormSelectField label={t("dialogs.typeLabel")} htmlFor={`grading-edit-type-${l.id}`}>
                     <Select
                       value={l.type}
                       onValueChange={(v) =>
@@ -255,9 +257,9 @@ export function EditGradingRecordDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectItem value="Grading">Grading</SelectItem>
-                          <SelectItem value="Postal">Postal</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
+                          <SelectItem value="Grading">{t("dialogs.costType.grading")}</SelectItem>
+                          <SelectItem value="Postal">{t("dialogs.costType.postal")}</SelectItem>
+                          <SelectItem value="Other">{t("dialogs.costType.other")}</SelectItem>
                         </SelectGroup>
                       </SelectContent>
                     </Select>
@@ -265,7 +267,7 @@ export function EditGradingRecordDialog({
 
                   {l.type === "Other" ? (
                     <FormTextInput
-                      label="Description"
+                      label={t("dialogs.description")}
                       id={`grading-edit-desc-${l.id}`}
                       value={l.description}
                       onChange={(e) =>
@@ -277,7 +279,7 @@ export function EditGradingRecordDialog({
                   ) : null}
 
                   <FormMoneyInput
-                    label="Cost"
+                    label={t("dialogs.cost")}
                     htmlFor={`grading-edit-price-${l.id}`}
                     inputProps={{
                       id: `grading-edit-price-${l.id}`,
@@ -314,7 +316,7 @@ export function EditGradingRecordDialog({
               }
             >
               <Plus className="size-4" aria-hidden="true" />
-              Add cost line
+              {t("dialogs.editGrading.addLine")}
             </Button>
           </div>
         </DialogBody>
@@ -322,10 +324,10 @@ export function EditGradingRecordDialog({
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button type="button" onClick={handleSave} disabled={!canSave}>
-              Save
+              {t("dialogs.save")}
             </Button>
           </div>
         </DialogFooter>

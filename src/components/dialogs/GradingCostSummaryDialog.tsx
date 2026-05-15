@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastSaved } from "@/lib/toastI18n"
 
 type CostType = "Grading" | "Postal" | "Other"
 
@@ -50,11 +51,6 @@ type Props = {
   onBack?: () => void
 }
 
-function moneyHKD(n: number): string {
-  if (!Number.isFinite(n)) return "HKD$—"
-  return `HKD$${n.toFixed(2)}`
-}
-
 function sumCosts(costs: CostEntry[] | undefined): number {
   if (!costs?.length) return 0
   return costs.reduce((sum, c) => sum + (Number(c.costHKD) || 0), 0)
@@ -77,6 +73,7 @@ export function GradingCostSummaryDialog({
   onDone,
   onBack,
 }: Props) {
+  const { t } = useTranslation()
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
   const [source, setSource] = useState<SourceBase | null>(null)
   const [sourceImg, setSourceImg] = useState<string | null>(null)
@@ -84,8 +81,23 @@ export function GradingCostSummaryDialog({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
+  const emDash = t("common.emDash")
+
+  const moneyHKD = (n: number): string => {
+    if (!Number.isFinite(n)) return `HKD$${emDash}`
+    return `HKD$${n.toFixed(2)}`
+  }
+
+  const costTypeLabel = (type: CostType) =>
+    type === "Grading"
+      ? t("dialogs.costType.grading")
+      : type === "Postal"
+        ? t("dialogs.costType.postal")
+        : t("dialogs.costType.other")
+
   const per1 = useMemo(() => sumCosts(costs), [costs])
   const total = useMemo(() => per1 * (Number(quantity) || 0), [per1, quantity])
+  const perOneStr = moneyHKD(per1)
 
   useEffect(() => {
     if (!open) return
@@ -137,7 +149,7 @@ export function GradingCostSummaryDialog({
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setSubmitError("You are not signed in.")
+      setSubmitError(t("dialogs.notSignedIn"))
       setSubmitting(false)
       return
     }
@@ -145,7 +157,7 @@ export function GradingCostSummaryDialog({
     // Step 1: load source user_collection rows by collection_item_id + graded in ascending created_at.
     const takeCount = Math.max(0, Math.trunc(Number(quantity) || 0))
     if (!takeCount) {
-      setSubmitError("Quantity must be at least 1.")
+      setSubmitError(t("dialogs.gradingCostSummary.quantityMin"))
       setSubmitting(false)
       return
     }
@@ -170,14 +182,14 @@ export function GradingCostSummaryDialog({
 
     const sourceRows = (sourceRowsRes.data ?? []) as SourceUserCollectionRow[]
     if (sourceRows.length < takeCount) {
-      setSubmitError("No matching source records found.")
+      setSubmitError(t("dialogs.gradingCostSummary.noSourceRecords"))
       setSubmitting(false)
       return
     }
 
     const targetIds = sourceRows.map((r) => r.id).filter((v): v is string => Boolean(v))
     if (!targetIds.length) {
-      setSubmitError("No matching source records found.")
+      setSubmitError(t("dialogs.gradingCostSummary.noSourceRecords"))
       setSubmitting(false)
       return
     }
@@ -196,7 +208,7 @@ export function GradingCostSummaryDialog({
 
     const sentAtIso = sendingDate?.trim() ? `${sendingDate}T00:00:00` : null
     if (!sentAtIso) {
-      setSubmitError("Sending Date is required.")
+      setSubmitError(t("dialogs.gradingCostSummary.sendingDateRequired"))
       setSubmitting(false)
       return
     }
@@ -271,7 +283,7 @@ export function GradingCostSummaryDialog({
 
     onDone?.()
     onOpenChange(false)
-    toast.success("Saved successfully", { duration: 5000 })
+    toastSaved()
     setSubmitting(false)
   }
 
@@ -280,19 +292,19 @@ export function GradingCostSummaryDialog({
       <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0">
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Grading cost summary</DialogTitle>
-            <DialogDescription>Review quantity and costs before finishing.</DialogDescription>
+            <DialogTitle>{t("dialogs.gradingCostSummaryTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogs.gradingCostSummary.description")}</DialogDescription>
           </DialogHeader>
 
           <div className="mt-4 space-y-3">
             <div className="rounded-xl border bg-card p-3">
-              <p className="text-sm font-semibold">Collection item</p>
+              <p className="text-sm font-semibold">{t("dialogs.gradingCostSummary.collectionItem")}</p>
               <div className="mt-2 flex items-start gap-3">
                 <div className="h-14 w-14 overflow-hidden rounded-lg border bg-muted/30">
                   {sourceImg ? (
                     <img
                       src={sourceImg}
-                      alt={source?.name ?? "Collection item"}
+                      alt={source?.name ?? t("dialogs.gradingCostSummary.collectionItemAlt")}
                       className="h-full w-full object-cover object-left-top"
                       loading="lazy"
                     />
@@ -301,19 +313,19 @@ export function GradingCostSummaryDialog({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{source?.name ?? "—"}</p>
+                  <p className="truncate text-sm font-medium">{source?.name ?? emDash}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {[source?.game_title, source?.card_no].filter(Boolean).join(" · ") || "—"}
+                    {[source?.game_title, source?.card_no].filter(Boolean).join(" · ") || emDash}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    current qty: {sourceQuantity}
+                    {t("dialogs.gradingCostSummary.currentQty", { count: sourceQuantity })}
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="rounded-xl border bg-card p-3">
-              <p className="text-sm font-semibold">Costs (per 1)</p>
+              <p className="text-sm font-semibold">{t("dialogs.gradingCostSummary.costsPerOne")}</p>
               {costs.length ? (
                 <div className="mt-3 space-y-2">
                   {costs.map((c) => (
@@ -323,7 +335,7 @@ export function GradingCostSummaryDialog({
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium">
-                          {c.type}{" "}
+                          {costTypeLabel(c.type)}{" "}
                           <span className="text-xs font-normal text-muted-foreground">
                             · {c.date}
                           </span>
@@ -341,30 +353,33 @@ export function GradingCostSummaryDialog({
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-muted-foreground">No costs.</p>
+                <p className="mt-2 text-sm text-muted-foreground">{t("dialogs.noCosts")}</p>
               )}
             </div>
 
             <div className="rounded-xl border bg-card p-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">Quantity</p>
+                <p className="text-sm font-semibold">{t("dialogs.quantity")}</p>
                 <p className="text-sm font-semibold">{quantity}</p>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {moneyHKD(per1)} per 1 × {quantity} item{quantity === 1 ? "" : "s"}
+                {t("dialogs.gradingCostSummary.perOneTimes", {
+                  count: quantity,
+                  perOne: perOneStr,
+                })}
               </p>
             </div>
 
             <div className="rounded-xl border bg-card p-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">Sending Date</p>
-                <p className="text-sm font-semibold">{sendingDate || "—"}</p>
+                <p className="text-sm font-semibold">{t("dialogs.sendingDate")}</p>
+                <p className="text-sm font-semibold">{sendingDate || emDash}</p>
               </div>
             </div>
 
             <div className="rounded-xl border bg-card p-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">Total cost</p>
+                <p className="text-sm font-semibold">{t("dialogs.gradingCostSummary.totalCost")}</p>
                 <p className="text-sm font-semibold">{moneyHKD(total)}</p>
               </div>
               {submitError ? (
@@ -385,10 +400,10 @@ export function GradingCostSummaryDialog({
               }}
               disabled={submitting}
             >
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button type="button" onClick={handleDone} disabled={submitting}>
-              Done
+              {t("dialogs.done")}
             </Button>
           </div>
         </DialogFooter>
@@ -396,4 +411,3 @@ export function GradingCostSummaryDialog({
     </Dialog>
   )
 }
-

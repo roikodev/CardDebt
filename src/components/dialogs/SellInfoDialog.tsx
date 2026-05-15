@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { FormMoneyInput } from "@/components/form-input"
 import { QuantityStepper } from "@/components/form-input/quantity-stepper"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastSold } from "@/lib/toastI18n"
 import type { SellChoice } from "@/components/dialogs/SellChooseItemDialog"
 
 function todayISODate(): string {
@@ -34,6 +35,7 @@ type Props = {
 }
 
 export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted }: Props) {
+  const { t } = useTranslation()
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
 
   const [saving, setSaving] = useState(false)
@@ -44,14 +46,14 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
   const [imageUrl, setImageUrl] = useState<string | null>(null)
 
   const maxQty = choice?.available ?? 0
-  const title = choice?.base?.name ?? "Selected item"
+  const title = choice?.base?.name ?? t("dialogs.selectedItem")
   const gradeLabel =
     choice && choice.graded
       ? [choice.provider ?? "PSA", typeof choice.grade === "number" ? String(choice.grade) : null]
           .filter(Boolean)
           .join(" ")
       : choice
-        ? "Raw"
+        ? t("dialogs.raw")
         : null
 
   const meta = [choice?.base?.game_title, choice?.base?.card_no, gradeLabel]
@@ -122,20 +124,20 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
 
     if (!choice) {
-      setError("No item selected.")
+      setError(t("dialogs.noItemSelected"))
       setSaving(false)
       return
     }
 
     const qty = Math.max(1, Math.min(quantity, choice.available))
     if (!Number.isFinite(price) || Number(price) < 0) {
-      setError("Price must be a number ≥ 0.")
+      setError(t("dialogs.sellInfo.priceMin"))
       setSaving(false)
       return
     }
@@ -177,7 +179,7 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
       .filter((v): v is string => Boolean(v))
 
     if (ids.length < qty) {
-      setError(`Not enough quantity to sell. Available: ${ids.length}.`)
+      setError(t("dialogs.sellInfo.notEnoughQty", { count: ids.length }))
       setSaving(false)
       return
     }
@@ -211,7 +213,7 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Sold successfully", { duration: 5000 })
+    toastSold()
     onSubmitted?.()
   }
 
@@ -221,8 +223,8 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
         <DialogBody className="px-0">
           <div className="p-4 pb-2">
             <DialogHeader>
-              <DialogTitle>Sell</DialogTitle>
-              <DialogDescription>Fill in selling details.</DialogDescription>
+              <DialogTitle>{t("dialogs.sellTitle")}</DialogTitle>
+              <DialogDescription>{t("dialogs.sellInfo.description")}</DialogDescription>
             </DialogHeader>
           </div>
 
@@ -241,13 +243,17 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
               </div>
 
               <p className="mt-3 text-sm font-medium">{title}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{meta || "—"}</p>
-              {choice ? <p className="mt-2 text-xs text-muted-foreground">Available: {choice.available}</p> : null}
+              <p className="mt-1 text-xs text-muted-foreground">{meta || t("common.emDash")}</p>
+              {choice ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t("dialogs.availableCount", { count: choice.available })}
+                </p>
+              ) : null}
             </div>
 
             <div className="mt-3 space-y-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                <div className="text-xs font-medium text-muted-foreground">Quantity</div>
+                <div className="text-xs font-medium text-muted-foreground">{t("dialogs.quantity")}</div>
                 <QuantityStepper
                   id="sell-qty"
                   value={quantity}
@@ -259,7 +265,7 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
               </div>
 
               <FormMoneyInput
-                label="Price (HKD) per one"
+                label={t("dialogs.priceHkdPerOne")}
                 htmlFor="sell-price"
                 inputProps={{
                   id: "sell-price",
@@ -273,7 +279,7 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
               />
 
               <div>
-                <div className="mb-1 text-xs font-medium text-muted-foreground">Selling date</div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">{t("dialogs.sellingDate")}</div>
                 <Input
                   type="date"
                   value={sellingDate}
@@ -288,10 +294,10 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
         <DialogFooter className="px-0">
           <div className="flex w-full justify-end gap-2 px-4">
             <Button type="button" variant="outline" onClick={onBack} disabled={saving}>
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
-              Sell
+              {t("dialogs.sell")}
             </Button>
           </div>
         </DialogFooter>
@@ -299,4 +305,3 @@ export function SellInfoDialog({ open, onOpenChange, choice, onBack, onSubmitted
     </Dialog>
   )
 }
-

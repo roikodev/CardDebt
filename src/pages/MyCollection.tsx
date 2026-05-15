@@ -16,6 +16,7 @@ import { useAuthStore } from "@/stores/auth"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, Filter } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 // --- Types ---
 type CollectionBase = {
@@ -64,13 +65,14 @@ function SkeletonGrid({ count = 12 }: { count?: number }) {
 }
 
 // --- Sub-Component: Individual Card Thumbnail ---
-function CollectionCard({ 
-  group, 
-  workerOrigin 
-}: { 
-  group: CollectionGroup, 
-  workerOrigin?: string 
+function CollectionCard({
+  group,
+  workerOrigin,
+}: {
+  group: CollectionGroup
+  workerOrigin?: string
 }) {
+  const { t } = useTranslation()
   const [imgUrl, setImgUrl] = useState<string | null>(null)
   
   useEffect(() => {
@@ -95,7 +97,7 @@ function CollectionCard({
     return () => { isMounted = false }
   }, [group.base?.image_cloud_path, workerOrigin])
 
-  const name = group.base?.name ?? "Untitled"
+  const name = group.base?.name ?? t("common.untitled")
   const meta = [group.base?.game_title, group.base?.card_no].filter(Boolean).join(" · ")
   const gradingCount = group.gradingCount
   const gradedLevels = Object.values(group.gradedLevelCounts).sort((a, b) => b.grade - a.grade)
@@ -134,7 +136,7 @@ function CollectionCard({
           )}
         </div>
         <p className="line-clamp-2 text-sm font-medium leading-snug">{name}</p>
-        <p className="text-xs text-muted-foreground">{meta || "—"}</p>
+        <p className="text-xs text-muted-foreground">{meta || t("common.emDash")}</p>
       </div>
     </Link>
   )
@@ -147,6 +149,7 @@ function EmptyCollectionCard({
   base: CollectionBase
   workerOrigin?: string
 }) {
+  const { t } = useTranslation()
   const [imgUrl, setImgUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -175,7 +178,7 @@ function EmptyCollectionCard({
     }
   }, [base.image_cloud_path, workerOrigin])
 
-  const name = base.name ?? "Untitled"
+  const name = base.name ?? t("common.untitled")
   const meta = [base.game_title, base.card_no].filter(Boolean).join(" · ")
 
   return (
@@ -195,7 +198,7 @@ function EmptyCollectionCard({
       <div className="flex min-h-[92px] flex-col gap-1 p-3">
         <div className="min-h-5" />
         <p className="line-clamp-2 text-sm font-medium leading-snug">{name}</p>
-        <p className="text-xs text-muted-foreground">{meta || "—"}</p>
+        <p className="text-xs text-muted-foreground">{meta || t("common.emDash")}</p>
       </div>
     </Link>
   )
@@ -203,6 +206,7 @@ function EmptyCollectionCard({
 
 // --- Main Component ---
 export function MyCollection() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
@@ -405,18 +409,18 @@ export function MyCollection() {
   const filterBar = (
     <section className="rounded-xl border bg-card/40 p-3">
       <div className="grid gap-2 sm:grid-cols-3">
-        <Input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Name" />
-        <Input value={cardNoQuery} onChange={(e) => setCardNoQuery(e.target.value)} placeholder="Card Number" />
+        <Input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder={t("myCollection.placeholderName")} />
+        <Input value={cardNoQuery} onChange={(e) => setCardNoQuery(e.target.value)} placeholder={t("myCollection.placeholderCardNo")} />
         <Select value={gameTitle ?? "__all__"} onValueChange={(v) => setGameTitle(v === "__all__" ? null : v)}>
           <SelectTrigger className="w-full" size="default">
-            <SelectValue placeholder="Game title" />
+            <SelectValue placeholder={t("myCollection.placeholderGameTitle")} />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="__all__">All game titles</SelectItem>
-              {allGameTitles.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
+              <SelectItem value="__all__">{t("myCollection.allGameTitles")}</SelectItem>
+              {allGameTitles.map((title) => (
+                <SelectItem key={title} value={title}>
+                  {title}
                 </SelectItem>
               ))}
             </SelectGroup>
@@ -450,13 +454,13 @@ export function MyCollection() {
               type="button"
               variant="ghost"
               size="icon"
-              aria-label="Back to Dashboard"
+              aria-label={t("myCollection.backDashboardAria")}
               onClick={() => navigate({ to: "/user/dashboard" })}
             >
               <ArrowLeft className="size-5" />
             </Button>
           }
-          title={<h1 className="text-xl font-semibold">My Collection</h1>}
+          title={<h1 className="text-xl font-semibold">{t("myCollection.title")}</h1>}
           right={
             <div className="w-full space-y-2">
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -469,7 +473,7 @@ export function MyCollection() {
                   aria-pressed={filterOpen}
                 >
                   <Filter className="size-4" aria-hidden="true" />
-                  Filter
+                  {t("myCollection.filter")}
                 </Button>
                 <Button
                   type="button"
@@ -477,7 +481,7 @@ export function MyCollection() {
                   variant={groupFilter === "all" ? "default" : "outline"}
                   onClick={() => setGroupFilter("all")}
                 >
-                  All
+                  {t("myCollection.all")}
                 </Button>
                 <Button
                   type="button"
@@ -485,7 +489,7 @@ export function MyCollection() {
                   variant={groupFilter === "graded" ? "default" : "outline"}
                   onClick={() => setGroupFilter("graded")}
                 >
-                  Graded
+                  {t("myCollection.graded")}
                 </Button>
                 <Button
                   type="button"
@@ -493,7 +497,7 @@ export function MyCollection() {
                   variant={groupFilter === "raw" ? "default" : "outline"}
                   onClick={() => setGroupFilter("raw")}
                 >
-                  Raw
+                  {t("myCollection.raw")}
                 </Button>
                 <Button
                   type="button"
@@ -501,7 +505,7 @@ export function MyCollection() {
                   variant={groupFilter === "base" ? "default" : "outline"}
                   onClick={() => setGroupFilter("base")}
                 >
-                  Collection Base
+                  {t("myCollection.collectionBase")}
                 </Button>
               </div>
 
@@ -529,7 +533,7 @@ export function MyCollection() {
               {(groupFilter === "all" || groupFilter === "graded") && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Graded</h2>
+                    <h2 className="text-base font-semibold">{t("myCollection.sectionGraded")}</h2>
                     <span className="h-4 w-16 animate-pulse rounded bg-muted" aria-hidden="true" />
                   </div>
                   <SkeletonGrid />
@@ -539,7 +543,7 @@ export function MyCollection() {
               {(groupFilter === "all" || groupFilter === "raw") && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Raw</h2>
+                    <h2 className="text-base font-semibold">{t("myCollection.sectionRaw")}</h2>
                     <span className="h-4 w-16 animate-pulse rounded bg-muted" aria-hidden="true" />
                   </div>
                   <SkeletonGrid />
@@ -549,7 +553,7 @@ export function MyCollection() {
               {groupFilter === "base" && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Collection Base</h2>
+                    <h2 className="text-base font-semibold">{t("myCollection.sectionBase")}</h2>
                     <span className="h-4 w-16 animate-pulse rounded bg-muted" aria-hidden="true" />
                   </div>
                   <SkeletonGrid />
@@ -561,11 +565,13 @@ export function MyCollection() {
               {(groupFilter === "all" || groupFilter === "graded") && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Graded</h2>
-                    <span className="text-sm text-muted-foreground">{filteredGradedGroups.length} groups</span>
+                    <h2 className="text-base font-semibold">{t("myCollection.sectionGraded")}</h2>
+                    <span className="text-sm text-muted-foreground">
+                      {t("myCollection.groupsSuffix", { count: filteredGradedGroups.length })}
+                    </span>
                   </div>
                   {filteredGradedGroups.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No graded groups.</p>
+                    <p className="text-sm text-muted-foreground">{t("myCollection.noGradedGroups")}</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                       {filteredGradedGroups.map((g) => (
@@ -579,11 +585,13 @@ export function MyCollection() {
               {(groupFilter === "all" || groupFilter === "raw") && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Raw</h2>
-                    <span className="text-sm text-muted-foreground">{filteredRawGroups.length} groups</span>
+                    <h2 className="text-base font-semibold">{t("myCollection.sectionRaw")}</h2>
+                    <span className="text-sm text-muted-foreground">
+                      {t("myCollection.groupsSuffix", { count: filteredRawGroups.length })}
+                    </span>
                   </div>
                   {filteredRawGroups.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No raw card groups.</p>
+                    <p className="text-sm text-muted-foreground">{t("myCollection.noRawGroups")}</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                       {filteredRawGroups.map((g) => (
@@ -597,8 +605,10 @@ export function MyCollection() {
               {groupFilter === "base" && (
                 <section>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Collection Base</h2>
-                    <span className="text-sm text-muted-foreground">{filteredBases.length} items</span>
+                    <h2 className="text-base font-semibold">{t("myCollection.sectionBase")}</h2>
+                    <span className="text-sm text-muted-foreground">
+                      {t("myCollection.itemsSuffix", { count: filteredBases.length })}
+                    </span>
                   </div>
                   {emptyLoading ? (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -607,7 +617,7 @@ export function MyCollection() {
                       ))}
                     </div>
                   ) : filteredBases.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No collection base items.</p>
+                    <p className="text-sm text-muted-foreground">{t("myCollection.noBaseItems")}</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                       {filteredBases.map((b) => (

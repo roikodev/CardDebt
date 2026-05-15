@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import cardDebtLogo from "@/assets/CardDebt.png"
+import { Trans, useTranslation } from "react-i18next"
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -9,6 +10,7 @@ type BeforeInstallPromptEvent = Event & {
 }
 
 export function AccessGate({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const [bipEvent, setBipEvent] = useState<BeforeInstallPromptEvent | null>(null)
 
   const isStandalone = useMemo(() => {
@@ -57,65 +59,68 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <img
               src={cardDebtLogo}
-              alt="Card Debt app icon"
+              alt={t("access.appIconAlt")}
               className="h-11 w-11 rounded-xl border bg-muted/20 object-cover"
               width={44}
               height={44}
               loading="eager"
               decoding="async"
             />
-            <p className="text-sm font-medium text-muted-foreground">CardDebt</p>
+            <p className="text-sm font-medium text-muted-foreground">{t("access.brand")}</p>
           </div>
 
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            This app is available on desktop web, or as a PWA on mobile
+            {t("access.title")}
           </h1>
 
           <div className="mt-4 space-y-3 text-sm text-muted-foreground">
             <p>
-              You’re on a mobile browser. To use CardDebt on mobile, install it as
-              a <span className="font-medium text-foreground">PWA</span>. Otherwise,
-              open it in a desktop browser.
+              <Trans
+                i18nKey="access.body1"
+                components={{
+                  accent: <span className="font-medium text-foreground" />,
+                }}
+                values={{ pwaWord: t("access.pwaWord") }}
+              />
             </p>
 
             <div className="rounded-lg bg-muted/40 p-4">
               <p className="font-medium text-foreground">
-                Install on iPhone/iPad (Safari)
+                {t("access.iosTitle")}
               </p>
               <ol className="mt-2 list-decimal space-y-1 pl-5">
-                <li>Tap the Share button.</li>
-                <li>Select “Add to Home Screen”.</li>
-                <li>Open CardDebt from the new icon.</li>
+                <li>{t("access.ios1")}</li>
+                <li>{t("access.ios2")}</li>
+                <li>{t("access.ios3")}</li>
               </ol>
             </div>
 
             <div className="rounded-lg bg-muted/40 p-4">
-              <p className="font-medium text-foreground">Install on Android (Chrome)</p>
+              <p className="font-medium text-foreground">{t("access.androidTitle")}</p>
               <ol className="mt-2 list-decimal space-y-1 pl-5">
-                <li>Open the browser menu (⋮).</li>
-                <li>Tap “Install app” / “Add to Home screen”.</li>
-                <li>Launch CardDebt from the installed app icon.</li>
+                <li>{t("access.android1")}</li>
+                <li>{t("access.android2")}</li>
+                <li>{t("access.android3")}</li>
               </ol>
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Button type="button" onClick={handleInstall} disabled={!bipEvent}>
-              Install PWA
+              {t("access.installPwa")}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => window.location.reload()}
             >
-              I installed it — refresh
+              {t("access.refresh")}
             </Button>
           </div>
 
           {!bipEvent ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              If “Install PWA” is disabled, your browser doesn’t expose an install
-              prompt here. Use the steps above.
+              {t("access.installHint")}
             </p>
           ) : null}
         </div>

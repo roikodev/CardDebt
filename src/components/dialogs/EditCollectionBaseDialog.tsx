@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -19,10 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { GAME_TITLE_OPTIONS } from "@/lib/gameTitles"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
-
-const GAME_TITLES = ["Pokemon JP", "YGO OCG", "BS"] as const
+import { toastUpdated } from "@/lib/toastI18n"
 
 async function preprocessImageForUpload(input: File): Promise<File> {
   const MAX_DIM = 2048
@@ -81,6 +81,7 @@ type Props = {
 }
 
 export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId, workerOrigin, initial, onEdited }: Props) {
+  const { t } = useTranslation()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -162,7 +163,7 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
     const accessToken = session?.access_token ?? null
 
     if (!userId || !accessToken) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
@@ -170,7 +171,7 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
     let imagePath: string | null = initial.image_cloud_path ?? null
     if (imageFile) {
       if (!workerOrigin) {
-        setError("Missing VITE_CF_WORKER_ORIGIN in .env")
+        setError(t("dialogs.buyForm.missingWorkerOrigin"))
         setSaving(false)
         return
       }
@@ -205,14 +206,19 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
           body: file,
         })
       } catch {
-        setError(`Image upload failed: could not reach Worker (${base}).`)
+        setError(t("dialogs.editCollection.imageUploadReach", { base }))
         setSaving(false)
         return
       }
 
       if (!uploadRes.ok) {
         const text = await uploadRes.text().catch(() => "")
-        setError(`Image upload failed (${uploadRes.status}). ${text}`.trim())
+        setError(
+          t("dialogs.editCollection.imageUploadStatus", {
+            status: String(uploadRes.status),
+            text,
+          }).trim()
+        )
         setSaving(false)
         return
       }
@@ -244,7 +250,7 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Updated successfully", { duration: 5000 })
+    toastUpdated()
     onEdited?.()
   }
 
@@ -253,15 +259,17 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
       <DialogContent className="max-h-[min(90dvh,34rem)] overflow-x-hidden sm:max-w-md p-0">
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Edit item</DialogTitle>
-            <DialogDescription>Update the item’s information.</DialogDescription>
+            <DialogTitle>{t("dialogs.editCollection.title")}</DialogTitle>
+            <DialogDescription>{t("dialogs.editCollection.description")}</DialogDescription>
           </DialogHeader>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
           <div className="mt-4 space-y-3">
             <div>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">Image</div>
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
+                {t("dialogs.editCollection.image")}
+              </div>
               <div className="flex flex-col gap-2">
                 <Input
                   ref={fileInputRef}
@@ -277,14 +285,14 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
                   onClick={() => fileInputRef.current?.click()}
                   disabled={saving}
                 >
-                  Choose / Take photo
+                  {t("dialogs.choosePhoto")}
                 </Button>
 
                 {previewUrl || existingImageUrl ? (
                   <div className="overflow-hidden rounded-lg border">
                     <img
                       src={previewUrl ?? existingImageUrl ?? ""}
-                      alt="Selected source"
+                      alt={t("dialogs.editCollection.selectedSourceAlt")}
                       className="max-h-64 w-full bg-muted/30 object-contain"
                     />
                   </div>
@@ -292,20 +300,28 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
               </div>
             </div>
             <div>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">Name</div>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
+                {t("dialogs.name")}
+              </div>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("dialogs.editCollection.placeholderName")}
+              />
             </div>
             <div>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">Game Title</div>
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
+                {t("dialogs.gameTitle")}
+              </div>
               <Select value={gameTitle ?? ""} onValueChange={(v) => setGameTitle(v || null)}>
                 <SelectTrigger className="w-full" size="default">
-                  <SelectValue placeholder="Select game title" />
+                  <SelectValue placeholder={t("dialogs.selectGameTitle")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {GAME_TITLES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
+                    {GAME_TITLE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -313,8 +329,14 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
               </Select>
             </div>
             <div>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">Card Number</div>
-              <Input value={cardNo} onChange={(e) => setCardNo(e.target.value)} placeholder="Card Number" />
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
+                {t("dialogs.placeholderCardNumber")}
+              </div>
+              <Input
+                value={cardNo}
+                onChange={(e) => setCardNo(e.target.value)}
+                placeholder={t("dialogs.editCollection.placeholderCardNo")}
+              />
             </div>
           </div>
         </DialogBody>
@@ -322,10 +344,10 @@ export function EditCollectionBaseDialog({ open, onOpenChange, collectionItemId,
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button type="button" onClick={handleSave} disabled={!canSave}>
-              Save
+              {t("dialogs.save")}
             </Button>
           </div>
         </DialogFooter>

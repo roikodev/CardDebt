@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
 /**
- * Enter/exit motion uses `data-open:` / `data-closed:` utilities from the registry.
- * In shadcn Tailwind (`shadcn/tailwind.css`), those custom variants match Radix
- * `[data-state="open"]` / `[data-state="closed"]` — use `data-open:` here, not only
- * `data-[state=open]:`, so animations stay aligned with the CLI defaults.
+ * Enter/exit motion targets Radix `data-state` on the overlay/content nodes so
+ * {@link https://www.radix-ui.com/primitives/docs/utilities/presence Presence} can
+ * detect the `enter` → `exit` animation-name change and wait for close animations.
  */
 
 function Dialog({
@@ -44,7 +43,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-300 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50 bg-black/10 duration-300 supports-backdrop-filter:backdrop-blur-xs data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
         className
       )}
       {...props}
@@ -70,7 +69,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 flex max-h-[min(90dvh,85vh)] min-h-0 min-w-0 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-300 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 flex max-h-[min(90dvh,85vh)] min-h-0 min-w-0 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-300 outline-none sm:max-w-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           className
         )}
         onOpenAutoFocus={(e) => {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useVirtualizer } from "@tanstack/react-virtual"
 
 import {
@@ -38,20 +39,21 @@ function SkeletonTile() {
   )
 }
 
-function formatTitle(row: CollectionBaseRow): string {
-  const parts: string[] = []
-  if (row.game_title) parts.push(row.game_title)
-  if (row.card_no) parts.push(row.card_no)
-  if (row.name) parts.push(row.name)
-  return parts.join(" · ") || "Untitled"
-}
-
 export function CardBaseDialog({
   open,
   onOpenChange,
   onSelect,
 }: CardBaseDialogProps) {
+  const { t } = useTranslation()
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
+
+  function formatTitle(row: CollectionBaseRow): string {
+    const parts: string[] = []
+    if (row.game_title) parts.push(row.game_title)
+    if (row.card_no) parts.push(row.card_no)
+    if (row.name) parts.push(row.name)
+    return parts.join(" · ") || t("common.untitled")
+  }
 
   const [items, setItems] = useState<CollectionBaseRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -103,7 +105,7 @@ export function CardBaseDialog({
       const accessToken = session?.access_token
 
       if (!userId || !accessToken) {
-        setError("Not signed in.")
+        setError(t("dialogs.notSignedInShort"))
         setLoading(false)
         return
       }
@@ -185,15 +187,13 @@ export function CardBaseDialog({
         className="flex max-h-[min(90dvh,46rem)] min-h-[30rem] min-w-0 flex-col gap-3 overflow-hidden p-4 sm:max-w-3xl"
       >
         <DialogHeader className="shrink-0">
-          <DialogTitle>Choose from my Card Base</DialogTitle>
-          <DialogDescription>
-            Select an item from your collection base.
-          </DialogDescription>
+          <DialogTitle>{t("dialogs.cardBaseTitle")}</DialogTitle>
+          <DialogDescription>{t("dialogs.cardBase.description")}</DialogDescription>
         </DialogHeader>
 
         {!hasWorker ? (
           <p className="shrink-0 text-sm text-muted-foreground">
-            Missing <code>VITE_CF_WORKER_ORIGIN</code>. Unable to load cloud images.
+            {t("dialogs.missingWorkerImages")}
           </p>
         ) : null}
 
@@ -212,7 +212,7 @@ export function CardBaseDialog({
           </DialogBody>
         ) : items.length === 0 ? (
           <DialogBody className="min-h-0 px-0 pt-0">
-          <p className="text-sm text-muted-foreground">No items found.</p>
+          <p className="text-sm text-muted-foreground">{t("dialogs.noItemsFound")}</p>
           </DialogBody>
         ) : (
           <DialogBody
@@ -262,10 +262,10 @@ export function CardBaseDialog({
                           </div>
                           <div className="space-y-1 p-3">
                             <p className="line-clamp-2 text-sm font-medium leading-snug">
-                              {row.name ?? "Untitled"}
+                              {row.name ?? t("common.untitled")}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {row.game_title ?? "—"}
+                              {row.game_title ?? t("common.emDash")}
                               {row.card_no ? ` · ${row.card_no}` : ""}
                             </p>
                           </div>

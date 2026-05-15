@@ -1,10 +1,14 @@
 import type { CollectionBase, DerivedRecordRow } from "@/components/collection-info/types"
-import { SkeletonMuted } from "@/components/collection-info/records-panel/shared"
+import {
+  formatCostLinesSummary,
+  SkeletonMuted,
+} from "@/components/collection-info/records-panel/shared"
 import { Link } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { XCircle } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { CancelDerivedRecordDialog } from "@/components/dialogs/CancelDerivedRecordDialog"
 
 type Props = {
@@ -24,6 +28,7 @@ export function DerivedRecordsSection({
   formatMoneyHKD,
   onUpdated,
 }: Props) {
+  const { t } = useTranslation()
   const [cancelling, setCancelling] = useState<null | { recordId: string; fromUcId: string; toUcId: string }>(null)
 
   if (derivedError) return <p className="text-sm text-destructive">{derivedError}</p>
@@ -44,10 +49,12 @@ export function DerivedRecordsSection({
       </div>
     )
   }
-  if (!derivedRecords.length) return <p className="text-sm text-muted-foreground">No derived records found.</p>
+  if (!derivedRecords.length) {
+    return <p className="text-sm text-muted-foreground">{t("recordsPanel.noDerivedRecords")}</p>
+  }
 
   const metaLine = (base: CollectionBase | null | undefined) =>
-    [base?.game_title, base?.card_no].filter(Boolean).join(" · ") || "—"
+    [base?.game_title, base?.card_no].filter(Boolean).join(" · ") || t("common.emDash")
 
   const sideLink = (
     ucId: string | undefined,
@@ -81,7 +88,7 @@ export function DerivedRecordsSection({
                   : "rounded-md bg-muted/80 px-1.5 py-0 text-[10px] font-medium text-muted-foreground"
               }
             >
-              {graded ? "Graded" : "Ungraded"}
+              {graded ? t("recordsPanel.statusGraded") : t("recordsPanel.statusUngraded")}
             </span>
           </div>
           <p className="truncate text-sm font-medium">{baseName}</p>
@@ -93,7 +100,7 @@ export function DerivedRecordsSection({
         <div className="h-10 w-10 shrink-0 rounded-md bg-muted/50" />
         <div className="min-w-0 text-left">
           <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
-          <p className="text-sm text-muted-foreground">—</p>
+          <p className="text-sm text-muted-foreground">{t("common.emDash")}</p>
         </div>
       </div>
     )
@@ -121,7 +128,7 @@ export function DerivedRecordsSection({
       {orderedGroups.map(({ fromId, rows }) => {
         const first = rows[0]
         const fromBase = first.from_user_collection?.collection_base
-        const fromName = fromBase?.name ?? "Source"
+        const fromName = fromBase?.name ?? t("recordsPanel.sourceNameFallback")
         const imgFrom = derivedImageUrls[`from:${fromId}`]
         const fromItemId = first.from_user_collection?.collection_item_id
         const fromG = first.from_user_collection?.graded ?? false
@@ -135,10 +142,17 @@ export function DerivedRecordsSection({
           <div key={`src-${fromId}`} className="rounded-xl border bg-background/30 p-3 text-left">
             <div className="flex flex-col items-start gap-3 sm:flex-row">
               <div className="w-full min-w-0 flex-1">
-                {sideLink(fromItemId, fromG, fromName, imgFrom, "Source", metaLine(fromBase))}
+                {sideLink(
+                  fromItemId,
+                  fromG,
+                  fromName,
+                  imgFrom,
+                  t("recordsPanel.sourceLabel"),
+                  metaLine(fromBase),
+                )}
               </div>
               <div className="w-full shrink-0 rounded-lg border bg-muted/20 px-3 py-2 text-left sm:w-auto sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
-                <p className="text-xs text-muted-foreground">Total deriving cost</p>
+                <p className="text-xs text-muted-foreground">{t("recordsPanel.totalDerivingCost")}</p>
                 <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(sourceDerivedTotal)}</p>
               </div>
             </div>
@@ -146,7 +160,7 @@ export function DerivedRecordsSection({
             <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
               {derivedRows.map((dr) => {
                 const toBase = dr.to_user_collection?.collection_base
-                const toName = toBase?.name ?? "Derived item"
+                const toName = toBase?.name ?? t("recordsPanel.derivedItemNameFallback")
                 const imgTo = derivedImageUrls[`to:${dr.to_user_collection_id}`]
                 const toItemId = dr.to_user_collection?.collection_item_id
                 const toG = dr.to_user_collection?.graded ?? false
@@ -158,7 +172,7 @@ export function DerivedRecordsSection({
                       size="icon-sm"
                       variant="ghost"
                       className="absolute right-1 top-1 z-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Cancel derived record"
+                      aria-label={t("recordsPanel.cancelDerivedAria")}
                       onClick={() =>
                         setCancelling({
                           recordId: dr.id,
@@ -174,7 +188,14 @@ export function DerivedRecordsSection({
                         <ArrowRight className="size-4" aria-hidden="true" />
                       </div>
                       <div className="w-full min-w-0 flex-1">
-                        {sideLink(toItemId, toG, toName, imgTo, "Derived item", metaLine(toBase))}
+                        {sideLink(
+                          toItemId,
+                          toG,
+                          toName,
+                          imgTo,
+                          t("recordsPanel.derivedItemLabel"),
+                          metaLine(toBase),
+                        )}
                       </div>
                       <div className="flex w-full shrink-0 items-baseline justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2 text-left sm:w-auto sm:flex-col sm:items-end sm:justify-start sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
                         <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(dr.costTotal)}</p>
@@ -186,10 +207,12 @@ export function DerivedRecordsSection({
 
                     {dr.costLines.length ? (
                       <p className="mt-1 text-xs text-muted-foreground sm:pl-6">
-                        {dr.costLines.map((c) => `${c.type} ${formatMoneyHKD(Number(c.price) || 0)}`).join(" · ")}
+                        {formatCostLinesSummary(t, dr.costLines, formatMoneyHKD)}
                       </p>
                     ) : (
-                      <p className="mt-1 text-xs text-muted-foreground sm:pl-6">No cost entries.</p>
+                      <p className="mt-1 text-xs text-muted-foreground sm:pl-6">
+                        {t("recordsPanel.noCostEntries")}
+                      </p>
                     )}
                   </div>
                 )

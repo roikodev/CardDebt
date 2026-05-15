@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -77,6 +78,7 @@ export function GradingCostDialog({
   sourceQuantity,
   onSubmitted,
 }: Props) {
+  const { t } = useTranslation()
   const [costs, setCosts] = useState<CostEntry[]>([])
   const [quantity, setQuantity] = useState(1)
   const [sendingDate, setSendingDate] = useState(todayISODate())
@@ -98,16 +100,14 @@ export function GradingCostDialog({
         <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden sm:max-w-lg p-0">
           <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
             <DialogHeader className="px-0">
-              <DialogTitle>Grading costs</DialogTitle>
-              <DialogDescription>
-                Add any number of cost records (or none) for 1 collection item.
-              </DialogDescription>
+              <DialogTitle>{t("dialogs.gradingCostsTitle")}</DialogTitle>
+              <DialogDescription>{t("dialogs.gradingCost.description")}</DialogDescription>
             </DialogHeader>
 
             <div className="mt-4 rounded-xl border bg-card p-3">
               <FieldGroup>
                 <FormQuantityStepper
-                  label="Quantity"
+                  label={t("dialogs.quantityLabel")}
                   id="grading-quantity"
                   value={quantity}
                   onValueChange={setQuantity}
@@ -117,7 +117,7 @@ export function GradingCostDialog({
                 />
 
                 <FormTextInput
-                  label="Sending Date"
+                  label={t("dialogs.sendingDate")}
                   id="grading-sending-date"
                   type="date"
                   value={sendingDate}
@@ -129,7 +129,7 @@ export function GradingCostDialog({
             <div className="mt-4 rounded-xl border bg-card p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">Cost</p>
+                  <p className="truncate text-sm font-semibold">{t("dialogs.costSection")}</p>
                 </div>
                 <Button
                   type="button"
@@ -138,7 +138,7 @@ export function GradingCostDialog({
                   onClick={() => setCosts((prev) => [...prev, newEntry()])}
                 >
                   <Plus className="size-4" aria-hidden="true" />
-                  Add
+                  {t("dialogs.add")}
                 </Button>
               </div>
 
@@ -148,7 +148,7 @@ export function GradingCostDialog({
                     <div key={c.id} className="rounded-lg border bg-muted/30 p-3">
                       <FieldGroup>
                         <FormTextInput
-                          label="Date"
+                          label={t("dialogs.date")}
                           id={`grade-date-${c.id}`}
                           type="date"
                           value={c.date}
@@ -161,7 +161,7 @@ export function GradingCostDialog({
                           }
                         />
 
-                        <FormSelectField label="Type" htmlFor={`grade-type-${c.id}`}>
+                        <FormSelectField label={t("dialogs.typeLabel")} htmlFor={`grade-type-${c.id}`}>
                           <Select
                             value={c.type}
                             onValueChange={(v) =>
@@ -183,9 +183,9 @@ export function GradingCostDialog({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
-                                <SelectItem value="Grading">Grading</SelectItem>
-                                <SelectItem value="Postal">Postal</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
+                                <SelectItem value="Grading">{t("dialogs.costType.grading")}</SelectItem>
+                                <SelectItem value="Postal">{t("dialogs.costType.postal")}</SelectItem>
+                                <SelectItem value="Other">{t("dialogs.costType.other")}</SelectItem>
                               </SelectGroup>
                             </SelectContent>
                           </Select>
@@ -193,7 +193,7 @@ export function GradingCostDialog({
 
                         {c.type === "Other" ? (
                           <FormTextInput
-                            label="Description"
+                            label={t("dialogs.description")}
                             id={`grade-desc-${c.id}`}
                             value={c.description}
                             onChange={(e) =>
@@ -207,7 +207,7 @@ export function GradingCostDialog({
                         ) : null}
 
                         <FormMoneyInput
-                          label="Cost"
+                          label={t("dialogs.cost")}
                           htmlFor={`grade-cost-${c.id}`}
                           inputProps={{
                             id: `grade-cost-${c.id}`,
@@ -234,14 +234,14 @@ export function GradingCostDialog({
                           onClick={() => setCosts((prev) => prev.filter((x) => x.id !== c.id))}
                         >
                           <Trash2 className="size-4" aria-hidden="true" />
-                          Remove
+                          {t("dialogs.remove")}
                         </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-muted-foreground">No costs.</p>
+                <p className="mt-2 text-sm text-muted-foreground">{t("dialogs.noCosts")}</p>
               )}
             </div>
           </DialogBody>
@@ -249,10 +249,10 @@ export function GradingCostDialog({
           <DialogFooter className="px-0 pb-5 sm:pb-6">
             <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Close
+                {t("common.close")}
               </Button>
               <Button type="button" onClick={() => setSummaryOpen(true)} disabled={!canNext}>
-                Next
+                {t("dialogs.next")}
               </Button>
             </div>
           </DialogFooter>
@@ -278,4 +278,3 @@ export function GradingCostDialog({
     </>
   )
 }
-

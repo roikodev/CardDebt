@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { CancelPurchaseRecordDialog } from "@/components/dialogs/CancelPurchaseRecordDialog"
 import { XCircle } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 type Props = {
   loading: boolean
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD, onUpdated }: Props) {
+  const { t } = useTranslation()
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
   if (loading) {
@@ -44,15 +46,17 @@ export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD, on
     )
   }
 
-  if (!buyEntries.length) return <p className="text-sm text-muted-foreground">No purchase records found.</p>
+  if (!buyEntries.length) {
+    return <p className="text-sm text-muted-foreground">{t("recordsPanel.noPurchaseRecords")}</p>
+  }
 
   return (
     <>
       <div className="hidden grid-cols-[140px_1fr_90px_110px] gap-3 border-b pb-2 text-xs font-medium text-muted-foreground lg:grid">
-        <div>Date</div>
-        <div>Price (per 1)</div>
-        <div>Qty</div>
-        <div className="text-right">Total</div>
+        <div>{t("recordsPanel.colDate")}</div>
+        <div>{t("recordsPanel.colPricePerOne")}</div>
+        <div>{t("recordsPanel.colQty")}</div>
+        <div className="text-right">{t("recordsPanel.colTotal")}</div>
       </div>
 
       <div className="mt-2 space-y-2">
@@ -65,7 +69,7 @@ export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD, on
                 size="icon-sm"
                 variant="ghost"
                 className="absolute right-1 top-1 z-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                aria-label="Cancel purchase record"
+                aria-label={t("recordsPanel.cancelPurchaseAria")}
                 onClick={() => setCancellingId(b.id)}
               >
                 <XCircle className="size-4" aria-hidden="true" />
@@ -75,10 +79,11 @@ export function PurchaseRecordsSection({ loading, buyEntries, formatMoneyHKD, on
                   <p className="text-sm font-medium">{b.purchase_date}</p>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  <span className="text-xs">Price</span>
+                  <span className="text-xs">{t("recordsPanel.priceShort")}</span>
                   <div className="mt-0.5 flex items-baseline justify-between gap-3">
                     <div className="min-w-0 text-foreground">
-                      {formatMoneyHKD(Number(b.price_hkd))} <span className="text-muted-foreground">×</span> {b.quantity}
+                      {formatMoneyHKD(Number(b.price_hkd))}{" "}
+                      <span className="text-muted-foreground">×</span> {b.quantity}
                     </div>
                     <div className="shrink-0 text-foreground">{formatMoneyHKD(total)}</div>
                   </div>

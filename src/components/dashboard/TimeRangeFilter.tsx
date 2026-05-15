@@ -1,3 +1,5 @@
+import { useTimeRangeOptions } from "@/hooks/useTimeRangeOptions"
+
 export type DashboardTimeRange = "all" | "365" | "180" | "90"
 
 export function TimeRangeFilter({
@@ -7,17 +9,12 @@ export function TimeRangeFilter({
   value: DashboardTimeRange
   onChange: (v: DashboardTimeRange) => void
 }) {
+  const opts = useTimeRangeOptions()
+
   return (
     <section className="col-span-12">
       <div className="flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60">
-        {(
-          [
-            ["all", "All Time"],
-            ["365", "1y"],
-            ["180", "6m"],
-            ["90", "3m"],
-          ] as const
-        ).map(([k, label]) => (
+        {opts.map(([k, label]) => (
           <button
             key={k}
             type="button"
@@ -36,4 +33,3 @@ export function TimeRangeFilter({
     </section>
   )
 }
-

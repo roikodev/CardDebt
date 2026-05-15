@@ -1,5 +1,9 @@
+import { useMemo } from "react"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useTimeRangeOptions } from "@/hooks/useTimeRangeOptions"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
+import { useTranslation } from "react-i18next"
 
 import { formatHKD } from "./utils"
 
@@ -20,6 +24,9 @@ export function SpendingPieSection({
   sellTotal: number
   miscTotal: number
 }) {
+  const { t } = useTranslation()
+  const timeOpts = useTimeRangeOptions()
+
   const buy = Math.max(0, Number(buyTotal) || 0)
   const sell = Math.max(0, Number(sellTotal) || 0)
   const misc = Math.max(0, Number(miscTotal) || 0)
@@ -29,29 +36,36 @@ export function SpendingPieSection({
   const sellPct = total > 0 ? (sell / total) * 100 : 0
   const miscPct = total > 0 ? (misc / total) * 100 : 0
 
-  const c1 = "#fb7185" // rose-400 (Buy)
-  const c2 = "#34d399" // emerald-400 (Sell)
-  const c3 = "#fbbf24" // amber-400 (Misc)
-  const pieData = [
-    { name: "Buy", value: buy, color: c1, pct: buyPct },
-    { name: "Sell", value: sell, color: c2, pct: sellPct },
-    { name: "Misc", value: misc, color: c3, pct: miscPct },
-  ].filter((d) => d.value > 0)
+  const c1 = "#fb7185"
+  const c2 = "#34d399"
+  const c3 = "#fbbf24"
+
+  const pieLabels = useMemo(
+    () => ({
+      buy: t("spendingPie.buy"),
+      sell: t("spendingPie.sell"),
+      misc: t("spendingPie.misc"),
+    }),
+    [t]
+  )
+
+  const pieData = useMemo(
+    () =>
+      [
+        { key: "buy", name: pieLabels.buy, value: buy, color: c1, pct: buyPct },
+        { key: "sell", name: pieLabels.sell, value: sell, color: c2, pct: sellPct },
+        { key: "misc", name: pieLabels.misc, value: misc, color: c3, pct: miscPct },
+      ].filter((d) => d.value > 0),
+    [pieLabels, buy, sell, misc, buyPct, sellPct, miscPct]
+  )
 
   return (
     <section className="col-span-12 md:col-span-6">
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-muted/20 via-background to-background shadow-sm ring-1 ring-border/60">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Spending / Gaining breakdown</CardTitle>
+          <CardTitle className="text-base">{t("spendingPie.title")}</CardTitle>
           <div className="mt-2 flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60">
-            {(
-              [
-                ["all", "All Time"],
-                ["365", "1y"],
-                ["180", "6m"],
-                ["90", "3m"],
-              ] as const
-            ).map(([k, label]) => (
+            {timeOpts.map(([k, label]) => (
               <button
                 key={k}
                 type="button"
@@ -85,7 +99,7 @@ export function SpendingPieSection({
                       background:
                         "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.10), rgba(0,0,0,0.06))",
                     }}
-                    aria-label="Pie chart"
+                    aria-label={t("common.pieChart")}
                   />
                 ) : (
                   <div
@@ -93,7 +107,7 @@ export function SpendingPieSection({
                       "size-40 rounded-full ring-1 ring-border/60",
                       loading ? "animate-pulse opacity-80" : "",
                     ].join(" ")}
-                    aria-label="Pie chart"
+                    aria-label={t("common.pieChart")}
                   >
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -141,7 +155,7 @@ export function SpendingPieSection({
                           isAnimationActive={!loading}
                         >
                           {pieData.map((entry) => (
-                            <Cell key={entry.name} fill={entry.color} />
+                            <Cell key={entry.key} fill={entry.color} />
                           ))}
                         </Pie>
                       </PieChart>
@@ -152,26 +166,11 @@ export function SpendingPieSection({
             </div>
 
             <div className="min-w-0 space-y-2">
-              <LegendRow
-                label="Buy"
-                color={c1}
-                amount={buy}
-                pct={buyPct}
-              />
-              <LegendRow
-                label="Sell"
-                color={c2}
-                amount={sell}
-                pct={sellPct}
-              />
-              <LegendRow
-                label="Misc"
-                color={c3}
-                amount={misc}
-                pct={miscPct}
-              />
+              <LegendRow label={pieLabels.buy} color={c1} amount={buy} pct={buyPct} />
+              <LegendRow label={pieLabels.sell} color={c2} amount={sell} pct={sellPct} />
+              <LegendRow label={pieLabels.misc} color={c3} amount={misc} pct={miscPct} />
               {total <= 0 && !loading ? (
-                <p className="text-xs text-muted-foreground">No data in this range.</p>
+                <p className="text-xs text-muted-foreground">{t("spendingPie.noData")}</p>
               ) : null}
             </div>
           </div>
@@ -209,4 +208,3 @@ function LegendRow({
     </div>
   )
 }
-

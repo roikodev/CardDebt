@@ -2,8 +2,10 @@ import type { ReactNode } from "react"
 
 import cardDebtLogo from "@/assets/CardDebt.png"
 import { Outlet, useLocation } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
 
 export function NoAuthLayout({ children }: { children?: ReactNode }) {
+  const { t } = useTranslation()
   const pathname = useLocation({ select: (l) => l.pathname })
 
   return (
@@ -19,7 +21,7 @@ export function NoAuthLayout({ children }: { children?: ReactNode }) {
             />
             <img
               src={cardDebtLogo}
-              alt="Card Debt"
+              alt={t("noAuth.logoAlt")}
               width={64}
               height={64}
               decoding="async"

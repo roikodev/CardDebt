@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { type Resolver, Controller, useForm, useWatch } from "react-hook-form"
-import { z } from "zod"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -29,8 +29,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { createBuyByCardBaseFormSchema } from "@/lib/i18nValidation"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastSaved } from "@/lib/toastI18n"
 
 import type { CollectionBaseRow } from "@/components/dialogs/CardBaseDialog"
 
@@ -43,42 +44,6 @@ function todayISODate(): string {
   const day = String(d.getDate()).padStart(2, "0")
   return `${y}-${m}-${day}`
 }
-
-const formSchema = z
-  .object({
-    graded: z.boolean(),
-    price: z.preprocess(
-      (v) => (v === "" || v === null || v === undefined ? Number.NaN : Number(v)),
-      z.number()
-    ),
-    quantity: z.preprocess(
-      (v) => (v === "" || v === null || v === undefined ? Number.NaN : Number(v)),
-      z.number().int().min(1, "Quantity must be at least 1")
-    ),
-    purchaseDate: z.string().min(1, "Purchase date is required"),
-    provider: z.string().min(1, "Provider is required"),
-    grade: z.string(),
-  })
-  .refine(
-    (data) => (data.graded ? data.provider.trim().length > 0 : true),
-    { path: ["provider"], message: "Provider is required" }
-  )
-  .refine(
-    (data) => {
-      if (!data.graded) return true
-      const n = parseFloat(data.grade)
-      return !Number.isNaN(n) && n > 0
-    },
-    { path: ["grade"], message: "Grade must be greater than 0" }
-  )
-  .refine((data) => Number.isFinite(data.price) && !Number.isNaN(data.price), {
-    path: ["price"],
-    message: "Price is required",
-  })
-  .refine((data) => Number.isFinite(data.quantity) && !Number.isNaN(data.quantity), {
-    path: ["quantity"],
-    message: "Quantity is required",
-  })
 
 export type BuyProductByCardBaseFormValues = {
   graded: boolean
@@ -111,6 +76,11 @@ export function BuyProductByCardBaseDialog({
   item,
   onSubmitSuccess,
 }: Props) {
+  const { t, i18n } = useTranslation()
+  const formSchema = useMemo(
+    () => createBuyByCardBaseFormSchema(t),
+    [i18n.language, t],
+  )
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
   const [signedImageUrl, setSignedImageUrl] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -170,7 +140,7 @@ export function BuyProductByCardBaseDialog({
 
   async function onSubmit(values: BuyProductByCardBaseFormValues) {
     if (!item?.id) {
-      setError("root", { type: "manual", message: "No Card Base item selected." })
+      setError("root", { type: "manual", message: t("dialogs.buyForm.noCardBaseSelected") })
       return
     }
 
@@ -178,7 +148,7 @@ export function BuyProductByCardBaseDialog({
     const session = sessionRes.data.session
     const userId = session?.user?.id
     if (!userId) {
-      setError("root", { type: "manual", message: "Not signed in." })
+      setError("root", { type: "manual", message: t("dialogs.buyForm.notSignedIn") })
       return
     }
 
@@ -198,7 +168,7 @@ export function BuyProductByCardBaseDialog({
     if (buyEntryRes.error || !buyEntryRes.data?.id) {
       setError("root", {
         type: "manual",
-        message: buyEntryRes.error?.message ?? "Failed to save purchase.",
+        message: buyEntryRes.error?.message ?? t("dialogs.buyForm.savePurchaseFailed"),
       })
       return
     }
@@ -237,7 +207,7 @@ export function BuyProductByCardBaseDialog({
       await supabase.from("buy_entries").delete().eq("id", buyEntryId)
       setError("root", {
         type: "manual",
-        message: userCollectionRes.error?.message ?? "Failed to save collection items.",
+        message: userCollectionRes.error?.message ?? t("dialogs.buyForm.saveItemsFailed"),
       })
       return
     }
@@ -265,11 +235,11 @@ export function BuyProductByCardBaseDialog({
     }
 
     onOpenChange(false)
-    toast.success("Saved successfully", { duration: 5000 })
+    toastSaved()
     onSubmitSuccess?.(values)
   }
 
-  const title = item?.name ?? "Selected item"
+  const title = item?.name ?? t("dialogs.selectedItem")
   const meta = [item?.game_title, item?.card_no].filter(Boolean).join(" · ")
 
   return (
@@ -282,8 +252,8 @@ export function BuyProductByCardBaseDialog({
           <DialogBody className="px-0">
         <div className="p-4 pb-2">
           <DialogHeader>
-            <DialogTitle>Buy</DialogTitle>
-            <DialogDescription>Complete purchase details for this item.</DialogDescription>
+            <DialogTitle>{t("dialogs.buyTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogs.buyByCardBaseDescription")}</DialogDescription>
           </DialogHeader>
         </div>
 
@@ -302,7 +272,7 @@ export function BuyProductByCardBaseDialog({
             </div>
             <div className="space-y-1 p-3 text-left">
               <p className="text-sm font-medium leading-snug">{title}</p>
-              <p className="text-xs text-muted-foreground">{meta || "—"}</p>
+              <p className="text-xs text-muted-foreground">{meta || t("common.emDash")}</p>
             </div>
           </div>
         </div>
@@ -316,9 +286,9 @@ export function BuyProductByCardBaseDialog({
               <div
                 className="mb-3 flex flex-col gap-2 border-t pt-3"
                 role="group"
-                aria-label="Common details"
+                aria-label={t("dialogs.commonDetailsAria")}
               >
-                <p className="text-sm font-medium">Details</p>
+                <p className="text-sm font-medium">{t("dialogs.details")}</p>
 
                 <Controller
                   name="graded"
@@ -326,8 +296,8 @@ export function BuyProductByCardBaseDialog({
                   render={({ field }) => (
                     <FormSwitchField
                       id="buycb-graded"
-                      label="Graded"
-                      description="Whether the item is professionally graded."
+                      label={t("dialogs.graded")}
+                      description={t("dialogs.gradedDescription")}
                       checked={field.value}
                       onCheckedChange={field.onChange}
                       invalid={!!errors.graded}
@@ -342,7 +312,7 @@ export function BuyProductByCardBaseDialog({
                       control={control}
                       render={({ field: providerField }) => (
                         <FormSelectField
-                          label="Provider"
+                          label={t("dialogs.provider")}
                           htmlFor="buycb-provider"
                           error={errors.provider?.message}
                           invalid={!!errors.provider}
@@ -357,7 +327,7 @@ export function BuyProductByCardBaseDialog({
                               size="default"
                               aria-invalid={!!errors.provider}
                             >
-                              <SelectValue placeholder="Select provider" />
+                              <SelectValue placeholder={t("dialogs.selectProvider")} />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
@@ -374,7 +344,7 @@ export function BuyProductByCardBaseDialog({
                     />
 
                     <FormTextInput
-                      label="Grade"
+                      label={t("dialogs.grade")}
                       id="buycb-grade"
                       error={errors.grade?.message}
                       invalid={!!errors.grade}
@@ -382,14 +352,14 @@ export function BuyProductByCardBaseDialog({
                       inputMode="decimal"
                       step="any"
                       min={0}
-                      placeholder="e.g. 10"
+                      placeholder={t("dialogs.gradePlaceholder")}
                       {...register("grade")}
                     />
                   </div>
                 ) : null}
 
                 <FormMoneyInput
-                  label="Price (per 1)"
+                  label={t("dialogs.pricePerOne")}
                   htmlFor="buycb-price"
                   error={errors.price?.message}
                   invalid={!!errors.price}
@@ -408,7 +378,7 @@ export function BuyProductByCardBaseDialog({
                   control={control}
                   render={({ field }) => (
                     <FormQuantityStepper
-                      label="Quantity"
+                      label={t("dialogs.quantity")}
                       id="buycb-quantity"
                       error={errors.quantity?.message}
                       invalid={!!errors.quantity}
@@ -425,7 +395,7 @@ export function BuyProductByCardBaseDialog({
                 />
 
                 <FormTextInput
-                  label="Purchase Date"
+                  label={t("dialogs.purchaseDate")}
                   id="buycb-purchase-date"
                   error={errors.purchaseDate?.message}
                   invalid={!!errors.purchaseDate}
@@ -443,10 +413,10 @@ export function BuyProductByCardBaseDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("dialogs.cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving…" : "Save"}
+              {isSubmitting ? t("dialogs.saving") : t("dialogs.save")}
             </Button>
           </DialogFooter>
         </form>

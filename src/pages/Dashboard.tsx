@@ -17,13 +17,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { BuyProductDialog } from "@/components/dialogs/BuyProductDialog"
+import {
+  BuyProductDialog,
+  type BuyProductFormValues,
+} from "@/components/dialogs/BuyProductDialog"
 import { BuyProductByCardBaseDialog } from "@/components/dialogs/BuyProductByCardBaseDialog"
 import { CardBaseDialog } from "@/components/dialogs/CardBaseDialog"
 import { SellChooseItemDialog, type SellChoice } from "@/components/dialogs/SellChooseItemDialog"
 import { SellInfoDialog } from "@/components/dialogs/SellInfoDialog"
 import { MiscellaneousEntryDialog } from "@/components/dialogs/MiscellaneousEntryDialog"
-import { AskAiResearchDialog } from "@/components/dialogs/AskAiResearchDialog"
+import { SettingsDialog } from "@/components/dialogs/SettingsDialog"
+import {
+  AskAiResearchDialog,
+  type AskAiPurchaseIntentPayload,
+  type ResearchCardFields,
+  sanitizeModelGameTitle,
+} from "@/components/dialogs/AskAiResearchDialog"
 import { BalanceChangeCard, TotalBalanceCard } from "@/components/dashboard/BalanceCards"
 import { RoiSection } from "@/components/dashboard/RoiSection"
 import { SpendingPieSection } from "@/components/dashboard/SpendingPieSection"
@@ -53,9 +62,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
+import { GAME_TITLES } from "@/lib/gameTitles"
 import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
 import { useNavigate } from "@tanstack/react-router"
+import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 import {
   CreditCard,
   Folder,
@@ -81,6 +93,103 @@ function daysAgoISODate(days: number): string {
   const mm = String(d.getMonth() + 1).padStart(2, "0")
   const dd = String(d.getDate()).padStart(2, "0")
   return `${yyyy}-${mm}-${dd}`
+}
+
+function matchGameTitleForBuy(
+  ai: string | null | undefined
+): BuyProductFormValues["gameTitle"] {
+  const cleaned = sanitizeModelGameTitle(
+    typeof ai === "string" ? ai : undefined
+  )
+  if (!cleaned?.trim()) return null
+  const titleNorm = cleaned.trim()
+  if ((GAME_TITLES as readonly string[]).includes(titleNorm)) {
+    return titleNorm as BuyProductFormValues["gameTitle"]
+  }
+  const lower = titleNorm.toLowerCase()
+  const exactCi = GAME_TITLES.find((x) => x.toLowerCase() === lower)
+  if (exactCi) return exactCi
+
+  const legacy: Record<string, BuyProductFormValues["gameTitle"]> = {
+    "pokemon jp": "Pokémon TCG JP",
+    "ygo ocg": "Yu-Gi-Oh! JP OCG",
+    bs: "Battle Spirits",
+  }
+  return legacy[lower] ?? null
+}
+
+function cardDisplayLineFromResearch(c: ResearchCardFields | null): string {
+  if (!c) return ""
+  return (
+    c.formatted_result?.trim() ||
+    [
+      [c.set_number, c.card_number].filter(Boolean).join(" "),
+      c.name,
+      c.rarity,
+    ]
+      .filter((x) => x && String(x).trim())
+      .join(" · ") ||
+    c.name?.trim() ||
+    ""
+  )
+}
+
+function parseAiEstimatedPriceHkd(v: string | undefined): number {
+  if (!v?.trim()) return 0
+  const n = Number(String(v).replace(/,/g, "").replace(/[^0-9.-]/g, ""))
+  return Number.isFinite(n) ? Math.round(n) : 0
+}
+
+/** Map AI grading_level text to a numeric grade string for the buy form. */
+function parseAiGradingLevelToFormGrade(level: string | undefined): string {
+  if (!level?.trim()) return ""
+  const t = level.trim()
+  const direct = parseFloat(t)
+  if (Number.isFinite(direct) && direct > 0) return String(direct)
+  const m = t.match(/(\d+(?:\.\d+)?)/)
+  if (m) {
+    const n = parseFloat(m[1])
+    if (Number.isFinite(n) && n > 0) return String(n)
+  }
+  return ""
+}
+
+async function fileFromImageDataUrl(dataUrl: string): Promise<File> {
+  const res = await fetch(dataUrl)
+  const blob = await res.blob()
+  return new File([blob], "ask-ai-card.jpg", {
+    type: blob.type && blob.type.startsWith("image/") ? blob.type : "image/jpeg",
+  })
+}
+
+async function buyPrefillFromAskAi(
+  payload: AskAiPurchaseIntentPayload,
+  purchasedCardDefault: string,
+): Promise<Partial<BuyProductFormValues>> {
+  const { previewDataUrl, cardResult } = payload
+  if (!previewDataUrl) throw new Error("No preview image")
+  const file = await fileFromImageDataUrl(previewDataUrl)
+  const cr = cardResult
+  const line = cardDisplayLineFromResearch(cr)
+  const name = (cr?.name?.trim() || line || purchasedCardDefault).slice(0, 500)
+  const cardNo = [cr?.set_number, cr?.card_number].filter(Boolean).join(" ").trim()
+  const gi = cr?.grading_info
+  const gradeStr = parseAiGradingLevelToFormGrade(gi?.grading_level)
+  const graded = Boolean(gradeStr && Number(gradeStr) > 0)
+  const provider = (gi?.provider?.trim() || "PSA").slice(0, 80)
+
+  return {
+    sourceImage: file,
+    gameTitle: matchGameTitleForBuy(cr?.game_title),
+    category: "Card",
+    cardNo,
+    name,
+    graded,
+    price: parseAiEstimatedPriceHkd(cr?.estimated_price),
+    quantity: 1,
+    provider: graded ? provider : "PSA",
+    grade: graded ? gradeStr : "",
+  }
 }
 
 function useAnimatedBalance({
@@ -187,6 +296,7 @@ function GridGroup({
 }
 
 export function Dashboard() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const clearAuth = useAuthStore((s) => s.clearAuth)
@@ -197,7 +307,11 @@ export function Dashboard() {
   const [sellInfoOpen, setSellInfoOpen] = useState(false)
   const [sellChoice, setSellChoice] = useState<SellChoice | null>(null)
   const [miscOpen, setMiscOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [askAiOpen, setAskAiOpen] = useState(false)
+  const [buyPrefill, setBuyPrefill] = useState<Partial<BuyProductFormValues> | null>(
+    null
+  )
   const [cardBaseOpen, setCardBaseOpen] = useState(false)
   const [buyByCardBaseOpen, setBuyByCardBaseOpen] = useState(false)
   const [selectedCardBaseItem, setSelectedCardBaseItem] =
@@ -243,6 +357,30 @@ export function Dashboard() {
   const [roiRowsAnimKey, setRoiRowsAnimKey] = useState(0)
   const roiRunRef = useRef(0)
   const [roiExpandedKey, setRoiExpandedKey] = useState<string | null>(null)
+
+  const onAskAiPurchaseIntent = useCallback(
+    async (payload: AskAiPurchaseIntentPayload) => {
+      if (!payload.previewDataUrl) {
+        toast.error(t("dashboard.askAiNoPhoto"))
+        return
+      }
+      try {
+        const partial = await buyPrefillFromAskAi(payload, t("dashboard.purchasedCardDefault"))
+        setBuyPrefill(partial)
+        setAskAiOpen(false)
+        setBuyOpen(true)
+      } catch {
+        toast.error(t("dashboard.askAiPrefillFail"))
+      }
+    },
+    [t]
+  )
+
+  const compareLabelResolved = useMemo(() => {
+    if (dashboardRange === "365") return t("dashboard.compareOneYear")
+    if (dashboardRange === "180") return t("dashboard.compareSixMonths")
+    return t("dashboard.compareThreeMonths")
+  }, [dashboardRange, t])
 
   const totalBalanceHKD = useMemo(() => {
     if (!ledger) return null
@@ -819,15 +957,25 @@ export function Dashboard() {
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1 text-left">
-            <h1 className="truncate text-xl font-semibold tracking-tight">Dashboard</h1>
+            <h1 className="truncate text-xl font-semibold tracking-tight">{t("dashboard.title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Welcome back{user?.email ? `, ${user.email}` : ""}.
+              {t("dashboard.welcome", {
+                emailSuffix: user?.email
+                  ? t("dashboard.welcomeEmail", { email: user.email })
+                  : "",
+              })}
             </p>
           </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" className="p-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-lg"
+                className="size-9 shrink-0 rounded-full p-0"
+                aria-label={t("dashboard.accountMenuAria")}
+              >
                 <Avatar className="size-9">
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
@@ -835,19 +983,17 @@ export function Dashboard() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="truncate">
-                {user?.email ?? "Account"}
+                {user?.email ?? t("common.account")}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => navigate({ to: "/user/dashboard" })}
-              >
+              <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
                 <Settings data-icon="inline-start" aria-hidden="true" />
-                Settings
+                {t("dashboard.settings")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut data-icon="inline-start" aria-hidden="true" />
-                Sign out
+                {t("dashboard.signOut")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -875,7 +1021,7 @@ export function Dashboard() {
                   className="absolute left-5 top-5 z-10 size-7 text-white drop-shadow-[0_0_14px_rgba(255,255,255,0.45)]"
                 />
                 <span className="absolute bottom-5 right-5 z-10 text-right text-2xl font-semibold leading-none tracking-tight text-white drop-shadow-sm lg:text-xl">
-                  Ask AI
+                  {t("dashboard.askAi")}
                 </span>
               </Button>
               <Button
@@ -888,8 +1034,8 @@ export function Dashboard() {
                   className="absolute right-5 top-5 flex min-h-7 min-w-7 items-center justify-center rounded-full bg-neutral-900 px-2 text-xs font-semibold tabular-nums text-white shadow-sm ring-2 ring-white"
                   aria-label={
                     collectionCount === null
-                      ? "Collection item count loading"
-                      : `${collectionCount} items in collection`
+                      ? t("dashboard.collectionCountLoading")
+                      : t("dashboard.collectionCount", { count: collectionCount })
                   }
                 >
                   {collectionCount === null ? (
@@ -899,7 +1045,7 @@ export function Dashboard() {
                   )}
                 </span>
                 <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
-                  My Collection
+                  {t("dashboard.myCollection")}
                 </span>
               </Button>
             </div>
@@ -913,7 +1059,7 @@ export function Dashboard() {
             >
               <ShoppingCart aria-hidden="true" className="absolute left-5 top-5 size-7" />
               <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
-                Buy
+                {t("dashboard.buy")}
               </span>
             </Button>
             <Button
@@ -923,7 +1069,7 @@ export function Dashboard() {
             >
               <HandCoins aria-hidden="true" className="absolute left-5 top-5 size-7" />
               <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
-                Sell
+                {t("dashboard.sell")}
               </span>
             </Button>
 
@@ -934,7 +1080,7 @@ export function Dashboard() {
             >
               <CreditCard aria-hidden="true" className="absolute left-5 top-5 size-7" />
               <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
-                Miscellaneous
+                {t("dashboard.miscellaneous")}
               </span>
             </Button>
           </GridGroup>
@@ -947,7 +1093,7 @@ export function Dashboard() {
             >
               <CreditCard aria-hidden="true" className="absolute left-5 top-5 size-7" />
               <span className="absolute bottom-5 right-5 text-right text-2xl font-semibold leading-none lg:text-xl">
-                Miscellaneous
+                {t("dashboard.miscellaneous")}
               </span>
             </Button>
           </GridGroup>
@@ -969,13 +1115,7 @@ export function Dashboard() {
                 error={ledgerError}
                 totalBalanceHKD={totalBalanceHKD}
                 totalBalanceAgoHKD={totalBalanceAgoHKD}
-                compareLabel={
-                  dashboardRange === "365"
-                    ? "1 year"
-                    : dashboardRange === "180"
-                      ? "6 months"
-                      : "3 months"
-                }
+                compareLabel={compareLabelResolved}
                 notAvailable={dashboardRange === "all"}
                 range={dashboardRange}
                 onRangeChange={(v) => setDashboardRange(v)}
@@ -986,8 +1126,8 @@ export function Dashboard() {
           <Dialog open={buyChooserOpen} onOpenChange={setBuyChooserOpen}>
             <DialogContent className="min-w-0 sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Buy</DialogTitle>
-                <DialogDescription>Choose how you want to add this purchase.</DialogDescription>
+                <DialogTitle>{t("dashboard.buyDialogTitle")}</DialogTitle>
+                <DialogDescription>{t("dashboard.buyDialogDescription")}</DialogDescription>
               </DialogHeader>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <Button
@@ -1001,7 +1141,7 @@ export function Dashboard() {
                 >
                   <PlusSquare aria-hidden="true" className="size-9" />
                   <span className="whitespace-normal break-words text-sm font-medium leading-tight">
-                    Create New
+                    {t("dashboard.buyCreateNew")}
                   </span>
                 </Button>
                 <Button
@@ -1016,7 +1156,7 @@ export function Dashboard() {
                 >
                   <LayoutGrid aria-hidden="true" className="size-9" />
                   <span className="whitespace-normal break-words text-sm font-medium leading-tight">
-                    Choose from my Card Base
+                    {t("dashboard.buyFromCardBase")}
                   </span>
                 </Button>
               </div>
@@ -1025,7 +1165,11 @@ export function Dashboard() {
 
           <BuyProductDialog
             open={buyOpen}
-            onOpenChange={setBuyOpen}
+            onOpenChange={(next) => {
+              setBuyOpen(next)
+              if (!next) setBuyPrefill(null)
+            }}
+            prefill={buyPrefill}
             onSubmitSuccess={() => setBalanceReloadKey((n) => n + 1)}
           />
           <CardBaseDialog
@@ -1069,7 +1213,13 @@ export function Dashboard() {
             onSubmitted={() => setBalanceReloadKey((n) => n + 1)}
           />
 
-          <AskAiResearchDialog open={askAiOpen} onOpenChange={setAskAiOpen} />
+          <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+          <AskAiResearchDialog
+            open={askAiOpen}
+            onOpenChange={setAskAiOpen}
+            onPurchaseIntent={onAskAiPurchaseIntent}
+          />
 
           <ViewportDeferred
             className="col-span-12"

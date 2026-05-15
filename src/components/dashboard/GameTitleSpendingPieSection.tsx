@@ -1,31 +1,16 @@
 import type { ComponentProps } from "react"
+import { useMemo } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useTimeRangeOptions } from "@/hooks/useTimeRangeOptions"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
+import { useTranslation } from "react-i18next"
 
 import { formatHKD } from "./utils"
 
 type Slice = { name: string; value: number; color: string }
 
 type GameTitlePieVariant = "spending" | "gaining"
-
-const VARIANT_COPY: Record<
-  GameTitlePieVariant,
-  { title: string; totalLabel: string; footnote: string; empty: string }
-> = {
-  spending: {
-    title: "Spending by game title",
-    totalLabel: "Total spent",
-    footnote: "Only counts purchase records",
-    empty: "No purchase data in this range.",
-  },
-  gaining: {
-    title: "Gaining by game title",
-    totalLabel: "Total gained",
-    footnote: "Only counts selling records",
-    empty: "No selling data in this range.",
-  },
-}
 
 export function GameTitleSpendingPieSection({
   variant = "spending",
@@ -42,7 +27,26 @@ export function GameTitleSpendingPieSection({
   error: string | null
   slices: Slice[]
 }) {
-  const copy = VARIANT_COPY[variant]
+  const { t } = useTranslation()
+  const timeOpts = useTimeRangeOptions()
+
+  const copy = useMemo(() => {
+    if (variant === "spending") {
+      return {
+        title: t("gameTitlePie.spendingTitle"),
+        totalLabel: t("gameTitlePie.spendingTotal"),
+        footnote: t("gameTitlePie.spendingFootnote"),
+        empty: t("gameTitlePie.spendingEmpty"),
+      }
+    }
+    return {
+      title: t("gameTitlePie.gainingTitle"),
+      totalLabel: t("gameTitlePie.gainingTotal"),
+      footnote: t("gameTitlePie.gainingFootnote"),
+      empty: t("gameTitlePie.gainingEmpty"),
+    }
+  }, [variant, t])
+
   const total = slices.reduce((sum, s) => sum + (Number(s.value) || 0), 0)
 
   return (
@@ -51,14 +55,7 @@ export function GameTitleSpendingPieSection({
         <CardHeader className="pb-2">
           <CardTitle className="text-base">{copy.title}</CardTitle>
           <div className="mt-2 flex w-full divide-x divide-border/60 overflow-hidden rounded-lg border bg-background/60">
-            {(
-              [
-                ["all", "All Time"],
-                ["365", "1y"],
-                ["180", "6m"],
-                ["90", "3m"],
-              ] as const
-            ).map(([k, label]) => (
+            {timeOpts.map(([k, label]) => (
               <button
                 key={k}
                 type="button"
@@ -92,7 +89,7 @@ export function GameTitleSpendingPieSection({
                       background:
                         "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.10), rgba(0,0,0,0.06))",
                     }}
-                    aria-label="Pie chart"
+                    aria-label={t("common.pieChart")}
                   />
                 ) : (
                   <div
@@ -100,7 +97,7 @@ export function GameTitleSpendingPieSection({
                       "size-40 rounded-full ring-1 ring-border/60",
                       loading ? "animate-pulse opacity-80" : "",
                     ].join(" ")}
-                    aria-label="Pie chart"
+                    aria-label={t("common.pieChart")}
                   >
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -193,7 +190,6 @@ export function GameTitleSpendingPieSection({
   )
 }
 
-/** Selling counterpart to {@link GameTitleSpendingPieSection} (same UI, copy + data source differ). */
 export function GameTitleGainingPieSection(
   props: Omit<ComponentProps<typeof GameTitleSpendingPieSection>, "variant">
 ) {
@@ -229,4 +225,3 @@ function LegendRow({
     </div>
   )
 }
-

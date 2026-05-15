@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Dialog,
@@ -12,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+import { toastDeleted } from "@/lib/toastI18n"
 
 type Props = {
   open: boolean
@@ -31,6 +32,7 @@ export function DeleteUserCollectionItemsDialog({
   maxQuantity,
   onDeleted,
 }: Props) {
+  const { t } = useTranslation()
   const [qty, setQty] = useState(1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,20 +57,20 @@ export function DeleteUserCollectionItemsDialog({
     const userRes = await supabase.auth.getUser()
     const userId = userRes.data.user?.id ?? null
     if (!userId) {
-      setError("You are not signed in.")
+      setError(t("dialogs.notSignedIn"))
       setSaving(false)
       return
     }
 
     if (!collectionItemId) {
-      setError("Missing item id.")
+      setError(t("dialogs.missingItemId"))
       setSaving(false)
       return
     }
 
     const want = Math.max(1, Math.min(clampedQty, Math.max(0, maxQuantity)))
     if (want <= 0) {
-      setError("Nothing to delete.")
+      setError(t("dialogs.nothingToDelete"))
       setSaving(false)
       return
     }
@@ -101,7 +103,7 @@ export function DeleteUserCollectionItemsDialog({
     )
 
     if (ids.length < want) {
-      setError(`Not enough eligible items to delete. Available: ${ids.length}.`)
+      setError(t("dialogs.deleteItems.notEnough", { count: ids.length }))
       setSaving(false)
       return
     }
@@ -121,7 +123,7 @@ export function DeleteUserCollectionItemsDialog({
 
     setSaving(false)
     onOpenChange(false)
-    toast.success("Deleted successfully", { duration: 5000 })
+    toastDeleted()
     onDeleted?.()
   }
 
@@ -130,11 +132,8 @@ export function DeleteUserCollectionItemsDialog({
       <DialogContent className="max-h-[min(90dvh,30rem)] overflow-x-hidden sm:max-w-md p-0">
         <DialogBody className="px-5 pt-5 sm:px-6 sm:pt-6">
           <DialogHeader className="px-0">
-            <DialogTitle>Delete items</DialogTitle>
-            <DialogDescription>
-              Choose how many items you want to delete. Only items with <span className="font-medium">grading=false</span>{" "}
-              and <span className="font-medium">derived=false</span> can be deleted.
-            </DialogDescription>
+            <DialogTitle>{t("dialogs.deleteItemsTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogs.deleteItems.description")}</DialogDescription>
           </DialogHeader>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
@@ -142,8 +141,10 @@ export function DeleteUserCollectionItemsDialog({
           <div className="mt-4 rounded-xl border bg-card p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm">
-                <div className="font-medium text-foreground">Quantity</div>
-                <div className="text-xs text-muted-foreground">Max: {maxQuantity}</div>
+                <div className="font-medium text-foreground">{t("dialogs.quantity")}</div>
+                <div className="text-xs text-muted-foreground">
+                  {t("dialogs.maxQuantity", { count: maxQuantity })}
+                </div>
               </div>
               <div className="w-28">
                 <Input
@@ -162,10 +163,10 @@ export function DeleteUserCollectionItemsDialog({
         <DialogFooter className="px-0 pb-5 sm:pb-6">
           <div className="flex w-full justify-end gap-2 px-5 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Back
+              {t("dialogs.back")}
             </Button>
             <Button type="button" variant="destructive" onClick={handleDelete} disabled={saving || maxQuantity <= 0}>
-              Delete
+              {t("dialogs.delete")}
             </Button>
           </div>
         </DialogFooter>

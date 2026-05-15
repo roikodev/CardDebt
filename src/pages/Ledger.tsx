@@ -8,10 +8,17 @@ import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/stores/auth"
 import { useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, ArrowRight } from "lucide-react"
+import i18n from "@/i18n/config"
+import { useTranslation } from "react-i18next"
 
 type LedgerKind = "Buy" | "Sell" | "Misc"
 
-type MiscLink = { label: string; imageUrl: string | null; imagePath?: string | null }
+type MiscLink = {
+  label: string
+  imageUrl: string | null
+  imagePath?: string | null
+  linkKind?: "grading" | "derived" | "derivedShort"
+}
 
 type LedgerRow = {
   id: string
@@ -59,6 +66,7 @@ function formatHKD(n: number): string {
 }
 
 export function Ledger() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const workerOrigin = import.meta.env.VITE_CF_WORKER_ORIGIN as string | undefined
@@ -303,16 +311,16 @@ export function Ledger() {
           if (!miscId || !ucId) continue
           const g = gradedUc.get(ucId)
           const base = ucBaseById.get(ucId) ?? null
-          const label =
-            g
-              ? `Grading${g.executed === true ? " (executed)" : ""}${g.sent_at ? ` • sent ${formatISODate(String(g.sent_at).slice(0, 10))}` : ""}`
-              : "Linked to collection item"
+          const label = g
+            ? `${i18n.t("ledger.miscGradingBase")}${g.executed === true ? i18n.t("ledger.miscGradingExecuted") : ""}${g.sent_at ? i18n.t("ledger.miscGradingSent", { date: formatISODate(String(g.sent_at).slice(0, 10)) }) : ""}`
+            : i18n.t("ledger.miscLinkedCollection")
           miscLinksById.set(miscId, [
             ...(miscLinksById.get(miscId) ?? []),
             {
               label: base?.name ? `${label} • ${base.name}` : label,
               imageUrl: null,
               imagePath: base?.image_cloud_path ?? null,
+              linkKind: "grading",
             },
           ])
         }
@@ -327,8 +335,8 @@ export function Ledger() {
             const fromBase = Array.isArray(fromBaseRaw) ? fromBaseRaw[0] : fromBaseRaw
             const toBaseRaw = d.to_user_collection?.collection_base
             const toBase = Array.isArray(toBaseRaw) ? toBaseRaw[0] : toBaseRaw
-            const fromName = (fromBase?.name as string | null | undefined) ?? "Source"
-            const toName = (toBase?.name as string | null | undefined) ?? "Derived"
+            const fromName = (fromBase?.name as string | null | undefined) ?? i18n.t("ledger.sourceName")
+            const toName = (toBase?.name as string | null | undefined) ?? i18n.t("ledger.derivedName")
             const fromPath = (fromBase?.image_cloud_path as string | null | undefined) ?? null
             const toPath = (toBase?.image_cloud_path as string | null | undefined) ?? null
             if (fromPath) imagePaths.add(fromPath)
@@ -336,12 +344,20 @@ export function Ledger() {
             derivedThumbByMiscId.set(miscId, { fromPath, toPath })
             miscLinksById.set(miscId, [
               ...(miscLinksById.get(miscId) ?? []),
-              { label: `Derived • ${fromName} → ${toName}`, imageUrl: null },
+              {
+                label: i18n.t("ledger.miscDerived", { from: fromName, to: toName }),
+                imageUrl: null,
+                linkKind: "derived",
+              },
             ])
           } else {
             miscLinksById.set(miscId, [
               ...(miscLinksById.get(miscId) ?? []),
-              { label: "Derived", imageUrl: null },
+              {
+                label: i18n.t("ledger.miscDerivedShort"),
+                imageUrl: null,
+                linkKind: "derivedShort",
+              },
             ])
           }
         }
@@ -397,7 +413,7 @@ export function Ledger() {
           // If this misc entry is grading-related and we have an item image,
           // show it in the same slot as Buy/Sell thumbnails.
           const gradingThumb =
-            r.miscLinks.find((l) => l.imageUrl && l.label.startsWith("Grading")) ??
+            r.miscLinks.find((l) => l.imageUrl && l.linkKind === "grading") ??
             r.miscLinks.find((l) => l.imageUrl) ??
             null
           if (gradingThumb?.imageUrl) r.imageUrl = gradingThumb.imageUrl
@@ -438,7 +454,7 @@ export function Ledger() {
       setRowsAnimKey((n) => n + 1)
       setLoading(false)
     })()
-  }, [user?.id])
+  }, [user?.id, i18n.language])
 
   return (
     <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
@@ -453,13 +469,13 @@ export function Ledger() {
               type="button"
               variant="ghost"
               size="icon"
-              aria-label="Back to Dashboard"
+              aria-label={t("ledger.backDashboardAria")}
               onClick={() => navigate({ to: "/user/dashboard" })}
             >
               <ArrowLeft className="size-5" aria-hidden="true" />
             </Button>
           }
-          title={<h1 className="text-xl font-semibold">My Balance</h1>}
+          title={<h1 className="text-xl font-semibold">{t("ledger.title")}</h1>}
         />
 
         <div
@@ -479,19 +495,19 @@ export function Ledger() {
               <Card className="overflow-hidden border-0 bg-gradient-to-br from-muted/20 via-background to-background shadow-sm ring-1 ring-border/60">
                 <CardHeader className="pb-2">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
-                    <CardTitle className="text-base">All records</CardTitle>
+                    <CardTitle className="text-base">{t("ledger.allRecords")}</CardTitle>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
                         <span className="inline-block size-2.5 rounded-full bg-red-500/70" aria-hidden="true" />
-                        <span>Buy (spend)</span>
+                        <span>{t("ledger.legendBuy")}</span>
                       </span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="inline-block size-2.5 rounded-full bg-emerald-500/70" aria-hidden="true" />
-                        <span>Sell (gain)</span>
+                        <span>{t("ledger.legendSell")}</span>
                       </span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="inline-block size-2.5 rounded-full bg-amber-500/70" aria-hidden="true" />
-                        <span>Misc (cost)</span>
+                        <span>{t("ledger.legendMisc")}</span>
                       </span>
                     </div>
                   </div>
@@ -502,12 +518,12 @@ export function Ledger() {
                   <div className="mt-2 overflow-hidden rounded-xl border bg-card">
                     <div className="max-h-[70dvh] overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <div className="sticky top-0 z-10 grid grid-cols-[88px_minmax(0,1fr)_96px] items-center gap-3 rounded-t-xl border-b bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/30 sm:grid-cols-[88px_86px_minmax(0,1fr)_52px_84px_96px]">
-                        <div>Date</div>
-                        <div className="hidden sm:block">Type</div>
-                        <div>Item / Notes</div>
-                        <div className="hidden text-right sm:block">Qty</div>
-                        <div className="hidden text-right sm:block">Price</div>
-                        <div className="text-right">Amount</div>
+                        <div>{t("ledger.colDate")}</div>
+                        <div className="hidden sm:block">{t("ledger.colType")}</div>
+                        <div>{t("ledger.colItem")}</div>
+                        <div className="hidden text-right sm:block">{t("ledger.colQty")}</div>
+                        <div className="hidden text-right sm:block">{t("ledger.colPrice")}</div>
+                        <div className="text-right">{t("ledger.colAmount")}</div>
                       </div>
 
                     {loading ? (
@@ -515,7 +531,7 @@ export function Ledger() {
                         <div className="h-10 animate-pulse rounded-lg bg-muted/25" />
                       </div>
                     ) : rows.length === 0 ? (
-                      <div className="p-6 text-sm text-muted-foreground">No records yet.</div>
+                      <div className="p-6 text-sm text-muted-foreground">{t("ledger.empty")}</div>
                     ) : (
                       <div
                         key={rowsAnimKey}
@@ -542,10 +558,16 @@ export function Ledger() {
                               : r.kind === "Sell"
                                 ? "from-emerald-500/35 via-emerald-500/10"
                                 : "from-amber-500/35 via-amber-500/10"
+                          const kindLabel =
+                            r.kind === "Buy"
+                              ? t("ledger.kindBuy")
+                              : r.kind === "Sell"
+                                ? t("ledger.kindSell")
+                                : t("ledger.kindMisc")
                           const itemTitle =
                             r.kind === "Misc"
-                              ? r.miscType ?? "Misc"
-                              : r.name ?? "Unknown item"
+                              ? r.miscType ?? t("common.misc")
+                              : r.name ?? t("common.unknownItem")
 
                           return (
                             <div
@@ -581,7 +603,7 @@ export function Ledger() {
                                           <span className="hidden sm:inline">{formatISODate(r.dateISO)}</span>
                                         </span>
                                       ) : (
-                                        <span>—</span>
+                                        <span>{t("common.emDash")}</span>
                                       )
                                     })()}
                                   </div>
@@ -592,7 +614,7 @@ export function Ledger() {
                                         typeBadge,
                                       ].join(" ")}
                                     >
-                                      {r.kind}
+                                      {kindLabel}
                                     </span>
                                   </div>
 
@@ -604,8 +626,8 @@ export function Ledger() {
                                         </div>
                                         {r.kind !== "Misc" ? (
                                           <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                                            <p className="line-clamp-1">{r.gameTitle || "—"}</p>
-                                            <p className="line-clamp-1">{r.cardNo || "—"}</p>
+                                            <p className="line-clamp-1">{r.gameTitle || t("common.emDash")}</p>
+                                            <p className="line-clamp-1">{r.cardNo || t("common.emDash")}</p>
                                             <div className="sm:hidden">
                                               <span
                                                 className={[
@@ -615,7 +637,7 @@ export function Ledger() {
                                                     : "border-zinc-200 bg-zinc-50 text-zinc-700",
                                                 ].join(" ")}
                                               >
-                                                {r.graded ? "Graded" : "Raw"}
+                                                {r.graded ? t("ledger.graded") : t("ledger.raw")}
                                               </span>
                                             </div>
                                           </div>
@@ -633,7 +655,7 @@ export function Ledger() {
                                             <div className="size-9 overflow-hidden rounded-md border bg-muted/20">
                                               <img
                                                 src={r.derivedFromImageUrl}
-                                                alt="Source item"
+                                                alt={t("common.sourceItem")}
                                                 className="h-full w-full object-cover object-left-top"
                                                 loading="lazy"
                                               />
@@ -645,7 +667,7 @@ export function Ledger() {
                                             <div className="size-9 overflow-hidden rounded-md border bg-muted/20">
                                               <img
                                                 src={r.derivedToImageUrl}
-                                                alt="Derived item"
+                                                alt={t("common.derivedItem")}
                                                 className="h-full w-full object-cover object-left-top"
                                                 loading="lazy"
                                               />
@@ -666,12 +688,12 @@ export function Ledger() {
                                   </div>
 
                                   <div className="hidden text-right tabular-nums text-xs text-muted-foreground sm:block">
-                                    {typeof r.quantity === "number" ? r.quantity : "—"}
+                                    {typeof r.quantity === "number" ? r.quantity : t("common.emDash")}
                                   </div>
                                   <div className="hidden text-right tabular-nums text-xs text-muted-foreground sm:block">
                                     {typeof r.unitPriceHKD === "number"
                                       ? formatHKD(r.unitPriceHKD)
-                                      : "—"}
+                                      : t("common.emDash")}
                                   </div>
                                   <div
                                     className={[
@@ -695,18 +717,18 @@ export function Ledger() {
                                   <div className="rounded-lg border bg-muted/10 p-3 text-left">
                                     <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-3">
                                       <div>
-                                        <span className="font-medium text-foreground">Date:</span>{" "}
+                                        <span className="font-medium text-foreground">{t("ledger.dateLabel")}</span>{" "}
                                         {formatISODate(r.dateISO)}
                                       </div>
                                       <div>
-                                        <span className="font-medium text-foreground">Qty:</span>{" "}
-                                        {typeof r.quantity === "number" ? r.quantity : "—"}
+                                        <span className="font-medium text-foreground">{t("ledger.qtyLabel")}</span>{" "}
+                                        {typeof r.quantity === "number" ? r.quantity : t("common.emDash")}
                                       </div>
                                       <div>
-                                        <span className="font-medium text-foreground">Unit:</span>{" "}
+                                        <span className="font-medium text-foreground">{t("ledger.unitLabel")}</span>{" "}
                                         {typeof r.unitPriceHKD === "number"
                                           ? formatHKD(r.unitPriceHKD)
-                                          : "—"}
+                                          : t("common.emDash")}
                                       </div>
                                     </div>
 
@@ -714,22 +736,22 @@ export function Ledger() {
                                       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                                         {r.miscType ? (
                                           <div>
-                                            <span className="font-medium text-foreground">Type:</span>{" "}
+                                            <span className="font-medium text-foreground">{t("ledger.typeLabel")}</span>{" "}
                                             {r.miscType}
                                           </div>
                                         ) : null}
                                         {r.description ? (
                                           <div>
-                                            <span className="font-medium text-foreground">Description:</span>{" "}
+                                            <span className="font-medium text-foreground">{t("ledger.descriptionLabel")}</span>{" "}
                                             {r.description}
                                           </div>
                                         ) : null}
                                         {r.miscLinks.length ? (
                                           <div className="pt-1">
-                                            <span className="font-medium text-foreground">Linked:</span>
+                                            <span className="font-medium text-foreground">{t("ledger.linkedLabel")}</span>
                                             <div className="mt-1 space-y-1">
-                                              {r.miscLinks.map((l) => (
-                                                <div key={l.label} className="truncate">
+                                              {r.miscLinks.map((l, mi) => (
+                                                <div key={`${l.label}-${mi}`} className="truncate">
                                                   {l.label}
                                                 </div>
                                               ))}
@@ -739,8 +761,8 @@ export function Ledger() {
                                       </div>
                                     ) : (
                                       <div className="mt-2 text-xs text-muted-foreground">
-                                        <span className="font-medium text-foreground">Item:</span>{" "}
-                                        {[r.gameTitle, r.cardNo].filter(Boolean).join(" • ") || "—"}
+                                        <span className="font-medium text-foreground">{t("ledger.itemLabel")}</span>{" "}
+                                        {[r.gameTitle, r.cardNo].filter(Boolean).join(" • ") || t("common.emDash")}
                                       </div>
                                     )}
                                   </div>
@@ -754,9 +776,9 @@ export function Ledger() {
 
                     <div className="sticky bottom-0 z-10 rounded-b-xl border-t bg-muted/20 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-muted/30">
                       <div className="flex items-baseline justify-between gap-3">
-                        <p className="text-xs font-medium text-muted-foreground">Total balance</p>
+                        <p className="text-xs font-medium text-muted-foreground">{t("ledger.totalBalance")}</p>
                         {loading ? (
-                          <div className="h-5 w-20 animate-pulse rounded bg-muted/40" aria-label="Loading total balance" />
+                          <div className="h-5 w-20 animate-pulse rounded bg-muted/40" aria-label={t("ledger.loadingTotalAria")} />
                         ) : (
                           <p
                             className={[

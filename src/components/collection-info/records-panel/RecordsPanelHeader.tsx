@@ -7,6 +7,7 @@ import type {
   GradingRecordRow,
   OverviewCollectionRow,
 } from "@/components/collection-info/types"
+import { useTranslation } from "react-i18next"
 
 type Props = {
   recordsView: RecordsView
@@ -21,7 +22,8 @@ type Props = {
 }
 
 export function RecordsPanelHeader(props: Props) {
-  const meta = getPanelMeta(props)
+  const { t } = useTranslation()
+  const meta = getPanelMeta(t, props)
 
   return (
     <div className="mb-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -30,17 +32,14 @@ export function RecordsPanelHeader(props: Props) {
         {meta.loading ? (
           <SkeletonMuted className="mt-1 h-4 w-full max-w-24" />
         ) : (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {meta.count} {meta.label}
-            {meta.count === 1 ? "" : "s"}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{meta.recordsCountLabel}</p>
         )}
       </div>
 
       <div
         className="grid w-full min-w-0 grid-cols-2 gap-1.5 sm:flex sm:w-auto sm:flex-wrap sm:justify-end sm:gap-2"
         role="group"
-        aria-label="Record views"
+        aria-label={t("recordsPanel.recordViewsAria")}
       >
         <Button
           type="button"
@@ -49,7 +48,7 @@ export function RecordsPanelHeader(props: Props) {
           className={cn("min-w-0 px-2 text-xs sm:px-3 sm:text-sm")}
           onClick={() => props.setRecordsView("purchase")}
         >
-          Purchase
+          {t("recordsPanel.purchaseTab")}
         </Button>
         <Button
           type="button"
@@ -58,7 +57,7 @@ export function RecordsPanelHeader(props: Props) {
           className={cn("min-w-0 px-2 text-xs sm:px-3 sm:text-sm")}
           onClick={() => props.setRecordsView("derived")}
         >
-          Derived
+          {t("recordsPanel.derivedTab")}
         </Button>
         {!props.hideGradingView ? (
           <Button
@@ -68,7 +67,7 @@ export function RecordsPanelHeader(props: Props) {
             className={cn("min-w-0 truncate px-2 text-xs sm:px-3 sm:text-sm")}
             onClick={() => props.setRecordsView("grading")}
           >
-            Grading ({props.gradingRecords.length})
+            {t("recordsPanel.gradingTab", { count: props.gradingRecords.length })}
           </Button>
         ) : null}
       </div>
