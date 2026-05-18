@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
 import { gameTitleDisplayText } from "@/lib/gameTitles"
+import { isAppLanguage, type AppLanguage } from "@/lib/languages"
 import { cn } from "@/lib/utils"
 
 /** Card + magnifier motif for “Identify Card” (not from Lucide). */
@@ -396,7 +397,7 @@ function AskAiCircularProgress({
 }
 
 export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const loadingTitleId = useId()
 
   const pickLoadingMessage = useCallback(
@@ -542,9 +543,13 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
           return
         }
 
+        const language: AppLanguage = isAppLanguage(i18n.language)
+          ? i18n.language
+          : "en"
+
         const { data, error: fnError } = await supabase.functions.invoke(
           "research-card-price",
-          { body: { imageBase64 } }
+          { body: { imageBase64, language } }
         )
 
         if (fnError) {
@@ -585,7 +590,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         })
       }
     },
-    [stopLoadingMotion, t, pickLoadingMessage]
+    [stopLoadingMotion, t, i18n.language, pickLoadingMessage]
   )
 
   useEffect(() => {
