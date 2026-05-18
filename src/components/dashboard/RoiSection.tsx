@@ -341,7 +341,7 @@ export function RoiSection({
                                             {t("roi.buy")}
                                           </p>
                                           <p className="text-xs font-medium text-foreground">
-                                            {formatHKD(row.buy_cost)}
+                                            {formatHKD(row.entry_cost)}
                                           </p>
                                         </div>
                                         <div className="flex items-center justify-between gap-3">

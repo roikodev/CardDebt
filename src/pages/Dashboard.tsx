@@ -339,7 +339,7 @@ export function Dashboard() {
     card_no: string | null
     image_cloud_path: string | null
     image_url: string | null
-    buy_cost: number
+    entry_cost: number
     misc_cost: number
     total_cost: number
     total_revenue: number
@@ -514,18 +514,19 @@ export function Dashboard() {
     setRoiLoading(true)
     setRoiError(null)
 
-    const [buysRes, sellsRes] = await Promise.all([
+    const [ucRes, sellsRes] = await Promise.all([
       supabase
-        .from("buy_entries")
-        .select("collection_item_id, graded, price_hkd, quantity, purchase_date")
-        .eq("user_id", userId),
+        .from("user_collection")
+        .select("id, graded, collection_item_id, entry_price")
+        .eq("user_id", userId)
+        .eq("derived", false),
       supabase
         .from("sell_entries")
         .select("user_collection_id, price_hkd, quantity, selling_date")
         .eq("user_id", userId),
     ])
 
-    const firstError = buysRes.error ?? sellsRes.error
+    const firstError = ucRes.error ?? sellsRes.error
     if (firstError) {
       setRoiRawTop([])
       setRoiGradedTop([])
@@ -535,14 +536,11 @@ export function Dashboard() {
       return
     }
 
-    const buysAll = (buysRes.data ?? []) as Array<{
-      collection_item_id?: string | null
-      // Some older rows / schemas might use a different column name.
-      collection_base_id?: string | null
-      graded?: boolean | null
-      price_hkd?: unknown
-      quantity?: unknown
-      purchase_date?: string | null
+    const ucRows = (ucRes.data ?? []) as Array<{
+      id: string
+      graded: boolean
+      collection_item_id: string
+      entry_price?: unknown
     }>
 
     const sellsAll = (sellsRes.data ?? []) as Array<{
@@ -552,46 +550,21 @@ export function Dashboard() {
       selling_date: string
     }>
 
-    const soldUcIds = Array.from(
-      new Set(sellsAll.map((s) => s.user_collection_id).filter(Boolean))
-    )
-
-    const soldUcRes =
-      soldUcIds.length === 0
-        ? { data: [] as any[], error: null as any }
-        : await supabase
-            .from("user_collection")
-            .select("id, graded, collection_item_id")
-            .eq("user_id", userId)
-            .in("id", soldUcIds)
-
-    if (soldUcRes.error) {
-      setRoiRawTop([])
-      setRoiGradedTop([])
-      setRoiError(soldUcRes.error.message)
-      setRoiRowsAnimKey((n) => n + 1)
-      setRoiLoading(false)
-      return
-    }
-
-    const soldUcById = new Map<
+    const ucById = new Map<
       string,
-      { graded: boolean; collection_item_id: string }
+      { graded: boolean; collection_item_id: string; entry_price: number }
     >()
-    for (const r of soldUcRes.data as Array<{
-      id: string
-      graded: boolean
-      collection_item_id: string
-    }>) {
-      soldUcById.set(r.id, { graded: r.graded, collection_item_id: r.collection_item_id })
+    for (const r of ucRows) {
+      const entry = Number(r.entry_price ?? 0)
+      ucById.set(r.id, {
+        graded: !!r.graded,
+        collection_item_id: r.collection_item_id,
+        entry_price: Number.isFinite(entry) && entry >= 0 ? entry : 0,
+      })
     }
-
-    const buyItemIds = buysAll
-      .map((b) => (b as any).collection_item_id ?? (b as any).collection_base_id ?? null)
-      .filter((v): v is string => typeof v === "string" && v.length > 0)
 
     const itemIds = Array.from(
-      new Set([...buyItemIds, ...Array.from(soldUcById.values()).map((x) => x.collection_item_id)])
+      new Set(ucRows.map((r) => r.collection_item_id).filter(Boolean))
     )
 
     const baseRes =
@@ -642,83 +615,24 @@ export function Dashboard() {
     const miscEntriesById = new Map<string, MiscEntryRow>()
     const miscLinkPairs: Array<{ miscId: string; key: string }> = []
 
-    // Misc cost attribution (only misc entries linked to collection items)
-    if (itemIds.length) {
-      const allUcRes = await supabase
-        .from("user_collection")
-        .select("id, graded, collection_item_id")
+    const ucKeyById = new Map<string, string>()
+    for (const r of ucRows) {
+      ucKeyById.set(r.id, keyOf(r.collection_item_id, r.graded))
+    }
+
+    const allUcIds = Array.from(ucKeyById.keys())
+
+    if (allUcIds.length) {
+      const ucmRes = await supabase
+        .from("user_collection_miscellaneous")
+        .select("user_collection_id, miscellaneous_entries_id")
         .eq("user_id", userId)
-        .in("collection_item_id", itemIds)
+        .in("user_collection_id", allUcIds)
 
-      if (allUcRes.error) {
+      if (ucmRes.error) {
         setRoiRawTop([])
         setRoiGradedTop([])
-        setRoiError(allUcRes.error.message)
-        setRoiRowsAnimKey((n) => n + 1)
-        setRoiLoading(false)
-        return
-      }
-
-      const ucKeyById = new Map<string, string>()
-      const allUcIds: string[] = []
-      for (const r of allUcRes.data as Array<{
-        id: string
-        graded: boolean
-        collection_item_id: string
-      }>) {
-        allUcIds.push(r.id)
-        ucKeyById.set(r.id, keyOf(r.collection_item_id, !!r.graded))
-      }
-
-      const [ucmRes, derivedMapRes] = await Promise.all([
-        allUcIds.length
-          ? supabase
-              .from("user_collection_miscellaneous")
-              .select("user_collection_id, miscellaneous_entries_id")
-              .eq("user_id", userId)
-              .in("user_collection_id", allUcIds)
-          : Promise.resolve({ data: [] as any[], error: null as any }),
-        allUcIds.length
-          ? supabase
-              .from("user_derived_collection")
-              .select("id, to_user_collection_id")
-              .eq("user_id", userId)
-              .in("to_user_collection_id", allUcIds)
-          : Promise.resolve({ data: [] as any[], error: null as any }),
-      ])
-
-      if (ucmRes.error || derivedMapRes.error) {
-        setRoiRawTop([])
-        setRoiGradedTop([])
-        setRoiError((ucmRes.error ?? derivedMapRes.error).message)
-        setRoiRowsAnimKey((n) => n + 1)
-        setRoiLoading(false)
-        return
-      }
-
-      const derivedMapIdToUcId = new Map<string, string>()
-      const derivedMapIds: string[] = []
-      for (const m of derivedMapRes.data as Array<{
-        id: string
-        to_user_collection_id: string
-      }>) {
-        derivedMapIds.push(m.id)
-        derivedMapIdToUcId.set(m.id, m.to_user_collection_id)
-      }
-
-      const derivedMiscRes =
-        derivedMapIds.length === 0
-          ? { data: [] as any[], error: null as any }
-          : await supabase
-              .from("user_derived_collection_miscellaneous")
-              .select("user_derived_collection_id, miscellaneous_entries_id")
-              .eq("user_id", userId)
-              .in("user_derived_collection_id", derivedMapIds)
-
-      if (derivedMiscRes.error) {
-        setRoiRawTop([])
-        setRoiGradedTop([])
-        setRoiError(derivedMiscRes.error.message)
+        setRoiError(ucmRes.error.message)
         setRoiRowsAnimKey((n) => n + 1)
         setRoiLoading(false)
         return
@@ -730,17 +644,6 @@ export function Dashboard() {
         miscellaneous_entries_id: string
       }>) {
         const k = ucKeyById.get(l.user_collection_id)
-        if (!k) continue
-        links.push({ miscId: l.miscellaneous_entries_id, key: k })
-      }
-
-      for (const l of derivedMiscRes.data as Array<{
-        user_derived_collection_id: string
-        miscellaneous_entries_id: string
-      }>) {
-        const ucId = derivedMapIdToUcId.get(l.user_derived_collection_id)
-        if (!ucId) continue
-        const k = ucKeyById.get(ucId)
         if (!k) continue
         links.push({ miscId: l.miscellaneous_entries_id, key: k })
       }
@@ -776,29 +679,23 @@ export function Dashboard() {
     function computeTop(days: number | null) {
       const cutoff = days === null ? null : daysAgoISODate(days)
 
-      const buyCostByKey = new Map<string, number>()
+      const entryCostByKey = new Map<string, number>()
       const revenueByKey = new Map<string, number>()
       const miscCostByKey = new Map<string, number>()
 
-      for (const b of buysAll) {
-        const d = String((b as any).purchase_date ?? "")
-        if (cutoff && (!d || d < cutoff)) continue
-        const itemId =
-          (b as any).collection_item_id ?? (b as any).collection_base_id ?? null
-        if (!itemId) continue
-        const k = keyOf(String(itemId), Boolean((b as any).graded))
-        const price = Number((b as any).price_hkd ?? 0)
-        const qty = Number((b as any).quantity ?? 0)
-        if (!Number.isFinite(price) || !Number.isFinite(qty)) continue
-        buyCostByKey.set(k, (buyCostByKey.get(k) ?? 0) + price * qty)
+      for (const r of ucRows) {
+        const row = ucById.get(r.id)
+        if (!row) continue
+        const k = keyOf(row.collection_item_id, row.graded)
+        entryCostByKey.set(k, (entryCostByKey.get(k) ?? 0) + row.entry_price)
       }
 
       for (const s of sellsAll) {
-        const d = String((s as any).selling_date ?? "")
+        const d = String(s.selling_date ?? "").slice(0, 10)
         if (cutoff && (!d || d < cutoff)) continue
-        const uc = soldUcById.get(s.user_collection_id)
+        const uc = ucById.get(s.user_collection_id)
         if (!uc) continue
-        const k = keyOf(uc.collection_item_id, !!uc.graded)
+        const k = keyOf(uc.collection_item_id, uc.graded)
         const price = Number(s.price_hkd ?? 0)
         const qty = Number(s.quantity ?? 0)
         if (!Number.isFinite(price) || !Number.isFinite(qty)) continue
@@ -808,14 +705,12 @@ export function Dashboard() {
       for (const { miscId, key } of miscLinkPairs) {
         const me = miscEntriesById.get(miscId)
         if (!me) continue
-        const d = String(me.date ?? "")
-        if (cutoff && (!d || d < cutoff)) continue
-        miscCostByKey.set(key, (miscCostByKey.get(key) ?? 0) + (me.price ?? 0))
+        miscCostByKey.set(key, (miscCostByKey.get(key) ?? 0) + me.price)
       }
 
       const allKeys = Array.from(
         new Set([
-          ...Array.from(buyCostByKey.keys()),
+          ...Array.from(entryCostByKey.keys()),
           ...Array.from(revenueByKey.keys()),
           ...Array.from(miscCostByKey.keys()),
         ])
@@ -828,9 +723,9 @@ export function Dashboard() {
         const base = baseById.get(collection_item_id)
         if (!base) continue
 
-        const buyCost = buyCostByKey.get(k) ?? 0
+        const entryCost = entryCostByKey.get(k) ?? 0
         const miscCost = miscCostByKey.get(k) ?? 0
-        const totalCost = buyCost + miscCost
+        const totalCost = entryCost + miscCost
         const totalRevenue = revenueByKey.get(k) ?? 0
         if (!(totalCost > 0)) continue
 
@@ -845,7 +740,7 @@ export function Dashboard() {
           card_no: base.card_no,
           image_cloud_path: base.image_cloud_path ?? null,
           image_url: null,
-          buy_cost: buyCost,
+          entry_cost: entryCost,
           misc_cost: miscCost,
           total_cost: totalCost,
           total_revenue: totalRevenue,
@@ -928,16 +823,6 @@ export function Dashboard() {
   useEffect(() => {
     void refreshCollectionCount()
   }, [refreshCollectionCount, balanceReloadKey])
-
-  useEffect(() => {
-    const cls = "carddebt-dashboard-hide-scrollbar"
-    document.documentElement.classList.add(cls)
-    document.body.classList.add(cls)
-    return () => {
-      document.documentElement.classList.remove(cls)
-      document.body.classList.remove(cls)
-    }
-  }, [])
 
   const initials = useMemo(() => {
     const email = user?.email ?? ""

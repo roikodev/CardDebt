@@ -15,6 +15,10 @@ export function toastCancelled() {
   toast.success(i18n.t("toasts.cancelled"), { duration: TOAST_DURATION })
 }
 
+export function toastRecovered() {
+  toast.success(i18n.t("toasts.recovered"), { duration: TOAST_DURATION })
+}
+
 export function toastDeleted() {
   toast.success(i18n.t("toasts.deleted"), { duration: TOAST_DURATION })
 }

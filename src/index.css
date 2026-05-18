@@ -738,12 +738,24 @@ code {
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;}
+    @apply border-border outline-ring/50;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+
   html {
     @apply font-sans;
     width: 100%;
     max-width: 100%;
   }
+
   body {
     @apply bg-background text-foreground;
     width: 100%;
@@ -764,19 +776,81 @@ code {
     flex-direction: column;
     box-sizing: border-box;
   }
+}
 
-  /* Dashboard route: hide viewport scrollbar; wheel/touch/keyboard scroll unchanged */
-  html.carddebt-dashboard-hide-scrollbar,
-  body.carddebt-dashboard-hide-scrollbar {
+@layer utilities {
+  .scrollbar-hide {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
 
-  html.carddebt-dashboard-hide-scrollbar::-webkit-scrollbar,
-  body.carddebt-dashboard-hide-scrollbar::-webkit-scrollbar {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
     width: 0;
     height: 0;
     background: transparent;
+  }
+}
+
+@layer base {
+  /*
+   * iOS Safari 18+ (and WebKit): temporal inputs ignore custom padding/height unless
+   * appearance is reset; shadow-DOM parts need explicit min-height or the field
+   * collapses and is hard to tap. See WebKit #198959, nuxt/ui #4712, MUI #47733.
+   */
+  [data-slot="input"].input-temporal {
+    position: relative;
+    box-sizing: border-box;
+    color-scheme: light dark;
+  }
+
+  [data-slot="input"].input-temporal::-webkit-date-and-time-value {
+    min-height: 1.4375em;
+    text-align: left;
+  }
+
+  [data-slot="input"].input-temporal::-webkit-datetime-edit,
+  [data-slot="input"].input-temporal::-webkit-datetime-edit-fields-wrapper,
+  [data-slot="input"].input-temporal::-webkit-datetime-edit-text,
+  [data-slot="input"].input-temporal::-webkit-datetime-edit-minute-field,
+  [data-slot="input"].input-temporal::-webkit-datetime-edit-hour-field,
+  [data-slot="input"].input-temporal::-webkit-datetime-edit-meridiem-field,
+  [data-slot="input"].input-temporal::-webkit-datetime-edit-day-field,
+  [data-slot="input"].input-temporal::-webkit-datetime-edit-month-field,
+  [data-slot="input"].input-temporal::-webkit-datetime-edit-year-field {
+    padding: 0;
+  }
+
+  [data-slot="input"].input-temporal::-webkit-inner-spin-button {
+    height: auto;
+  }
+
+  [data-slot="input"][type="date"]::-webkit-calendar-picker-indicator,
+  [data-slot="input"][type="datetime-local"]::-webkit-calendar-picker-indicator,
+  [data-slot="input"][type="month"]::-webkit-calendar-picker-indicator,
+  [data-slot="input"][type="week"]::-webkit-calendar-picker-indicator,
+  [data-slot="input"][type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 0.625rem;
+    top: 50%;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin: 0;
+    padding: 0;
+    transform: translateY(-50%);
+    cursor: pointer;
+    opacity: 0.6;
+  }
+
+  @media (pointer: coarse) {
+    [data-slot="input"][type="date"]::-webkit-calendar-picker-indicator,
+    [data-slot="input"][type="datetime-local"]::-webkit-calendar-picker-indicator,
+    [data-slot="input"][type="month"]::-webkit-calendar-picker-indicator,
+    [data-slot="input"][type="week"]::-webkit-calendar-picker-indicator,
+    [data-slot="input"][type="time"]::-webkit-calendar-picker-indicator {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
   }
 }
 

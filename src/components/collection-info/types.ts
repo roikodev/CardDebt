@@ -19,6 +19,7 @@ export type UserCollectionRow = {
   id: string
   graded: boolean
   collection_item_id: string
+  entry_price?: number | null
   collection_base: CollectionBase | null
 }
 

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 import type { DerivedItemCostTarget, CostEntry } from "@/components/dialogs/DerivedItemCostDialog"
 import { ArrowRight } from "lucide-react"
+import { parseEntryPrice } from "@/lib/entryPrice"
 import { toastSaved } from "@/lib/toastI18n"
 
 type Provider = "PSA"
@@ -30,6 +31,7 @@ type SourceBase = {
 type Draft = {
   id: string
   mode: DeriveMode | null
+  entryPrice: string
   selectedBase: { id: string } | null
   chooseFromBase: { graded: boolean; provider: Provider; grade: string }
   createNew: {
@@ -108,15 +110,26 @@ export function DeriveSummaryDialog({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  const entryPriceByDraftId = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const d of drafts) {
+      if (d.mode !== "choose_from_base" && d.mode !== "create_new") continue
+      const parsed = parseEntryPrice(d.entryPrice)
+      m.set(d.id, Number.isNaN(parsed) ? 0 : parsed)
+    }
+    return m
+  }, [drafts])
+
   const derivedRows = useMemo(() => {
     return targets.map((target) => {
-      const per1 = sumCosts(perItemCosts[target.id])
-      return { ...target, per1 }
+      const entryPrice = entryPriceByDraftId.get(target.id) ?? 0
+      const miscPer1 = sumCosts(perItemCosts[target.id])
+      return { ...target, entryPrice, miscPer1 }
     })
-  }, [perItemCosts, targets])
+  }, [entryPriceByDraftId, perItemCosts, targets])
 
   const derivedPer1 = useMemo(
-    () => derivedRows.reduce((sum, r) => sum + r.per1, 0),
+    () => derivedRows.reduce((sum, r) => sum + r.miscPer1, 0),
     [derivedRows]
   )
   const derivedTotal = useMemo(() => derivedPer1 * (Number(sets) || 0), [derivedPer1, sets])
@@ -374,6 +387,7 @@ export function DeriveSummaryDialog({
             deleted: false,
             collection_item_id: baseId,
             buying_entries_id: null,
+            entry_price: entryPriceByDraftId.get(d.id) ?? 0,
           },
         }
       }).filter(Boolean) as Array<{
@@ -569,12 +583,24 @@ export function DeriveSummaryDialog({
                           </div>
                         </div>
                         <div className="shrink-0 text-left text-sm font-semibold tabular-nums sm:text-right">
-                          {moneyHKD(r.per1)}
+                          {moneyHKD(r.miscPer1)}
                         </div>
+                      </div>
+
+                      <div className="mt-3 flex min-w-0 items-center justify-between gap-2 border-t pt-3 text-sm">
+                        <span className="text-muted-foreground">
+                          {t("dialogs.deriveSummary.entryPriceLine")}
+                        </span>
+                        <span className="shrink-0 font-semibold tabular-nums">
+                          {moneyHKD(r.entryPrice)}
+                        </span>
                       </div>
 
                       {(perItemCosts[r.id] ?? []).length ? (
                         <div className="mt-3 min-w-0 space-y-2 border-t pt-3">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {t("dialogs.deriveSummary.miscCostsLine")}
+                          </p>
                           {(perItemCosts[r.id] ?? []).map((c) => (
                             <div
                               key={c.id}
@@ -599,11 +625,7 @@ export function DeriveSummaryDialog({
                             </div>
                           ))}
                         </div>
-                      ) : (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {t("dialogs.deriveSummary.noCostsForItem")}
-                        </p>
-                      )}
+                      ) : null}
                     </div>
                   ))}
                 </div>

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
 import { gameTitleDisplayText } from "@/lib/gameTitles"
+import { isAppLanguage, type AppLanguage } from "@/lib/languages"
 import { cn } from "@/lib/utils"
 
 /** Card + magnifier motif for “Identify Card” (not from Lucide). */
@@ -187,18 +188,18 @@ function pickGradingInfo(
   return { grading_level: gl, provider: pv }
 }
 
-/**
- * Accepts top-level JSON, `{ answer: string | object }`, or a stringified JSON in `answer`.
- */
-function extractResearchFromInvokeData(data: unknown): {
-  cardResult: ResearchCardFields | null
+function isUnsupportedResearchError(msg: string): boolean {
+  return msg.trim().toLowerCase() === "unsupported"
+}
+
+/** Unwraps `{ answer: object | string }` or top-level object from invoke payload. */
+function unwrapResearchAnswer(data: unknown): {
+  candidate: Record<string, unknown> | null
   rawFallback: string | null
 } {
   if (data === null || data === undefined) {
-    return { cardResult: null, rawFallback: null }
+    return { candidate: null, rawFallback: null }
   }
-
-  let candidate: Record<string, unknown> | null = null
 
   if (typeof data === "object" && data !== null) {
     const top = data as Record<string, unknown>
@@ -206,33 +207,66 @@ function extractResearchFromInvokeData(data: unknown): {
       try {
         const parsed = JSON.parse(top.answer) as unknown
         if (parsed !== null && typeof parsed === "object") {
-          candidate = parsed as Record<string, unknown>
-        } else {
-          return { cardResult: null, rawFallback: top.answer }
+          return { candidate: parsed as Record<string, unknown>, rawFallback: null }
         }
+        return { candidate: null, rawFallback: top.answer }
       } catch {
-        return { cardResult: null, rawFallback: top.answer }
+        return { candidate: null, rawFallback: top.answer }
       }
-    } else if (top.answer !== null && typeof top.answer === "object") {
-      candidate = top.answer as Record<string, unknown>
-    } else {
-      candidate = top
     }
-  } else if (typeof data === "string") {
+    if (top.answer !== null && typeof top.answer === "object") {
+      return { candidate: top.answer as Record<string, unknown>, rawFallback: null }
+    }
+    return { candidate: top, rawFallback: null }
+  }
+
+  if (typeof data === "string") {
     try {
       const parsed = JSON.parse(data) as unknown
       if (parsed !== null && typeof parsed === "object") {
-        candidate = parsed as Record<string, unknown>
-      } else {
-        return { cardResult: null, rawFallback: data }
+        return { candidate: parsed as Record<string, unknown>, rawFallback: null }
       }
+      return { candidate: null, rawFallback: data }
     } catch {
-      return { cardResult: null, rawFallback: data }
+      return { candidate: null, rawFallback: data }
     }
   }
 
+  return { candidate: null, rawFallback: stringifyDataFallback(data) }
+}
+
+/** Top-level `error` or nested `answer.error` from `research-card-price`. */
+function extractResearchInvokeError(data: unknown): string | null {
+  if (typeof data === "object" && data !== null) {
+    const top = data as Record<string, unknown>
+    if (typeof top.error === "string" && top.error.trim()) {
+      return top.error.trim()
+    }
+  }
+  const { candidate } = unwrapResearchAnswer(data)
+  if (candidate && typeof candidate.error === "string" && candidate.error.trim()) {
+    return candidate.error.trim()
+  }
+  return null
+}
+
+/**
+ * Accepts top-level JSON, `{ answer: string | object }`, or a stringified JSON in `answer`.
+ */
+function extractResearchFromInvokeData(data: unknown): {
+  cardResult: ResearchCardFields | null
+  rawFallback: string | null
+} {
+  const { candidate, rawFallback: unwrapFallback } = unwrapResearchAnswer(data)
+  if (unwrapFallback) {
+    return { cardResult: null, rawFallback: unwrapFallback }
+  }
   if (!candidate) {
     return { cardResult: null, rawFallback: stringifyDataFallback(data) }
+  }
+
+  if (typeof candidate.error === "string" && candidate.error.trim()) {
+    return { cardResult: null, rawFallback: null }
   }
 
   const pickStr = (k: string) => {
@@ -278,12 +312,15 @@ function extractResearchFromInvokeData(data: unknown): {
   return { cardResult: null, rawFallback: stringifyDataFallback(candidate) }
 }
 
-const LOADING_PROGRESS_CAP = 88
+const LOADING_DURATION_SEC = 40
+const LOADING_PROGRESS_CAP = 95
+/** Matches AskAiCircularProgress stroke transition (~1.55s) so 100% is visible before the result. */
+const LOADING_RING_COMPLETE_MS = 1_550
 
 function progressFromElapsedSeconds(elapsedSec: number): number {
-  const tau = 36
-  const span = LOADING_PROGRESS_CAP - 2
-  return 2 + span * (1 - Math.exp(-elapsedSec / tau))
+  const t = Math.min(1, elapsedSec / LOADING_DURATION_SEC)
+  const eased = 1 - (1 - t) ** 2
+  return 2 + (LOADING_PROGRESS_CAP - 2) * eased
 }
 
 const RING_R = 52
@@ -396,7 +433,7 @@ function AskAiCircularProgress({
 }
 
 export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const loadingTitleId = useId()
 
   const pickLoadingMessage = useCallback(
@@ -497,23 +534,25 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         error: string | null
         cardResult?: ResearchCardFields | null
         resultRawFallback?: string | null
-        settlingMs?: number
       }) => {
         stopLoadingMotion()
         setFakeProgress(100)
         setLoadingMsg(
           payload.error ? t("dialogs.askAi.loadingFailed") : t("dialogs.askAi.loadingDone")
         )
-        const waitMs = payload.settlingMs ?? 2_600
-        await new Promise<void>((resolve) => setTimeout(resolve, waitMs))
-        setLoadingFadeOut(true)
-        await new Promise<void>((resolve) => setTimeout(resolve, 420))
-        setLoadingFadeOut(false)
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              window.setTimeout(resolve, LOADING_RING_COMPLETE_MS)
+            })
+          })
+        })
         setError(payload.error)
         setCardResult(payload.error ? null : (payload.cardResult ?? null))
         setResultRawFallback(
           payload.error ? null : (payload.resultRawFallback ?? null)
         )
+        setLoadingFadeOut(false)
         setStage("done")
       }
 
@@ -525,7 +564,6 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
           } catch {
             await revealOutcome({
               error: t("dialogs.askAi.imageProcessError"),
-              settlingMs: 1_450,
             })
             return
           }
@@ -537,14 +575,17 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         if (!imageBase64 || imageBase64.length < 100) {
           await revealOutcome({
             error: t("dialogs.askAi.imageUseError"),
-            settlingMs: 1_450,
           })
           return
         }
 
+        const language: AppLanguage = isAppLanguage(i18n.language)
+          ? i18n.language
+          : "en"
+
         const { data, error: fnError } = await supabase.functions.invoke(
           "research-card-price",
-          { body: { imageBase64 } }
+          { body: { imageBase64, language } }
         )
 
         if (fnError) {
@@ -560,15 +601,15 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
           })
           return
         }
-        if (typeof data === "object" && data !== null && "error" in data) {
-          const msg = (data as { error?: string }).error
-          if (msg) {
-            logAskAiDevDetail("research-card-price response error field", msg)
-            await revealOutcome({
-              error: t("dialogs.askAi.lookupError"),
-            })
-            return
-          }
+        const invokeError = extractResearchInvokeError(data)
+        if (invokeError) {
+          logAskAiDevDetail("research-card-price response error field", invokeError)
+          await revealOutcome({
+            error: isUnsupportedResearchError(invokeError)
+              ? t("dialogs.askAi.unsupportedImageError")
+              : t("dialogs.askAi.lookupError"),
+          })
+          return
         }
 
         const { cardResult: parsedCard, rawFallback } =
@@ -585,7 +626,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
         })
       }
     },
-    [stopLoadingMotion, t, pickLoadingMessage]
+    [stopLoadingMotion, t, i18n.language, pickLoadingMessage]
   )
 
   useEffect(() => {
@@ -718,6 +759,9 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
   const optionBtnClass =
     "h-28 flex-col items-center justify-center gap-2 text-center whitespace-normal"
 
+  const askAiActionBtnClass =
+    "border-border bg-white text-black shadow-sm hover:bg-white/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
+
   const resultPreviewImage = previewUrl ? (
     <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
       <img
@@ -788,7 +832,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
 
       <Dialog open={showChooser} onOpenChange={onChooserOpenChange}>
         <DialogContent
-          className="flex max-h-[min(90dvh,85vh)] min-h-0 min-w-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-xl"
+          className="max-h-[min(90dvh,34rem)] overflow-x-hidden p-0 sm:max-w-md"
           onPointerDownOutside={(ev) => {
             if (albumPickerGuardRef.current) ev.preventDefault()
           }}
@@ -828,12 +872,7 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
       {loadingModal}
 
       <Dialog open={showResult} onOpenChange={onResultOpenChange}>
-        <DialogContent
-          className={cn(
-            "flex max-h-[min(90dvh,85vh)] min-h-0 min-w-0 w-full max-w-lg flex-col gap-0 p-0 sm:max-w-xl",
-            "duration-500"
-          )}
-        >
+        <DialogContent className="max-h-[min(90dvh,46rem)] overflow-x-hidden p-0 sm:max-w-lg">
           <DialogHeader className="shrink-0 px-4 pt-4 pr-12 sm:px-6 sm:pt-6">
             <DialogTitle>{t("dialogs.askAi.resultTitle")}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -976,13 +1015,10 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
             ) : null}
           </DialogBody>
           <DialogFooter className="flex shrink-0 flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:flex-wrap sm:justify-end sm:px-6">
-            <Button type="button" variant="outline" onClick={closeEntireFlow}>
-              {t("common.close")}
-            </Button>
-            {onPurchaseIntent && previewUrl ? (
+            {onPurchaseIntent && previewUrl && !error ? (
               <Button
                 type="button"
-                variant="secondary"
+                className={askAiActionBtnClass}
                 onClick={() => {
                   onPurchaseIntent({
                     previewDataUrl: previewUrl,
@@ -993,8 +1029,15 @@ export function AskAiResearchDialog({ open, onOpenChange, onPurchaseIntent }: Pr
                 {t("dialogs.askAi.purchaseIntent")}
               </Button>
             ) : null}
-            <Button type="button" onClick={askAgainFromResult}>
+            <Button
+              type="button"
+              className={askAiActionBtnClass}
+              onClick={askAgainFromResult}
+            >
               {t("dialogs.askAi.askAgain")}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeEntireFlow}>
+              {t("common.close")}
             </Button>
           </DialogFooter>
         </DialogContent>

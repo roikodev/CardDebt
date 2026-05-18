@@ -109,7 +109,10 @@ const DialogBody = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>
       <div
         ref={ref}
         data-slot="dialog-body"
-        className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-4", className)}
+        className={cn(
+          "scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-4 [-webkit-overflow-scrolling:touch]",
+          className
+        )}
         {...props}
       />
     )

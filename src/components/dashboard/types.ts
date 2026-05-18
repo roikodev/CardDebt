@@ -6,7 +6,7 @@ export type RoiRow = {
   card_no: string | null
   image_cloud_path: string | null
   image_url: string | null
-  buy_cost: number
+  entry_cost: number
   misc_cost: number
   total_cost: number
   total_revenue: number
