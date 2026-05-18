@@ -124,12 +124,12 @@ export function DeriveSummaryDialog({
     return targets.map((target) => {
       const entryPrice = entryPriceByDraftId.get(target.id) ?? 0
       const miscPer1 = sumCosts(perItemCosts[target.id])
-      return { ...target, entryPrice, miscPer1, per1: entryPrice + miscPer1 }
+      return { ...target, entryPrice, miscPer1 }
     })
   }, [entryPriceByDraftId, perItemCosts, targets])
 
   const derivedPer1 = useMemo(
-    () => derivedRows.reduce((sum, r) => sum + r.per1, 0),
+    () => derivedRows.reduce((sum, r) => sum + r.miscPer1, 0),
     [derivedRows]
   )
   const derivedTotal = useMemo(() => derivedPer1 * (Number(sets) || 0), [derivedPer1, sets])
@@ -583,7 +583,7 @@ export function DeriveSummaryDialog({
                           </div>
                         </div>
                         <div className="shrink-0 text-left text-sm font-semibold tabular-nums sm:text-right">
-                          {moneyHKD(r.per1)}
+                          {moneyHKD(r.miscPer1)}
                         </div>
                       </div>
 

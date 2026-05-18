@@ -3,13 +3,12 @@ import {
   formatCostLinesSummary,
   SkeletonMuted,
 } from "@/components/collection-info/records-panel/shared"
+import { RecoverDerivedSourceDialog } from "@/components/dialogs/RecoverDerivedSourceDialog"
 import { Link } from "@tanstack/react-router"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { XCircle } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { CancelDerivedRecordDialog } from "@/components/dialogs/CancelDerivedRecordDialog"
 
 type Props = {
   derivedError: string | null
@@ -29,14 +28,20 @@ export function DerivedRecordsSection({
   onUpdated,
 }: Props) {
   const { t } = useTranslation()
-  const [cancelling, setCancelling] = useState<null | { recordId: string; fromUcId: string; toUcId: string }>(null)
+  const [recovering, setRecovering] = useState<null | {
+    fromUcId: string
+    mappings: { recordId: string; toUserCollectionId: string }[]
+  }>(null)
 
   if (derivedError) return <p className="text-sm text-destructive">{derivedError}</p>
   if (derivedLoading) {
     return (
       <div className="space-y-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border bg-background/40 p-3">
+          <div
+            key={i}
+            className="flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border bg-background/40 p-3"
+          >
             <SkeletonMuted className="h-12 w-12 shrink-0" />
             <div className="min-w-0 flex-1">
               <SkeletonMuted className="h-4 w-full max-w-[10rem]" />
@@ -69,7 +74,7 @@ export function DerivedRecordsSection({
         to="/user/my-collection/$collection_item_id"
         params={{ collection_item_id: ucId }}
         search={{ graded }}
-        className="flex w-full min-w-0 flex-1 items-start gap-2 rounded-md p-1.5 transition hover:bg-muted/25"
+        className="flex min-w-0 flex-1 items-start gap-2 rounded-md p-1 transition hover:bg-muted/25"
       >
         <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted/30">
           {img ? (
@@ -78,8 +83,8 @@ export function DerivedRecordsSection({
             <div className="h-full w-full animate-pulse bg-muted/50" />
           )}
         </div>
-        <div className="min-w-0 text-left">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <div className="min-w-0 flex-1 overflow-hidden text-left">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
             <span
               className={
@@ -91,14 +96,14 @@ export function DerivedRecordsSection({
               {graded ? t("recordsPanel.statusGraded") : t("recordsPanel.statusUngraded")}
             </span>
           </div>
-          <p className="truncate text-sm font-medium">{baseName}</p>
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+          <p className="break-words text-sm font-medium leading-snug">{baseName}</p>
+          <p className="break-words text-xs leading-snug text-muted-foreground">{subtitle}</p>
         </div>
       </Link>
     ) : (
-      <div className="flex w-full min-w-0 flex-1 items-start gap-2 rounded-md p-1.5 opacity-70">
+      <div className="flex min-w-0 flex-1 items-start gap-2 rounded-md p-1 opacity-70">
         <div className="h-10 w-10 shrink-0 rounded-md bg-muted/50" />
-        <div className="min-w-0 text-left">
+        <div className="min-w-0 flex-1 text-left">
           <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
           <p className="text-sm text-muted-foreground">{t("common.emDash")}</p>
         </div>
@@ -124,115 +129,126 @@ export function DerivedRecordsSection({
 
   return (
     <>
-    <div className="space-y-3">
-      {orderedGroups.map(({ fromId, rows }) => {
-        const first = rows[0]
-        const fromBase = first.from_user_collection?.collection_base
-        const fromName = fromBase?.name ?? t("recordsPanel.sourceNameFallback")
-        const imgFrom = derivedImageUrls[`from:${fromId}`]
-        const fromItemId = first.from_user_collection?.collection_item_id
-        const fromG = first.from_user_collection?.graded ?? false
+      <div className="min-w-0 space-y-3">
+        {orderedGroups.map(({ fromId, rows }) => {
+          const first = rows[0]
+          const fromBase = first.from_user_collection?.collection_base
+          const fromName = fromBase?.name ?? t("recordsPanel.sourceNameFallback")
+          const imgFrom = derivedImageUrls[`from:${fromId}`]
+          const fromItemId = first.from_user_collection?.collection_item_id
+          const fromG = first.from_user_collection?.graded ?? false
 
-        const derivedRows = [...rows].sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )
-        const sourceDerivedTotal = derivedRows.reduce((sum, r) => sum + (Number(r.costTotal) || 0), 0)
+          const derivedRows = [...rows].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )
+          const sourceDerivedTotal = derivedRows.reduce((sum, r) => sum + (Number(r.costTotal) || 0), 0)
 
-        return (
-          <div key={`src-${fromId}`} className="rounded-xl border bg-background/30 p-3 text-left">
-            <div className="flex flex-col items-start gap-3 sm:flex-row">
-              <div className="w-full min-w-0 flex-1">
-                {sideLink(
-                  fromItemId,
-                  fromG,
-                  fromName,
-                  imgFrom,
-                  t("recordsPanel.sourceLabel"),
-                  metaLine(fromBase),
-                )}
-              </div>
-              <div className="w-full shrink-0 rounded-lg border bg-muted/20 px-3 py-2 text-left sm:w-auto sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
-                <p className="text-xs text-muted-foreground">{t("recordsPanel.totalDerivingCost")}</p>
-                <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(sourceDerivedTotal)}</p>
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
-              {derivedRows.map((dr) => {
-                const toBase = dr.to_user_collection?.collection_base
-                const toName = toBase?.name ?? t("recordsPanel.derivedItemNameFallback")
-                const imgTo = derivedImageUrls[`to:${dr.to_user_collection_id}`]
-                const toItemId = dr.to_user_collection?.collection_item_id
-                const toG = dr.to_user_collection?.graded ?? false
-
-                return (
-                  <div key={dr.id} className="relative rounded-md p-1.5">
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant="ghost"
-                      className="absolute right-1 top-1 z-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={t("recordsPanel.cancelDerivedAria")}
-                      onClick={() =>
-                        setCancelling({
+          return (
+            <div
+              key={`src-${fromId}`}
+              className="min-w-0 overflow-hidden rounded-xl border bg-background/30 p-3 text-left"
+            >
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 w-full flex-1 items-start gap-1 sm:w-auto">
+                  <div className="min-w-0 flex-1">
+                    {sideLink(
+                      fromItemId,
+                      fromG,
+                      fromName,
+                      imgFrom,
+                      t("recordsPanel.sourceLabel"),
+                      metaLine(fromBase),
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="shrink-0 text-primary hover:bg-primary/10 hover:text-primary"
+                    aria-label={t("recordsPanel.recoverDerivedAria")}
+                    onClick={() =>
+                      setRecovering({
+                        fromUcId: fromId,
+                        mappings: derivedRows.map((dr) => ({
                           recordId: dr.id,
-                          fromUcId: dr.from_user_collection_id,
-                          toUcId: dr.to_user_collection_id,
-                        })
-                      }
+                          toUserCollectionId: dr.to_user_collection_id,
+                        })),
+                      })
+                    }
+                  >
+                    <Undo2 className="size-4" aria-hidden="true" />
+                  </Button>
+                </div>
+                <div className="w-full shrink-0 rounded-lg border bg-muted/20 px-3 py-2 sm:w-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:text-right">
+                  <p className="text-xs text-muted-foreground">{t("recordsPanel.totalDerivingCost")}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(sourceDerivedTotal)}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 min-w-0 space-y-2 border-t border-border/60 pt-3">
+                {derivedRows.map((dr) => {
+                  const toBase = dr.to_user_collection?.collection_base
+                  const toName = toBase?.name ?? t("recordsPanel.derivedItemNameFallback")
+                  const imgTo = derivedImageUrls[`to:${dr.to_user_collection_id}`]
+                  const toItemId = dr.to_user_collection?.collection_item_id
+                  const toG = dr.to_user_collection?.graded ?? false
+
+                  return (
+                    <div
+                      key={dr.id}
+                      className="min-w-0 overflow-hidden rounded-lg border border-border/50 bg-background/20 p-2"
                     >
-                      <XCircle className="size-4" aria-hidden="true" />
-                    </Button>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                      <div className="hidden pt-2 text-muted-foreground sm:block">
-                        <ArrowRight className="size-4" aria-hidden="true" />
+                      <div className="flex min-w-0 items-start gap-1.5">
+                        <ArrowRight
+                          className="mt-2.5 size-4 shrink-0 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        <div className="min-w-0 flex-1">
+                          {sideLink(
+                            toItemId,
+                            toG,
+                            toName,
+                            imgTo,
+                            t("recordsPanel.derivedItemLabel"),
+                            metaLine(toBase),
+                          )}
+                        </div>
                       </div>
-                      <div className="w-full min-w-0 flex-1">
-                        {sideLink(
-                          toItemId,
-                          toG,
-                          toName,
-                          imgTo,
-                          t("recordsPanel.derivedItemLabel"),
-                          metaLine(toBase),
-                        )}
-                      </div>
-                      <div className="flex w-full shrink-0 items-baseline justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2 text-left sm:w-auto sm:flex-col sm:items-end sm:justify-start sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
+
+                      <div className="mt-2 flex min-w-0 flex-col gap-1 pl-5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3 sm:pl-6">
                         <p className="text-sm font-semibold tabular-nums">{formatMoneyHKD(dr.costTotal)}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {new Date(dr.created_at).toLocaleDateString()}
                         </p>
                       </div>
+
+                      {dr.costLines.length ? (
+                        <p className="mt-1.5 break-words pl-5 text-xs leading-relaxed text-muted-foreground sm:pl-6">
+                          {formatCostLinesSummary(t, dr.costLines, formatMoneyHKD)}
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 pl-5 text-xs text-muted-foreground sm:pl-6">
+                          {t("recordsPanel.noCostEntries")}
+                        </p>
+                      )}
                     </div>
-
-                    {dr.costLines.length ? (
-                      <p className="mt-1 text-xs text-muted-foreground sm:pl-6">
-                        {formatCostLinesSummary(t, dr.costLines, formatMoneyHKD)}
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted-foreground sm:pl-6">
-                        {t("recordsPanel.noCostEntries")}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        )
-      })}
-    </div>
+          )
+        })}
+      </div>
 
-    <CancelDerivedRecordDialog
-      open={Boolean(cancelling)}
-      onOpenChange={(o) => {
-        if (!o) setCancelling(null)
-      }}
-      recordId={cancelling?.recordId ?? ""}
-      fromUserCollectionId={cancelling?.fromUcId ?? ""}
-      toUserCollectionId={cancelling?.toUcId ?? ""}
-      onCancelled={onUpdated}
-    />
+      <RecoverDerivedSourceDialog
+        open={Boolean(recovering)}
+        onOpenChange={(o) => {
+          if (!o) setRecovering(null)
+        }}
+        fromUserCollectionId={recovering?.fromUcId ?? ""}
+        mappings={recovering?.mappings ?? []}
+        onRecovered={onUpdated}
+      />
     </>
   )
 }

@@ -636,7 +636,7 @@ export function CollectionInfo() {
   return (
     <main className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 pb-40 sm:pb-6">
+        <div className="scrollbar-hide flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 pb-40 sm:pb-6">
           <div className="mb-4 flex items-center justify-between gap-3">
             <Button
               type="button"

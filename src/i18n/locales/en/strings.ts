@@ -221,7 +221,7 @@ export const enStrings = {
     sortByRoi: "By Percentage",
     typeRaw: "Raw",
     typeGraded: "Graded",
-    buy: "Buy",
+    buy: "Entry cost",
     misc: "Misc",
     noData: "No ROI data in the selected range.",
     revenue: "Revenue",
@@ -320,7 +320,7 @@ export const enStrings = {
     totalDerivingCost: "Total deriving cost",
     statusGraded: "Graded",
     statusUngraded: "Ungraded",
-    cancelDerivedAria: "Cancel derived record",
+    recoverDerivedAria: "Recover source item",
     noCostEntries: "No cost entries.",
     sentAt: "Sent at: {{date}}",
     totalCost: "Total cost",
@@ -343,6 +343,7 @@ export const enStrings = {
     saved: "Saved successfully",
     updated: "Updated successfully",
     cancelled: "Cancelled successfully",
+    recovered: "Recovered successfully",
     deleted: "Deleted successfully",
     sold: "Sold successfully",
   },
@@ -376,6 +377,7 @@ export const enStrings = {
     cancelGradingTitle: "Cancel grading",
     cancelPurchaseTitle: "Cancel purchase",
     cancelDerivedTitle: "Cancel derived record",
+    recoverDerivedTitle: "Recover source item",
     deleteItemsTitle: "Delete items",
     sellTitle: "Sell",
     miscTitle: "Miscellaneous",
@@ -506,6 +508,28 @@ export const enStrings = {
       deleteFailed:
         "Failed to remove the derived mapping record (no rows were deleted). This is usually caused by a missing RLS DELETE policy on public.user_derived_collection.",
     },
+    recoverDerived: {
+      description:
+        "Removes all derived mappings for this source, deletes their miscellaneous costs, consumes derived copies when possible, and restores the source item.",
+      proceed: "You can proceed to recover this source item.",
+      mappingCount_one: "This will process {{count}} derived mapping.",
+      mappingCount_other: "This will process {{count}} derived mappings.",
+      confirm: "Recover",
+      warningGrading_one:
+        "Warning: 1 derived item is being graded and will not be consumed. Mappings and costs will still be removed.",
+      warningGrading_other:
+        "Warning: {{count}} derived items are being graded and will not be consumed. Mappings and costs will still be removed.",
+      warningMissing_one:
+        "Warning: 1 derived item is missing or already removed and will not be consumed. Mappings and costs will still be removed.",
+      warningMissing_other:
+        "Warning: {{count}} derived items are missing or already removed and will not be consumed. Mappings and costs will still be removed.",
+      warningMultipleCopies_one:
+        "Warning: 1 derived item has multiple copies in your collection; recovering removes one copy per mapping, which may be confusing.",
+      warningMultipleCopies_other:
+        "Warning: {{count}} derived items have multiple copies in your collection; recovering removes one copy per mapping, which may be confusing.",
+      deleteFailed:
+        "Failed to remove a derived mapping record (no rows were deleted). This is usually caused by a missing RLS DELETE policy on public.user_derived_collection.",
+    },
     deleteItems: {
       description:
         "Choose how many items you want to delete. Only items with grading=false and derived=false can be deleted.",
@@ -522,10 +546,10 @@ export const enStrings = {
       collectionItem: "Collection item",
       collectionItemAlt: "Collection item",
       currentQty: "current qty: {{count}}",
-      costsPerOne: "Costs (per 1)",
+      costsPerOne: "Costs",
       totalCost: "Total cost",
-      perOneTimes_one: "{{perOne}} per 1 × {{count}} item",
-      perOneTimes_other: "{{perOne}} per 1 × {{count}} items",
+      perOneTimes_one: "{{perOne}} × {{count}} item",
+      perOneTimes_other: "{{perOne}} × {{count}} items",
     },
     editGrading: {
       description:
@@ -582,8 +606,8 @@ export const enStrings = {
       noDerivedItemsInList: "No derived items.",
       totalLabel: "Total cost",
       derivedItemsSubheading: "Derived items",
-      perSetSummary_one: "{{perOne}} per 1 × {{count}} set",
-      perSetSummary_other: "{{perOne}} per 1 × {{count}} sets",
+      perSetSummary_one: "{{perOne}} × {{count}} set",
+      perSetSummary_other: "{{perOne}} × {{count}} sets",
       grandTotalLabel: "Total",
       notEnoughItems: "Not enough available items to derive from.",
       missingSourceImage: "Missing source image for a Create New item.",

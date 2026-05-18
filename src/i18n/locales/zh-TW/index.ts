@@ -241,7 +241,7 @@ Object.assign(o.roi, {
   sortByRoi: "依百分比",
   typeRaw: "未評分",
   typeGraded: "已評分",
-  buy: "購買",
+  buy: "入庫成本",
   misc: "雜項",
   noData: "所選區間沒有 ROI 資料。",
   revenue: "收入",
@@ -344,7 +344,7 @@ Object.assign(o.recordsPanel, {
   totalDerivingCost: "衍生總費用",
   statusGraded: "已評分",
   statusUngraded: "未評分",
-  cancelDerivedAria: "取消衍生紀錄",
+  recoverDerivedAria: "還原來源項目",
   noCostEntries: "尚無費用項目。",
   sentAt: "寄出：{{date}}",
   totalCost: "總費用",
@@ -369,6 +369,7 @@ Object.assign(o.toasts, {
   saved: "已成功儲存",
   updated: "已成功更新",
   cancelled: "已成功取消",
+  recovered: "已成功還原",
   deleted: "已成功刪除",
   sold: "已成功出售",
 })
@@ -408,7 +409,7 @@ Object.assign(o.dialogs, {
   updateGradingTitle: "更新評級結果",
   cancelGradingTitle: "取消評級",
   cancelPurchaseTitle: "取消購買",
-  cancelDerivedTitle: "取消衍生紀錄",
+  recoverDerivedTitle: "還原來源項目",
   deleteItemsTitle: "刪除項目",
   sellTitle: "出售",
   miscTitle: "雜項",
@@ -509,6 +510,28 @@ Object.assign(o.dialogs, {
     deleteFailed:
       "無法刪除衍生對應紀錄（未刪除任何列）。通常因 public.user_derived_collection 缺少 RLS DELETE 政策。",
   },
+  recoverDerived: {
+    description:
+      "將移除此來源的所有衍生對應、刪除相關雜項費用，並在可能時消耗衍生副本，還原來源項目。",
+    proceed: "您可以繼續還原此來源項目。",
+    mappingCount_one: "將處理 {{count}} 筆衍生對應。",
+    mappingCount_other: "將處理 {{count}} 筆衍生對應。",
+    confirm: "還原",
+    warningGrading_one:
+      "警告：1 個衍生項目正在評級中，將不會被消耗。對應與費用仍會刪除。",
+    warningGrading_other:
+      "警告：{{count}} 個衍生項目正在評級中，將不會被消耗。對應與費用仍會刪除。",
+    warningMissing_one:
+      "警告：1 個衍生項目已不存在，將不會被消耗。對應與費用仍會刪除。",
+    warningMissing_other:
+      "警告：{{count}} 個衍生項目已不存在，將不會被消耗。對應與費用仍會刪除。",
+    warningMultipleCopies_one:
+      "警告：1 個衍生項目在收藏中有多份；還原時每筆對應各移除 1 份，可能造成混淆。",
+    warningMultipleCopies_other:
+      "警告：{{count}} 個衍生項目在收藏中有多份；還原時每筆對應各移除 1 份，可能造成混淆。",
+    deleteFailed:
+      "無法刪除衍生對應紀錄（未刪除任何列）。通常因 public.user_derived_collection 缺少 RLS DELETE 政策。",
+  },
   deleteItems: {
     description: "選擇要刪除的數量。僅 grading=false 且 derived=false 的項目可刪除。",
     notEnough: "可刪除數量不足。可用：{{count}}。",
@@ -522,10 +545,10 @@ Object.assign(o.dialogs, {
     collectionItem: "收藏項目",
     collectionItemAlt: "收藏項目",
     currentQty: "目前數量：{{count}}",
-    costsPerOne: "費用（每 1）",
+    costsPerOne: "費用",
     totalCost: "總費用",
-    perOneTimes_one: "{{perOne}} 每 1 × {{count}} 項",
-    perOneTimes_other: "{{perOne}} 每 1 × {{count}} 項",
+    perOneTimes_one: "{{perOne}} × {{count}} 項",
+    perOneTimes_other: "{{perOne}} × {{count}} 項",
   },
   editGrading: {
     description: "編輯此評級紀錄的費用列，至少需保留 1 列。",
@@ -580,8 +603,8 @@ Object.assign(o.dialogs, {
     noDerivedItemsInList: "沒有衍生項目。",
     totalLabel: "總費用",
     derivedItemsSubheading: "衍生項目",
-    perSetSummary_one: "{{perOne}} 每 1 × {{count}} 組",
-    perSetSummary_other: "{{perOne}} 每 1 × {{count}} 組",
+    perSetSummary_one: "{{perOne}} × {{count}} 組",
+    perSetSummary_other: "{{perOne}} × {{count}} 組",
     grandTotalLabel: "總計",
     notEnoughItems: "可用項目不足以衍生。",
     missingSourceImage: "「建立新項目」缺少來源圖片。",

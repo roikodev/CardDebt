@@ -241,7 +241,7 @@ Object.assign(o.roi, {
   sortByRoi: "率順",
   typeRaw: "未鑑定",
   typeGraded: "鑑定済",
-  buy: "購入",
+  buy: "入庫コスト",
   misc: "その他",
   noData: "選択した期間にROIデータがありません。",
   revenue: "売上",
@@ -344,7 +344,7 @@ Object.assign(o.recordsPanel, {
   totalDerivingCost: "派生の総費用",
   statusGraded: "鑑定済み",
   statusUngraded: "未鑑定",
-  cancelDerivedAria: "派生記録をキャンセル",
+  recoverDerivedAria: "ソース項目を復元",
   noCostEntries: "費用項目はありません。",
   sentAt: "送付日: {{date}}",
   totalCost: "総費用",
@@ -369,6 +369,7 @@ Object.assign(o.toasts, {
   saved: "保存しました",
   updated: "更新しました",
   cancelled: "キャンセルしました",
+  recovered: "復元しました",
   deleted: "削除しました",
   sold: "売却しました",
 })
@@ -408,7 +409,7 @@ Object.assign(o.dialogs, {
   updateGradingTitle: "グレーディング結果を更新",
   cancelGradingTitle: "グレーディングをキャンセル",
   cancelPurchaseTitle: "購入をキャンセル",
-  cancelDerivedTitle: "派生記録をキャンセル",
+  recoverDerivedTitle: "ソース項目を復元",
   deleteItemsTitle: "項目を削除",
   sellTitle: "売却",
   miscTitle: "雑費",
@@ -512,6 +513,28 @@ Object.assign(o.dialogs, {
     deleteFailed:
       "派生マッピングを削除できませんでした（削除された行がありません）。public.user_derived_collection の RLS DELETE ポリシー不足が原因のことが多いです。",
   },
+  recoverDerived: {
+    description:
+      "このソースの派生マッピングをすべて削除し、関連する雑費を削除し、可能な場合は派生コピーを消費してソース項目を復元します。",
+    proceed: "このソース項目の復元を続行できます。",
+    mappingCount_one: "派生マッピング {{count}} 件を処理します。",
+    mappingCount_other: "派生マッピング {{count}} 件を処理します。",
+    confirm: "復元",
+    warningGrading_one:
+      "警告: 1 件の派生項目はグレーディング中のため消費されません。マッピングと費用は削除されます。",
+    warningGrading_other:
+      "警告: {{count}} 件の派生項目はグレーディング中のため消費されません。マッピングと費用は削除されます。",
+    warningMissing_one:
+      "警告: 1 件の派生項目が見つからないため消費されません。マッピングと費用は削除されます。",
+    warningMissing_other:
+      "警告: {{count}} 件の派生項目が見つからないため消費されません。マッピングと費用は削除されます。",
+    warningMultipleCopies_one:
+      "警告: 1 件の派生項目に複数コピーがあります。復元ではマッピングごとに 1 コピー削除され、混乱する可能性があります。",
+    warningMultipleCopies_other:
+      "警告: {{count}} 件の派生項目に複数コピーがあります。復元ではマッピングごとに 1 コピー削除され、混乱する可能性があります。",
+    deleteFailed:
+      "派生マッピングを削除できませんでした（削除された行がありません）。public.user_derived_collection の RLS DELETE ポリシー不足が原因のことが多いです。",
+  },
   deleteItems: {
     description:
       "削除する数量を選んでください。grading=false かつ derived=false の項目のみ削除できます。",
@@ -526,10 +549,10 @@ Object.assign(o.dialogs, {
     collectionItem: "コレクション項目",
     collectionItemAlt: "コレクション項目",
     currentQty: "現在の数量: {{count}}",
-    costsPerOne: "費用（1件あたり）",
+    costsPerOne: "費用",
     totalCost: "合計費用",
-    perOneTimes_one: "{{perOne}} × 1件あたり × {{count}} 件",
-    perOneTimes_other: "{{perOne}} × 1件あたり × {{count}} 件",
+    perOneTimes_one: "{{perOne}} × {{count}} 件",
+    perOneTimes_other: "{{perOne}} × {{count}} 件",
   },
   editGrading: {
     description: "このグレーディング記録の費用行を編集します。少なくとも1行必要です。",
@@ -584,8 +607,8 @@ Object.assign(o.dialogs, {
     noDerivedItemsInList: "派生項目がありません。",
     totalLabel: "合計費用",
     derivedItemsSubheading: "派生項目",
-    perSetSummary_one: "{{perOne}} × 1件あたり × {{count}}セット",
-    perSetSummary_other: "{{perOne}} × 1件あたり × {{count}}セット",
+    perSetSummary_one: "{{perOne}} × {{count}}セット",
+    perSetSummary_other: "{{perOne}} × {{count}}セット",
     grandTotalLabel: "合計",
     notEnoughItems: "派生に十分な利用可能項目がありません。",
     missingSourceImage: "「新規作成」にソース画像がありません。",
