@@ -686,6 +686,8 @@ export const enStrings = {
       requestError: "We couldn't complete the request. Check your connection and try again.",
       noResultError: "No result came back. Please try again.",
       lookupError: "We couldn't finish this lookup. Please try again.",
+      unsupportedImageError:
+        "This image doesn't appear to match any supported game title. Please upload a clear photo of a card from a game we support.",
       genericError: "Something went wrong. Please try again.",
       chooseImageType: "Please choose an image file (JPEG, PNG, WebP, etc.).",
       imageTooLarge: "Image must be 8 MB or smaller.",

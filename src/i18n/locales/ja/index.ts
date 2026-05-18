@@ -686,6 +686,8 @@ Object.assign(o.dialogs, {
     requestError: "リクエストを完了できませんでした。接続を確認して再試行してください。",
     noResultError: "結果が返されませんでした。もう一度お試しください。",
     lookupError: "検索を完了できませんでした。もう一度お試しください。",
+    unsupportedImageError:
+      "アップロードした画像は、対応しているゲームタイトルのカードと一致しません。対応ゲームのカードがはっきり写った写真をアップロードしてください。",
     genericError: "問題が発生しました。もう一度お試しください。",
     chooseImageType: "画像ファイルを選んでください（JPEG、PNG、WebP など）。",
     imageTooLarge: "画像は 8 MB 以下である必要があります。",

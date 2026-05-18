@@ -681,6 +681,8 @@ Object.assign(o.dialogs, {
     requestError: "無法完成請求，請檢查連線後再試。",
     noResultError: "沒有回傳結果，請再試一次。",
     lookupError: "無法完成查詢，請再試一次。",
+    unsupportedImageError:
+      "上傳的圖片與任何支援的遊戲標題無關。請改上傳我們支援之遊戲卡牌的清晰照片。",
     genericError: "發生錯誤，請再試一次。",
     chooseImageType: "請選擇圖片檔（JPEG、PNG、WebP 等）。",
     imageTooLarge: "圖片必須小於 8 MB。",
