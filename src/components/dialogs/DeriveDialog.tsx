@@ -23,12 +23,14 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   FormFieldRow,
+  FormMoneyInput,
   FormQuantityStepper,
   FormSelectField,
   FormSwitchField,
   FormTextInput,
   FormToggleGroupField,
 } from "@/components/form-input"
+import { isValidEntryPrice } from "@/lib/entryPrice"
 import { FieldGroup } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { GAME_TITLE_OPTIONS, type GameTitleValue } from "@/lib/gameTitles"
@@ -48,6 +50,7 @@ const PROVIDERS = ["PSA"] as const
 type DerivedItemDraft = {
   id: string
   mode: DeriveMode | null
+  entryPrice: string
   selectedBase: CollectionBaseRow | null
   chooseFromBase: {
     graded: boolean
@@ -95,6 +98,7 @@ export function DeriveDialog({
     {
       id: uid(),
       mode: null,
+      entryPrice: "0",
       selectedBase: null,
       chooseFromBase: {
         graded: false,
@@ -167,9 +171,11 @@ export function DeriveDialog({
       items.every((i) =>
         i.mode === null
           ? false
-          : i.mode === "create_new"
-            ? Boolean(i.createNew.sourceImage && i.createNew.name.trim())
-            : !!i.selectedBase
+          : !isValidEntryPrice(i.entryPrice)
+            ? false
+            : i.mode === "create_new"
+              ? Boolean(i.createNew.sourceImage && i.createNew.name.trim())
+              : !!i.selectedBase
       )
     )
   }, [items, sets, sourceQuantity])
@@ -239,6 +245,7 @@ export function DeriveDialog({
         return {
           ...it,
           mode: null,
+          entryPrice: "0",
           selectedBase: null,
           chooseFromBase: { graded: false, provider: "PSA", grade: "" },
           createNew: {
@@ -778,6 +785,36 @@ export function DeriveDialog({
                   </div>
                 )}
 
+                {it.mode !== null ? (
+                  <div className="mt-3 border-t pt-3">
+                    <FormMoneyInput
+                      label={t("dialogs.entryPrice")}
+                      description={t("dialogs.entryPriceDescription")}
+                      htmlFor={`derive-entry-price-${it.id}`}
+                      error={
+                        submitAttempted && !isValidEntryPrice(it.entryPrice)
+                          ? t("dialogs.derive.entryPriceRequired")
+                          : undefined
+                      }
+                      invalid={submitAttempted && !isValidEntryPrice(it.entryPrice)}
+                      inputProps={{
+                        id: `derive-entry-price-${it.id}`,
+                        type: "number",
+                        inputMode: "decimal",
+                        step: "any",
+                        min: 0,
+                        value: it.entryPrice,
+                        onChange: (e) =>
+                          setItems((prev) =>
+                            prev.map((x) =>
+                              x.id === it.id ? { ...x, entryPrice: e.target.value } : x
+                            )
+                          ),
+                      }}
+                    />
+                  </div>
+                ) : null}
+
               </div>
             ))}
 
@@ -791,6 +828,7 @@ export function DeriveDialog({
                   {
                     id: uid(),
                     mode: null,
+                    entryPrice: "0",
                     selectedBase: null,
                     chooseFromBase: {
                       graded: false,

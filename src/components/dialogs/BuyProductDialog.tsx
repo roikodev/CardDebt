@@ -385,6 +385,7 @@ export function BuyProductDialog({
       deleted: false,
       collection_item_id: collectionItemId,
       buying_entries_id: buyEntryId,
+      entry_price: values.price,
     }))
 
     const userCollectionRes = await supabase
