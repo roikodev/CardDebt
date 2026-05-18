@@ -601,7 +601,7 @@ export function BuyProductDialog({
               )}
               {category === "Product" && (
                 <FormTextInput
-                  label="Name"
+                  label={t("dialogs.name")}
                   id="buy-name-product"
                   error={errors.name?.message}
                   invalid={!!errors.name}
